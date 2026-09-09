@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>EnotecaMolise Wine Importer Side Panel</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { width: 100%; min-height: 100vh; background-color: #fcfbf9; color: #1c1917; padding: 12px; font-size: 12px; }
+    
+    .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #e7e5e4; }
+    .brand { display: flex; align-items: center; gap: 6px; font-weight: 800; color: #581c26; font-size: 14px; }
+    .brand span { background: #581c26; color: white; padding: 2px 6px; border-radius: 6px; font-size: 10px; }
+    .status-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; cursor: pointer; }
+
+    .card { background: white; border-radius: 10px; border: 1px solid #e7e5e4; padding: 10px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .card-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #78716c; }
+    
+    .field { margin-bottom: 8px; }
+    .field label { display: block; font-size: 10px; font-weight: 700; color: #44403c; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.3px; }
+    
+    .input-with-picker { display: flex; gap: 4px; align-items: center; }
+    .input-with-picker input, .input-with-picker select, .input-with-picker textarea { flex: 1; border: 1px solid #d6d3d1; border-radius: 6px; padding: 6px 8px; font-size: 11px; background: white; color: #1c1917; }
+    .input-with-picker input:focus, .input-with-picker select:focus, .input-with-picker textarea:focus { outline: none; border-color: #581c26; box-shadow: 0 0 0 2px rgba(88,28,38,0.15); }
+
+    .btn-pick { padding: 5px 8px; background: #f5f5f4; border: 1px solid #d6d3d1; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s; shrink: 0; white-space: nowrap; font-weight: 600; }
+    .btn-pick:hover { background: #581c26; color: white; border-color: #581c26; }
+    .btn-pick.active { background: #e11d48; color: white; border-color: #e11d48; animation: pulse 1.5s infinite; }
+
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+
+    .presets { display: flex; gap: 3px; margin-bottom: 6px; flex-wrap: wrap; }
+    .btn-preset { flex: 1; min-width: 60px; padding: 4px; font-size: 10px; font-weight: 700; border-radius: 5px; border: 1px solid #d6d3d1; background: #f5f5f4; cursor: pointer; color: #44403c; text-align: center; }
+    .btn-preset.active { background: #581c26; color: white; border-color: #581c26; }
+
+    .quick-attrs { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; max-height: 120px; overflow-y: auto; padding: 2px; }
+    .btn-quick-attr { font-size: 10px; font-weight: 600; padding: 3px 7px; background: #fdf2f4; border: 1px solid #fecdd3; color: #881337; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+    .btn-quick-attr:hover { background: #581c26; color: white; border-color: #581c26; }
+
+    .preview-img { width: 38px; height: 38px; object-fit: contain; background: #f5f5f4; border-radius: 6px; border: 1px solid #e7e5e4; }
+
+    .attr-row { background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 6px; padding: 6px; margin-bottom: 6px; }
+    .attr-row-fields { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+    .btn-remove-attr { color: #dc2626; background: none; border: none; font-weight: bold; cursor: pointer; padding: 2px 6px; font-size: 14px; }
+    .btn-remove-attr:hover { color: #991b1b; }
+
+    .btn-add-attr { font-size: 10px; font-weight: 700; color: #581c26; background: #fdf2f4; border: 1px solid #fecdd3; padding: 6px 8px; border-radius: 6px; cursor: pointer; width: 100%; text-align: center; margin-top: 4px; }
+    .btn-add-attr:hover { background: #fce7f3; }
+
+    .btn-auto-scrape { font-size: 10px; font-weight: 700; color: #0284c7; background: #f0f9ff; border: 1px solid #bae6fd; padding: 4px 8px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+    .btn-auto-scrape:hover { background: #e0f2fe; }
+
+    .btn-submit { width: 100%; padding: 11px; background: #581c26; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 6px rgba(88,28,38,0.25); transition: all 0.2s; margin-top: 8px; margin-bottom: 16px; }
+    .btn-submit:hover { background: #42141c; transform: translateY(-1px); }
+
+    .val-suggestions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; margin-bottom: 4px; }
+    .val-pill { font-size: 10px; font-weight: 600; color: #44403c; background: #f5f5f4; border: 1px solid #d6d3d1; padding: 2px 6px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+    .val-pill:hover { background: #e7e5e4; color: #1c1917; border-color: #a8a29e; }
+
+    .toast-container { position: fixed; top: 12px; left: 12px; right: 12px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+    .toast-card { pointer-events: auto; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2), 0 4px 6px -2px rgba(0,0,0,0.05); backdrop-filter: blur(8px); animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; transition: all 0.3s ease; }
+    .toast-card.toast-success { background: rgba(240, 253, 244, 0.96); color: #14532d; border: 1px solid #bbf7d0; }
+    .toast-card.toast-error { background: rgba(254, 242, 242, 0.96); color: #7f1d1d; border: 1px solid #fecaca; }
+    .toast-card.toast-info { background: rgba(240, 249, 255, 0.96); color: #0c4a6e; border: 1px solid #bae6fd; }
+    .toast-card.toast-warning { background: rgba(254, 252, 232, 0.96); color: #713f12; border: 1px solid #fef08a; }
+    .toast-card.fade-out { opacity: 0; transform: translateY(-10px) scale(0.95); }
+    @keyframes toastSlideIn { from { opacity: 0; transform: translateY(-12px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  </style>
+</head>
+<body>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="brand">
+      🍷 EnotecaMolise <span>SidePanel 2.0</span>
+    </div>
+    <div class="status-badge" id="api-status" title="Clicca per ricaricare">API Collegata</div>
+  </div>
+
+  <!-- Cantina Selector & Product Target -->
+  <div class="card" style="background: #fffbeb; border-color: #fde68a;">
+    <div class="field" style="margin-bottom: 8px;">
+      <label style="color: #92400e;">1. SELEZIONA CANTINA PRODUTTRICE *</label>
+      <select id="producer_id">
+        <option value="" disabled selected>Caricamento cantine dal database...</option>
+      </select>
+    </div>
+
+    <div class="field" style="margin-bottom: 0;">
+      <label style="color: #92400e;">OPERAZIONE CATALOGO (NUOVO O MODIFICA)</label>
+      <select id="product_target_select" style="background: white; border-color: #fcd34d; font-weight: 600; font-size: 11px; padding: 6px; width: 100%; border-radius: 6px;">
+        <option value="NEW">+ ✨ Crea un Nuovo Vino</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Main Wine Form -->
+  <form id="wine-form">
+
+    <!-- Dettagli Generali -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">2. Dettagli Generali Bottiglia</span>
+        <button type="button" id="btn-auto-scrape" class="btn-auto-scrape">⚡ Auto-Estrai Tutto</button>
+      </div>
+
+      <div class="field">
+        <label>Nome Vino / Etichetta *</label>
+        <div class="input-with-picker">
+          <input type="text" id="name" required placeholder="es. Tintilia del Molise Riserva DOC" />
+          <button type="button" class="btn-pick" data-field="name" title="Clicca sul testo nel sito per inserire il Nome Vino">🎯 Pick</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label>Tipologia *</label>
+          <select id="category">
+            <option value="VINO_ROSSO">Vino Rosso</option>
+            <option value="VINO_BIANCO">Vino Bianco</option>
+            <option value="ROSATO">Rosato</option>
+            <option value="SPUMANTE">Spumante</option>
+            <option value="PASSITO">Passito</option>
+            <option value="LIQUORE">Liquore / Grappa</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Denominazione *</label>
+          <div class="input-with-picker">
+            <input type="text" id="denominazione" required value="DOC" />
+            <button type="button" class="btn-pick" data-field="denominazione" title="Clicca sul testo nel sito per inserire la Denominazione">🎯 Pick</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Annata & Riserva -->
+      <div class="field">
+        <label>Annata Vendemmia & Riserva</label>
+        <div class="presets">
+          <button type="button" class="btn-preset" id="preset-annata">Annata</button>
+          <button type="button" class="btn-preset" id="preset-riserva">Annata + Riserva</button>
+          <button type="button" class="btn-preset" id="preset-solo-riserva">Solo Riserva</button>
+          <button type="button" class="btn-preset" id="preset-sa">Senza Annata</button>
+        </div>
+
+        <div class="grid-2" style="align-items: center;">
+          <div class="input-with-picker">
+            <input type="number" id="vintage_year" placeholder="es. 2022" />
+            <button type="button" class="btn-pick" data-field="vintage_year" title="Clicca sull'anno nel sito">🎯</button>
+          </div>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 10px; margin-bottom: 0; cursor: pointer;">
+            <input type="checkbox" id="is_riserva" style="width: auto;" />
+            <span>Menzione Riserva</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="field">
+          <label>Alcol (% Vol)</label>
+          <div class="input-with-picker">
+            <input type="number" step="0.1" id="alcohol_degrees" placeholder="14.0" />
+            <button type="button" class="btn-pick" data-field="alcohol_degrees">🎯</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Temperatura</label>
+          <div class="input-with-picker">
+            <input type="text" id="serving_temperature" value="16-18°" />
+            <button type="button" class="btn-pick" data-field="serving_temperature">🎯</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Prezzo Indicativo</label>
+          <div class="input-with-picker">
+            <input type="text" id="indicative_price" placeholder="18.00€" />
+            <button type="button" class="btn-pick" data-field="indicative_price">🎯</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vitigni, Abbinamenti & Descrizione -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom: 6px;">3. Vitigni, Abbinamenti & Descrizione</div>
+      
+      <div class="field">
+        <label>Uvaggio / Vitigni</label>
+        <div class="input-with-picker">
+          <input type="text" id="grape_varieties" list="master-grapes-datalist" placeholder="es. Tintilia 100%" />
+          <button type="button" class="btn-pick" data-field="grape_varieties" title="Clicca sui vitigni nel sito">🎯 Pick</button>
+        </div>
+        <datalist id="master-grapes-datalist"></datalist>
+      </div>
+
+      <div class="field">
+        <label>Abbinamenti Gastronomici</label>
+        <div class="input-with-picker">
+          <input type="text" id="food_pairings" list="master-pairings-datalist" placeholder="es. Carni rosse, Arrosti, Formaggi stagionati" />
+          <button type="button" class="btn-pick" data-field="food_pairings" title="Clicca sugli abbinamenti nel sito">🎯 Pick</button>
+        </div>
+        <datalist id="master-pairings-datalist"></datalist>
+      </div>
+
+      <div class="field">
+        <label>Descrizione Vino</label>
+        <div class="input-with-picker">
+          <textarea id="description" rows="2" placeholder="Clicca sul testo del sito per riempire la descrizione..."></textarea>
+          <button type="button" class="btn-pick" data-field="description" title="Clicca sul paragrafo della descrizione nel sito">🎯 Pick</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profilo Organolettico -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom: 6px;">4. Profilo Organolettico (Note Degustazione)</div>
+      
+      <div class="field">
+        <label>Esame Visivo</label>
+        <div class="input-with-picker">
+          <input type="text" id="tasting_visual" placeholder="es. Rosso rubino intenso..." />
+          <button type="button" class="btn-pick" data-field="tasting_visual">🎯 Pick</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Esame Olfattivo</label>
+        <div class="input-with-picker">
+          <input type="text" id="tasting_olfactory" placeholder="es. Frutti rossi maturi e pepe..." />
+          <button type="button" class="btn-pick" data-field="tasting_olfactory">🎯 Pick</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Esame Gustativo</label>
+        <div class="input-with-picker">
+          <input type="text" id="tasting_taste" placeholder="es. Caldo, vellutato e persitente..." />
+          <button type="button" class="btn-pick" data-field="tasting_taste">🎯 Pick</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Immagine & PDF -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom: 6px;">5. Foto Bottiglia & Scheda PDF</div>
+      
+      <div class="field">
+        <label>URL Foto Bottiglia</label>
+        <div class="input-with-picker">
+          <img id="img-preview" src="https://images.unsplash.com/photo-1586370434639-0fe43b2d32e6?auto=format&fit=crop&w=100&q=80" class="preview-img" />
+          <input type="text" id="photo_url" placeholder="https://..." />
+          <button type="button" class="btn-pick" data-field="photo_url" data-type="image" title="Clicca sulla foto della bottiglia nel sito!">🖼️ Pick Foto</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Link Scheda PDF (Opzionale)</label>
+        <div class="input-with-picker">
+          <input type="text" id="technical_sheet_pdf" placeholder="https://.../scheda.pdf" />
+          <button type="button" class="btn-pick" data-field="technical_sheet_pdf" data-type="pdf" title="Clicca sul pulsante o link PDF nel sito">📄 Pick PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Caratteristiche Extra Personalizzate -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom: 6px;">6. Caratteristiche Extra Scheda Tecnica</div>
+      
+      <div style="font-size: 9px; font-weight: 700; color: #78716c; margin-bottom: 4px;">Aggiunta rapida dagli attributi a Database:</div>
+      <div class="quick-attrs" id="quick-attrs-container">
+        <!-- Dynamic quick attribute buttons loaded from DB -->
+      </div>
+
+      <div id="custom-attributes-container">
+        <!-- Dynamic Custom Attribute Rows -->
+      </div>
+
+      <datalist id="master-attributes-datalist">
+        <!-- Options dynamically loaded from DB attributes -->
+      </datalist>
+
+      <button type="button" id="btn-add-attr" class="btn-add-attr">➕ Aggiungi Caratteristica Personalizzata</button>
+    </div>
+
+    <!-- Action Submit Button -->
+    <button type="submit" id="btn-submit" class="btn-submit">
+      🚀 IMPORTA NUOVO VINO IN ENOTECAMOLISE
+    </button>
+
+  </form>
+
+  <script src="sidepanel.js"></script>
+</body>
+</html>

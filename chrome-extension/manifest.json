@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "EnotecaMolise - Wine Importer Side Panel",
+  "version": "2.0",
+  "description": "Cattura ed importa vini in 1-Click ed in modalità Point & Click (clicca sul testo del sito per riempire i campi) direttamente in EnotecaMolise.",
+  "permissions": [
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "http://localhost:3000/*",
+    "https://*/*"
+  ],
+  "action": {
+    "default_title": "Apri EnotecaMolise Side Panel"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
