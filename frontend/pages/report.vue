@@ -111,6 +111,7 @@
               {{ reportData.kpis.min_vintage_year || 'N/D' }} - {{ reportData.kpis.max_vintage_year || 'N/D' }}
             </div>
             <div class="text-[11px] text-stone-500 mt-1">Range vendemmie</div>
+          </div>
         </div>
 
         <!-- Box Informativo Osservatorio -->
