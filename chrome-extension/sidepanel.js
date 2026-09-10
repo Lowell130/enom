@@ -86,8 +86,8 @@ function normalizeUnits(val) {
   // 1. Quintali / q.li (e.g. 50/60 quintali, 50 quintali, 50 qli, 50 q.li -> 50/60 q.li, 50 q.li)
   val = val.replace(/(\d+(?:[-–—/]\d+)?)\s*(?:quintali|q\.?li|qli)\b/gi, '$1 q.li');
 
-  // 2. Altitude (e.g. 150m, 150 m, 150metri, 150 m.s.l.m. -> 150 mt)
-  val = val.replace(/(\d+)\s*(?:m|mt|metri|m\.?s\.?l\.?m\.?)\b/gi, '$1 mt');
+  // 2. Altitude (e.g. 150m, 150 m, 150metri, 150 m.s.l.m., 100/150mt -> 150 mt, 100/150 mt)
+  val = val.replace(/(\d+(?:[-–—/]\d+)?)\s*(?:m|mt|metri|m\.?s\.?l\.?m\.?)\b/gi, '$1 mt');
 
   // 3. Format (e.g. 75cl, 750ml, 0.75l -> 75 cl, 1.5 l -> 1.5 L (Magnum))
   val = val.replace(/\b750\s*ml\b/gi, '75 cl');
