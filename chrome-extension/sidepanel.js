@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         quickAttrsContainer.appendChild(btn);
       });
 
-      // Populate Grapes Datalist
+      // Populate Grapes Datalist & Quick Pills
       try {
         const grapesRes = await fetch(`${API_BASE}/grapes`);
         if (grapesRes.ok) {
@@ -415,12 +415,13 @@ document.addEventListener('DOMContentLoaded', async () => {
               grapesDatalist.appendChild(opt);
             });
           }
+          renderGrapesQuickPills(grapesData);
         }
       } catch (e) {
         console.warn('Error loading grapes datalist:', e);
       }
 
-      // Populate Pairings Datalist
+      // Populate Pairings Datalist & Quick Pills
       try {
         const pairingsRes = await fetch(`${API_BASE}/pairings`);
         if (pairingsRes.ok) {
@@ -434,6 +435,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               pairingsDatalist.appendChild(opt);
             });
           }
+          renderPairingsQuickPills(pairingsData);
         }
       } catch (e) {
         console.warn('Error loading pairings datalist:', e);
@@ -442,6 +444,84 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       console.error('Error fetching master attributes:', err);
     }
+  }
+
+  function initDenominazioneQuickPills() {
+    const denContainer = document.getElementById('denominazione-quick-pills');
+    if (!denContainer) return;
+    denContainer.innerHTML = '';
+    const presets = ['DOC', 'IGT', 'DOP', 'Tintilia del Molise DOC', 'Biferno DOC', 'Pentro DOC', 'DOCG'];
+    
+    presets.forEach(den => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'val-pill';
+      pill.textContent = den;
+      pill.addEventListener('click', () => {
+        denominazioneInput.value = den;
+        denominazioneInput.dispatchEvent(new Event('input', { bubbles: true }));
+        denominazioneInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      denContainer.appendChild(pill);
+    });
+  }
+
+  function renderGrapesQuickPills(grapesData) {
+    const container = document.getElementById('grapes-quick-pills');
+    if (!container || !grapesData) return;
+    container.innerHTML = '';
+    
+    grapesData.forEach(g => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'val-pill';
+      pill.textContent = g.name;
+      pill.addEventListener('click', () => {
+        const current = grapeVarietiesInput.value ? grapeVarietiesInput.value.trim() : '';
+        if (!current) {
+          grapeVarietiesInput.value = g.name;
+        } else {
+          const existingList = current.split(',').map(s => s.trim().toLowerCase());
+          if (!existingList.includes(g.name.toLowerCase())) {
+            grapeVarietiesInput.value = `${current}, ${g.name}`;
+          }
+        }
+        grapeVarietiesInput.value = normalizeFieldValue('grape_varieties', grapeVarietiesInput.value);
+        grapeVarietiesInput.dispatchEvent(new Event('input', { bubbles: true }));
+        grapeVarietiesInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      container.appendChild(pill);
+    });
+  }
+
+  function renderPairingsQuickPills(pairingsData) {
+    const container = document.getElementById('pairings-quick-pills');
+    if (!container || !pairingsData) return;
+    container.innerHTML = '';
+    
+    pairingsData.forEach(p => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'val-pill';
+      pill.textContent = p.name;
+      pill.addEventListener('click', () => {
+        const current = foodPairingsInput ? (foodPairingsInput.value ? foodPairingsInput.value.trim() : '') : '';
+        if (!current) {
+          if (foodPairingsInput) foodPairingsInput.value = p.name;
+        } else {
+          const existingList = current.split(',').map(s => s.trim().toLowerCase());
+          if (!existingList.includes(p.name.toLowerCase())) {
+            if (foodPairingsInput) foodPairingsInput.value = `${current}, ${p.name}`;
+          }
+        }
+        if (foodPairingsInput) {
+          foodPairingsInput.value = normalizeFieldValue('food_pairings', foodPairingsInput.value);
+          foodPairingsInput.dispatchEvent(new Event('input', { bubbles: true }));
+          foodPairingsInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      container.appendChild(pill);
+    });
   }
 
   // 2. Fetch Producers & Producer Wines
@@ -462,8 +542,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       apiStatus.style.background = '#ecfdf5';
       apiStatus.style.color = '#047857';
 
-      // Load DB Master Attributes
+      // Load DB Master Attributes & Denominazione Pills
       await loadMasterAttributes();
+      initDenominazioneQuickPills();
     } catch (err) {
       producerSelect.innerHTML = '<option value="" disabled selected>⚠️ API Offline (Avvia Backend)</option>';
       apiStatus.textContent = 'API Offline';

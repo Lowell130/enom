@@ -133,9 +133,19 @@
         <div class="field">
           <label>Denominazione *</label>
           <div class="input-with-picker">
-            <input type="text" id="denominazione" required value="DOC" />
+            <input type="text" id="denominazione" list="denominazione-datalist" required value="DOC" />
             <button type="button" class="btn-pick" data-field="denominazione" title="Clicca sul testo nel sito per inserire la Denominazione">🎯 Pick</button>
           </div>
+          <datalist id="denominazione-datalist">
+            <option value="DOC"></option>
+            <option value="IGT"></option>
+            <option value="DOP"></option>
+            <option value="Tintilia del Molise DOC"></option>
+            <option value="Biferno DOC"></option>
+            <option value="Pentro DOC"></option>
+            <option value="DOCG"></option>
+          </datalist>
+          <div class="val-suggestions" id="denominazione-quick-pills"></div>
         </div>
       </div>
 
@@ -197,6 +207,7 @@
           <button type="button" class="btn-pick" data-field="grape_varieties" title="Clicca sui vitigni nel sito">🎯 Pick</button>
         </div>
         <datalist id="master-grapes-datalist"></datalist>
+        <div class="val-suggestions" id="grapes-quick-pills"></div>
       </div>
 
       <div class="field">
@@ -206,6 +217,7 @@
           <button type="button" class="btn-pick" data-field="food_pairings" title="Clicca sugli abbinamenti nel sito">🎯 Pick</button>
         </div>
         <datalist id="master-pairings-datalist"></datalist>
+        <div class="val-suggestions" id="pairings-quick-pills"></div>
       </div>
 
       <div class="field">
