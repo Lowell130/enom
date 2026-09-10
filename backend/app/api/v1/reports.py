@@ -57,27 +57,34 @@ async def get_report_summary() -> Dict[str, Any]:
         for den, count in den_counts.items()
     ], key=lambda x: x["count"], reverse=True)
 
-    # 5. Production Zones (City & Province) Breakdown from Producers & Products
-    city_counts: Dict[str, int] = {}
-    province_counts: Dict[str, int] = {}
+    # 5. Production Zones (City) Breakdown based on Wines (Products)
+    producer_city_map: Dict[str, str] = {}
     for pr in producers:
+        pr_id = str(pr["_id"])
         addr = pr.get("address", {}) or {}
         city = addr.get("city")
-        prov = addr.get("province")
-        if city:
-            city_counts[city] = city_counts.get(city, 0) + 1
-        if prov:
-            province_counts[prov] = province_counts.get(prov, 0) + 1
+        if city and city.strip():
+            producer_city_map[pr_id] = city.strip().title()
 
-    # Also check custom_attributes 'Zona di Produzione' in products
+    city_counts: Dict[str, int] = {}
     for p in products:
+        c_name = None
+        # First check 'Zona di Produzione' attribute
         for attr in p.get("custom_attributes", []):
             if attr.get("name", "").lower() == "zona di produzione" and attr.get("value"):
                 val = attr.get("value")
                 city_match = re.search(r'([A-Za-z\s]+)\s*\((CB|IS)\)', val, re.IGNORECASE)
                 if city_match:
-                    c_name = city_match.group(1).strip()
-                    city_counts[c_name] = city_counts.get(c_name, 0) + 1
+                    c_name = city_match.group(1).strip().title()
+                    break
+
+        # Fallback to producer city
+        if not c_name:
+            pr_id = str(p.get("producer_id"))
+            c_name = producer_city_map.get(pr_id)
+
+        if c_name:
+            city_counts[c_name] = city_counts.get(c_name, 0) + 1
 
     zone_breakdown = sorted([
         {"city": city, "count": count}

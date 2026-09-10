@@ -154,12 +154,16 @@ function normalizeFieldValue(fieldId, rawValue, attrName = null) {
       return toTitleCase(val);
 
     case 'grape_varieties':
-    case 'food_pairings':
       return val.split(',').map(g => {
         let trimmed = g.trim();
+        trimmed = trimmed.replace(/^(\d{1,3}%)\s+(.+)$/i, '$2 $1');
+        trimmed = trimmed.replace(/^(\d{1,3})\s*%\s+(.+)$/i, '$2 $1%');
         trimmed = trimmed.replace(/(\d+)\s*%/g, '$1%');
         return toTitleCase(trimmed);
       }).join(', ');
+
+    case 'food_pairings':
+      return val.split(',').map(g => toTitleCase(g.trim())).join(', ');
 
     case 'serving_temperature':
       return normalizeServingTemperature(val, true);
@@ -466,6 +470,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  function renderGrapesPctPills() {
+    const container = document.getElementById('grapes-pct-pills');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const percentages = ['100%', '90%', '85%', '80%', '75%', '70%', '60%', '50%', '40%', '30%', '20%', '15%', '10%', '5%'];
+    
+    percentages.forEach(pct => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'val-pill';
+      pill.style.fontWeight = '700';
+      pill.style.borderColor = '#fecdd3';
+      pill.style.color = '#881337';
+      pill.style.background = '#fff1f2';
+      pill.textContent = pct;
+      
+      pill.addEventListener('click', () => {
+        applyPercentageToGrapeInput(pct, grapeVarietiesInput);
+      });
+      container.appendChild(pill);
+    });
+  }
+
+  function applyPercentageToGrapeInput(pct, inputEl) {
+    if (!inputEl) return;
+    let val = inputEl.value ? inputEl.value.trim() : '';
+
+    if (!val) {
+      inputEl.value = pct;
+    } else {
+      const items = val.split(',').map(s => s.trim()).filter(Boolean);
+      if (items.length > 0) {
+        const lastIdx = items.length - 1;
+        let lastItem = items[lastIdx];
+        
+        lastItem = lastItem.replace(/\s*\d{1,3}\s*%?/g, '').trim();
+        
+        if (lastItem) {
+          items[lastIdx] = `${lastItem} ${pct}`;
+        } else {
+          items[lastIdx] = pct;
+        }
+        inputEl.value = items.join(', ');
+      } else {
+        inputEl.value = pct;
+      }
+    }
+    
+    inputEl.value = normalizeFieldValue('grape_varieties', inputEl.value);
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
   function renderGrapesQuickPills(grapesData) {
     const container = document.getElementById('grapes-quick-pills');
     if (!container || !grapesData) return;
@@ -475,15 +533,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       const pill = document.createElement('button');
       pill.type = 'button';
       pill.className = 'val-pill';
-      pill.textContent = g.name;
+      pill.textContent = `+ ${g.name}`;
       pill.addEventListener('click', () => {
         const current = grapeVarietiesInput.value ? grapeVarietiesInput.value.trim() : '';
         if (!current) {
-          grapeVarietiesInput.value = g.name;
+          grapeVarietiesInput.value = `${g.name} 100%`;
         } else {
-          const existingList = current.split(',').map(s => s.trim().toLowerCase());
-          if (!existingList.includes(g.name.toLowerCase())) {
-            grapeVarietiesInput.value = `${current}, ${g.name}`;
+          const items = current.split(',').map(s => s.trim()).filter(Boolean);
+          const existingGrapeNames = items.map(item => item.replace(/\s*\d{1,3}\s*%/g, '').trim().toLowerCase());
+          
+          if (!existingGrapeNames.includes(g.name.toLowerCase())) {
+            let totalPct = 0;
+            items.forEach(item => {
+              const match = item.match(/(\d{1,3})\s*%/);
+              if (match) totalPct += parseInt(match[1], 10);
+            });
+
+            if (items.length === 1 && totalPct === 100) {
+              const firstName = items[0].replace(/\s*\d{1,3}\s*%/g, '').trim();
+              grapeVarietiesInput.value = `${firstName} 80%, ${g.name} 20%`;
+            } else {
+              const remPct = Math.max(0, 100 - totalPct);
+              const pctStr = remPct > 0 ? ` ${remPct}%` : '';
+              grapeVarietiesInput.value = `${current}, ${g.name}${pctStr}`;
+            }
           }
         }
         grapeVarietiesInput.value = normalizeFieldValue('grape_varieties', grapeVarietiesInput.value);
@@ -492,6 +565,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       container.appendChild(pill);
     });
+
+    renderGrapesPctPills();
   }
 
   function renderPairingsQuickPills(pairingsData) {

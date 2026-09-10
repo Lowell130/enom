@@ -226,7 +226,7 @@
                   <span class="font-medium text-stone-800">{{ zone.city }}</span>
                 </div>
                 <span class="px-2.5 py-1 bg-stone-200/70 text-stone-800 rounded-full font-mono text-xs font-semibold">
-                  {{ zone.count }} {{ zone.count === 1 ? 'presenza' : 'presenze' }}
+                  {{ zone.count }} {{ zone.count === 1 ? 'vino' : 'vini' }}
                 </span>
               </div>
             </div>

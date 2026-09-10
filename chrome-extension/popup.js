@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 5000);
   }
 
-  // 1. Fetch Producers List from Backend API
+  // 1. Fetch Producers & Grapes List from Backend API
   async function loadProducers() {
     try {
       const res = await fetch(`${API_BASE}/producers`);
@@ -125,6 +125,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       apiStatus.textContent = 'API Collegata';
       apiStatus.style.background = '#ecfdf5';
       apiStatus.style.color = '#047857';
+
+      await loadMasterGrapes();
     } catch (err) {
       producerSelect.innerHTML = '<option value="" disabled selected>⚠️ Errore caricamento cantine (Avvia Backend)</option>';
       apiStatus.textContent = 'API Offline';
@@ -132,6 +134,114 @@ document.addEventListener('DOMContentLoaded', async () => {
       apiStatus.style.color = '#991b1b';
       showAlert('Assicurati che il backend FastAPI sia attivo su http://localhost:8000', false);
     }
+  }
+
+  async function loadMasterGrapes() {
+    try {
+      const res = await fetch(`${API_BASE}/grapes`);
+      if (res.ok) {
+        const grapesData = await res.json();
+        renderPopupGrapesQuickPills(grapesData);
+      }
+    } catch (e) {
+      console.warn('Error loading grapes in popup:', e);
+    }
+  }
+
+  function renderPopupGrapesPctPills() {
+    const container = document.getElementById('popup-grapes-pct-pills');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const percentages = ['100%', '90%', '85%', '80%', '75%', '70%', '60%', '50%', '40%', '30%', '20%', '15%', '10%', '5%'];
+    
+    percentages.forEach(pct => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'val-pill';
+      pill.style.fontWeight = '700';
+      pill.style.borderColor = '#fecdd3';
+      pill.style.color = '#881337';
+      pill.style.background = '#fff1f2';
+      pill.textContent = pct;
+      
+      pill.addEventListener('click', () => {
+        applyPercentageToGrapeInput(pct, grapeVarietiesInput);
+      });
+      container.appendChild(pill);
+    });
+  }
+
+  function applyPercentageToGrapeInput(pct, inputEl) {
+    if (!inputEl) return;
+    let val = inputEl.value ? inputEl.value.trim() : '';
+
+    if (!val) {
+      inputEl.value = pct;
+    } else {
+      const items = val.split(',').map(s => s.trim()).filter(Boolean);
+      if (items.length > 0) {
+        const lastIdx = items.length - 1;
+        let lastItem = items[lastIdx];
+        
+        lastItem = lastItem.replace(/\s*\d{1,3}\s*%?/g, '').trim();
+        
+        if (lastItem) {
+          items[lastIdx] = `${lastItem} ${pct}`;
+        } else {
+          items[lastIdx] = pct;
+        }
+        inputEl.value = items.join(', ');
+      } else {
+        inputEl.value = pct;
+      }
+    }
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function renderPopupGrapesQuickPills(grapesData) {
+    const container = document.getElementById('popup-grapes-quick-pills');
+    if (!container || !grapesData) return;
+    container.innerHTML = '';
+    
+    grapesData.forEach(g => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'val-pill';
+      pill.textContent = `+ ${g.name}`;
+      pill.addEventListener('click', () => {
+        const current = grapeVarietiesInput.value ? grapeVarietiesInput.value.trim() : '';
+        if (!current) {
+          grapeVarietiesInput.value = `${g.name} 100%`;
+        } else {
+          const items = current.split(',').map(s => s.trim()).filter(Boolean);
+          const existingGrapeNames = items.map(item => item.replace(/\s*\d{1,3}\s*%/g, '').trim().toLowerCase());
+          
+          if (!existingGrapeNames.includes(g.name.toLowerCase())) {
+            let totalPct = 0;
+            items.forEach(item => {
+              const match = item.match(/(\d{1,3})\s*%/);
+              if (match) totalPct += parseInt(match[1], 10);
+            });
+
+            if (items.length === 1 && totalPct === 100) {
+              const firstName = items[0].replace(/\s*\d{1,3}\s*%/g, '').trim();
+              grapeVarietiesInput.value = `${firstName} 80%, ${g.name} 20%`;
+            } else {
+              const remPct = Math.max(0, 100 - totalPct);
+              const pctStr = remPct > 0 ? ` ${remPct}%` : '';
+              grapeVarietiesInput.value = `${current}, ${g.name}${pctStr}`;
+            }
+          }
+        }
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      container.appendChild(pill);
+    });
+
+    renderPopupGrapesPctPills();
   }
 
   // 2. Scrape Current Browser Tab

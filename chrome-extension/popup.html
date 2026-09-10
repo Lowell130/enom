@@ -35,6 +35,10 @@
 
     .btn-rescrape { font-size: 10px; color: #581c26; font-weight: 700; cursor: pointer; background: none; border: none; text-decoration: underline; }
 
+    .val-suggestions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; margin-bottom: 4px; }
+    .val-pill { font-size: 10px; font-weight: 600; color: #44403c; background: #f5f5f4; border: 1px solid #d6d3d1; padding: 2px 6px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+    .val-pill:hover { background: #e7e5e4; color: #1c1917; border-color: #a8a29e; }
+
     .toast-container { position: fixed; top: 12px; left: 12px; right: 12px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
     .toast-card { pointer-events: auto; padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2), 0 4px 6px -2px rgba(0,0,0,0.05); backdrop-filter: blur(8px); animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; transition: all 0.3s ease; }
     .toast-card.toast-success { background: rgba(240, 253, 244, 0.96); color: #14532d; border: 1px solid #bbf7d0; }
@@ -140,7 +144,12 @@
       
       <div class="field">
         <label>Uvaggio / Vitigni</label>
-        <input type="text" id="grape_varieties" placeholder="es. Tintilia 100% oppure Montepulciano 80%" />
+        <input type="text" id="grape_varieties" list="master-grapes-datalist" placeholder="es. Tintilia 100% oppure Montepulciano 80%, Aglianico 20%" />
+        <datalist id="master-grapes-datalist"></datalist>
+        <div style="font-size: 9px; font-weight: 700; color: #78716c; margin-top: 4px; margin-bottom: 2px;">Seleziona Vitigno:</div>
+        <div class="val-suggestions" id="popup-grapes-quick-pills"></div>
+        <div style="font-size: 9px; font-weight: 700; color: #78716c; margin-top: 4px; margin-bottom: 2px;">Seleziona Percentuale (%):</div>
+        <div class="val-suggestions" id="popup-grapes-pct-pills"></div>
       </div>
 
       <div class="field">

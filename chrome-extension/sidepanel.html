@@ -203,11 +203,14 @@
       <div class="field">
         <label>Uvaggio / Vitigni</label>
         <div class="input-with-picker">
-          <input type="text" id="grape_varieties" list="master-grapes-datalist" placeholder="es. Tintilia 100%" />
+          <input type="text" id="grape_varieties" list="master-grapes-datalist" placeholder="es. Tintilia 100% oppure Montepulciano 80%, Aglianico 20%" />
           <button type="button" class="btn-pick" data-field="grape_varieties" title="Clicca sui vitigni nel sito">🎯 Pick</button>
         </div>
         <datalist id="master-grapes-datalist"></datalist>
+        <div style="font-size: 9px; font-weight: 700; color: #78716c; margin-top: 4px; margin-bottom: 2px;">Seleziona Vitigno:</div>
         <div class="val-suggestions" id="grapes-quick-pills"></div>
+        <div style="font-size: 9px; font-weight: 700; color: #78716c; margin-top: 4px; margin-bottom: 2px;">Seleziona Percentuale (%):</div>
+        <div class="val-suggestions" id="grapes-pct-pills"></div>
       </div>
 
       <div class="field">

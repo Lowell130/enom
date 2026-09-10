@@ -243,6 +243,54 @@ function extractWineDataFromPage() {
   const pdf = Array.from(document.querySelectorAll('a[href*=".pdf"]')).map(a => a.href)[0];
   if (pdf) data.technical_sheet_pdf = pdf;
 
+  // Grapes / Vitigni & Percentages Scraper
+  const knownGrapesList = [
+    'Tintilia del Molise', 'Tintilia', 'Montepulciano', 'Aglianico', 'Sangiovese', 
+    'Falanghina', 'Trebbiano del Molise', 'Trebbiano', 'Chardonnay', 'Cabernet Sauvignon', 
+    'Merlot', 'Syrah', 'Pinot Nero', 'Bombino Bianco', 'Cerasuolo', 'Greco', 'Malvasia', 
+    'Moscato Reale', 'Moscato', 'Pecorino', 'Passerina'
+  ];
+
+  const grapeHeaderRegex = /(?:uvaggio|vitigni|vitigno|varietà|varieta|composizione|ampelografia)[:\s]*([^\n\r.]+)/i;
+  const gHeaderMatch = bodyText.match(grapeHeaderRegex);
+
+  if (gHeaderMatch) {
+    const rawMatchText = gHeaderMatch[1].trim();
+    const extractedList = [];
+    const items = rawMatchText.split(/[,;\n]| e /i).map(s => s.trim()).filter(Boolean);
+    
+    for (const item of items) {
+      const pctMatch = item.match(/(\d{1,3})\s*%/);
+      const pctStr = pctMatch ? `${pctMatch[1]}%` : '';
+      const matchedGrape = knownGrapesList.find(g => new RegExp(`\\b${g}\\b`, 'i').test(item));
+      
+      if (matchedGrape) {
+        extractedList.push(pctStr ? `${matchedGrape} ${pctStr}` : matchedGrape);
+      } else if (item.length > 2 && item.length < 50 && pctStr) {
+        const cleanName = item.replace(/\s*\d{1,3}\s*%/g, '').replace(/(\d{1,3}\s*%\s*)/g, '').trim();
+        if (cleanName) extractedList.push(`${cleanName} ${pctStr}`);
+      }
+    }
+    if (extractedList.length > 0) {
+      data.grape_varieties = extractedList;
+    }
+  }
+
+  if (!data.grape_varieties || data.grape_varieties.length === 0) {
+    const scannedGrapes = [];
+    for (const g of knownGrapesList) {
+      const gRegex = new RegExp(`(?:\\b${g}\\b)\\s*(?:\\((\\d{1,3}%)\\)|(\\d{1,3}%))?|(?:(\\d{1,3}%)\\s*\\b${g}\\b)`, 'i');
+      const match = bodyText.match(gRegex);
+      if (match) {
+        const pct = match[1] || match[2] || match[3] || '';
+        scannedGrapes.push(pct ? `${g} ${pct}` : g);
+      }
+    }
+    if (scannedGrapes.length > 0) {
+      data.grape_varieties = scannedGrapes.slice(0, 3);
+    }
+  }
+
   return data;
 }
 
