@@ -111,6 +111,30 @@
               {{ reportData.kpis.min_vintage_year || 'N/D' }} - {{ reportData.kpis.max_vintage_year || 'N/D' }}
             </div>
             <div class="text-[11px] text-stone-500 mt-1">Range vendemmie</div>
+        </div>
+
+        <!-- Box Informativo Osservatorio -->
+        <div class="bg-gradient-to-r from-amber-50 via-orange-50/40 to-wine-50/50 p-6 sm:p-7 rounded-2xl border border-amber-200/80 shadow-xs relative overflow-hidden">
+          <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-300 text-wine-900 flex items-center justify-center shrink-0">
+              <Info class="w-6 h-6 text-wine-900" />
+            </div>
+            
+            <div class="flex-1 space-y-1.5">
+              <div class="flex items-center space-x-2">
+                <h3 class="font-serif text-lg font-bold text-wine-950">
+                  Nota Informativa sui Dati & Metodologia
+                </h3>
+                <span class="px-2 py-0.5 bg-wine-800 text-white rounded-md text-[10px] font-bold uppercase tracking-wider">
+                  Info Osservatorio
+                </span>
+              </div>
+              
+              <p class="text-xs sm:text-sm text-stone-700 font-normal leading-relaxed">
+                L'Osservatorio raccoglie e sintetizza i dati delle schede tecniche censite nel database di EnotecaMolise.
+                I conteggi nella <strong class="text-wine-900">Mappa dei Comuni</strong> indicano il numero esatto di <strong>etichette/vini prodotte in ciascun comune</strong> (riferite alla <em>Zona di Produzione</em> o alla sede della cantina). Tutti i dati e le analisi vengono aggiornati in tempo reale.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -398,7 +422,8 @@ import {
   TrendingUp, 
   Compass, 
   BookOpen,
-  RefreshCw
+  RefreshCw,
+  Info
 } from 'lucide-vue-next'
 
 const { fetchWithAuth } = useApi()
