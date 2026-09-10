@@ -119,11 +119,12 @@ async def get_report_summary() -> Dict[str, Any]:
         for p_name, count in pairing_counts.items()
     ], key=lambda x: x["count"], reverse=True)[:10]
 
-    # 8. Technical Attributes Analytics (Vinificazione, Affinamento, Allevamento, Altitudine)
+    # 8. Technical Attributes Analytics (Vinificazione, Affinamento, Allevamento, Altitudine, Formato)
     vinificazione_counts: Dict[str, int] = {}
     affinamento_counts: Dict[str, int] = {}
     allevamento_counts: Dict[str, int] = {}
     altitudine_counts: Dict[str, int] = {}
+    formato_counts: Dict[str, int] = {}
 
     for p in products:
         for attr in p.get("custom_attributes", []):
@@ -140,6 +141,8 @@ async def get_report_summary() -> Dict[str, Any]:
                 allevamento_counts[aval] = allevamento_counts.get(aval, 0) + 1
             elif "altitudine" in aname:
                 altitudine_counts[aval] = altitudine_counts.get(aval, 0) + 1
+            elif "formato" in aname:
+                formato_counts[aval] = formato_counts.get(aval, 0) + 1
 
     return {
         "kpis": {
@@ -160,6 +163,7 @@ async def get_report_summary() -> Dict[str, Any]:
             "vinificazione": sorted([{"name": k, "count": v} for k, v in vinificazione_counts.items()], key=lambda x: x["count"], reverse=True)[:6],
             "affinamento": sorted([{"name": k, "count": v} for k, v in affinamento_counts.items()], key=lambda x: x["count"], reverse=True)[:6],
             "allevamento": sorted([{"name": k, "count": v} for k, v in allevamento_counts.items()], key=lambda x: x["count"], reverse=True)[:6],
-            "altitudine": sorted([{"name": k, "count": v} for k, v in altitudine_counts.items()], key=lambda x: x["count"], reverse=True)[:6]
+            "altitudine": sorted([{"name": k, "count": v} for k, v in altitudine_counts.items()], key=lambda x: x["count"], reverse=True)[:6],
+            "formato": sorted([{"name": k, "count": v} for k, v in formato_counts.items()], key=lambda x: x["count"], reverse=True)[:6]
         }
     }

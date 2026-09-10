@@ -133,7 +133,7 @@
               
               <p class="text-xs sm:text-sm text-stone-700 font-normal leading-relaxed">
                 L'Osservatorio raccoglie e sintetizza i dati delle schede tecniche censite nel database di EnotecaMolise.
-                I conteggi nella <strong class="text-wine-900">Mappa dei Comuni</strong> indicano il numero esatto di <strong>etichette/vini prodotte in ciascun comune</strong> (riferite alla <em>Zona di Produzione</em> o alla sede della cantina). Tutti i dati e le analisi vengono aggiornati in tempo reale.
+                I conteggi nella <strong class="text-wine-900">Mappa dei Comuni</strong> indicano il numero esatto di <strong>etichette/vini prodotte in ciascun comune</strong> (riferite alla <em>Zona di Produzione</em> o alla sede della cantina). I formati delle bottiglie e tutte le analisi tecniche vengono censiti e aggiornati in tempo reale.
               </p>
             </div>
           </div>
@@ -259,17 +259,17 @@
 
         </div>
 
-        <!-- Section 3: Caratteristiche Tecniche (Affinamento, Vinificazione, Allevamento, Altitudine) -->
+        <!-- Section 3: Caratteristiche Tecniche (Affinamento, Vinificazione, Allevamento, Altitudine, Formati) -->
         <div class="bg-white rounded-2xl p-6 sm:p-8 shadow-xs border border-stone-200/80 space-y-6">
           <div class="flex items-center justify-between border-b border-stone-100 pb-4">
             <div>
               <h2 class="font-serif text-2xl font-semibold text-stone-900">Analisi Tecniche del Terroir & Enologia</h2>
-              <p class="text-xs text-stone-500">Dettaglio di affinamento, vinificazione, altitudini e sistemi d'allevamento</p>
+              <p class="text-xs text-stone-500">Dettaglio di affinamento, vinificazione, altitudini, formati bottiglia e sistemi d'allevamento</p>
             </div>
             <Layers class="w-6 h-6 text-wine-800" />
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
             
             <!-- Vinificazione -->
             <div class="space-y-3 bg-stone-50 p-4 rounded-xl border border-stone-100">
@@ -282,7 +282,7 @@
                   <span class="text-stone-700 truncate mr-2" :title="v.name">{{ v.name }}</span>
                   <span class="font-semibold text-stone-900 shrink-0">{{ v.count }}</span>
                 </li>
-                <li v-if="!reportData.technical_analytics.vinificazione.length" class="text-xs text-stone-400 italic">Dati non pervenuti</li>
+                <li v-if="!reportData.technical_analytics.vinificazione?.length" class="text-xs text-stone-400 italic">Dati non pervenuti</li>
               </ul>
             </div>
 
@@ -297,7 +297,7 @@
                   <span class="text-stone-700 truncate mr-2" :title="a.name">{{ a.name }}</span>
                   <span class="font-semibold text-stone-900 shrink-0">{{ a.count }}</span>
                 </li>
-                <li v-if="!reportData.technical_analytics.affinamento.length" class="text-xs text-stone-400 italic">Dati non pervenuti</li>
+                <li v-if="!reportData.technical_analytics.affinamento?.length" class="text-xs text-stone-400 italic">Dati non pervenuti</li>
               </ul>
             </div>
 
@@ -312,7 +312,7 @@
                   <span class="text-stone-700 truncate mr-2" :title="al.name">{{ al.name }}</span>
                   <span class="font-semibold text-stone-900 shrink-0">{{ al.count }}</span>
                 </li>
-                <li v-if="!reportData.technical_analytics.allevamento.length" class="text-xs text-stone-400 italic">Dati non pervenuti</li>
+                <li v-if="!reportData.technical_analytics.allevamento?.length" class="text-xs text-stone-400 italic">Dati non pervenuti</li>
               </ul>
             </div>
 
@@ -327,7 +327,22 @@
                   <span class="text-stone-700 truncate mr-2" :title="alt.name">{{ alt.name }}</span>
                   <span class="font-semibold text-stone-900 shrink-0">{{ alt.count }}</span>
                 </li>
-                <li v-if="!reportData.technical_analytics.altitudine.length" class="text-xs text-stone-400 italic">Dati non pervenuti</li>
+                <li v-if="!reportData.technical_analytics.altitudine?.length" class="text-xs text-stone-400 italic">Dati non pervenuti</li>
+              </ul>
+            </div>
+
+            <!-- Formato Bottiglia -->
+            <div class="space-y-3 bg-stone-50 p-4 rounded-xl border border-stone-100">
+              <div class="text-xs font-bold uppercase tracking-wider text-blue-800 flex items-center space-x-1.5">
+                <Box class="w-4 h-4" />
+                <span>Formato Bottiglia</span>
+              </div>
+              <ul class="space-y-2">
+                <li v-for="fmt in reportData.technical_analytics.formato" :key="fmt.name" class="flex justify-between text-xs border-b border-stone-200/40 pb-1.5">
+                  <span class="text-stone-700 truncate mr-2" :title="fmt.name">{{ fmt.name }}</span>
+                  <span class="font-semibold text-stone-900 shrink-0">{{ fmt.count }}</span>
+                </li>
+                <li v-if="!reportData.technical_analytics.formato?.length" class="text-xs text-stone-400 italic">Dati non pervenuti</li>
               </ul>
             </div>
 
@@ -424,7 +439,8 @@ import {
   Compass, 
   BookOpen,
   RefreshCw,
-  Info
+  Info,
+  Box
 } from 'lucide-vue-next'
 
 const { fetchWithAuth } = useApi()
