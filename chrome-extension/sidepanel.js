@@ -89,11 +89,12 @@ function normalizeUnits(val) {
   // 2. Altitude (e.g. 150m, 150 m, 150metri, 150 m.s.l.m. -> 150 mt)
   val = val.replace(/(\d+)\s*(?:m|mt|metri|m\.?s\.?l\.?m\.?)\b/gi, '$1 mt');
 
-  // 3. Format (e.g. 75cl, 750ml, 0.75l -> 75 cl)
+  // 3. Format (e.g. 75cl, 750ml, 0.75l -> 75 cl, 1.5 l -> 1.5 L (Magnum))
   val = val.replace(/\b750\s*ml\b/gi, '75 cl');
   val = val.replace(/\b75\s*cl\b/gi, '75 cl');
   val = val.replace(/\b0[.,]75\s*l\b/gi, '75 cl');
-  val = val.replace(/\b1[.,]5\s*l\b/gi, '1.5 L (Magnum)');
+  val = val.replace(/\b1[.,]5\s*l(?:\s*\(\s*magnum\s*\))*/gi, '1.5 L (Magnum)');
+  val = val.replace(/(?:\s*\(\s*magnum\s*\))+/gi, ' (Magnum)');
 
   // 4. Alcohol (e.g. 14.5 % vol -> 14.5)
   val = val.replace(/(\d+(?:[.,]\d+)?)\s*%\s*(?:vol)?/gi, '$1');
@@ -312,6 +313,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 5000);
   }
 
+  function getExistingAttributeNames() {
+    const names = [];
+    if (!customAttrsContainer) return names;
+    customAttrsContainer.querySelectorAll('.attr-row .attr-name').forEach(inp => {
+      const v = inp.value.trim().toLowerCase();
+      if (v) names.push(v);
+    });
+    return names;
+  }
+
+  function updateQuickAttributeButtonsState() {
+    if (!quickAttrsContainer) return;
+    const existing = getExistingAttributeNames();
+    const quickBtns = quickAttrsContainer.querySelectorAll('.btn-quick-attr');
+    quickBtns.forEach(btn => {
+      const rawName = btn.textContent.replace(/^\+\s*/, '').trim();
+      const lowerName = rawName.toLowerCase();
+      if (existing.includes(lowerName)) {
+        btn.style.opacity = '0.4';
+        btn.style.cursor = 'not-allowed';
+        btn.title = `Attributo "${rawName}" già presente nella scheda`;
+      } else {
+        btn.style.opacity = '1.0';
+        btn.style.cursor = 'pointer';
+        btn.title = `Aggiungi attributo ${rawName}`;
+      }
+    });
+  }
+
   function clearFormFields() {
     nameInput.value = '';
     categorySelect.value = 'VINO_ROSSO';
@@ -332,6 +362,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     pdfInput.value = '';
     customAttrsContainer.innerHTML = '';
     updatePresetButtons();
+    updateQuickAttributeButtonsState();
   }
 
   function populateFormWithProduct(prod) {
@@ -370,6 +401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     updatePresetButtons();
+    updateQuickAttributeButtonsState();
   }
 
   // 1. Fetch Master Attributes from Database
@@ -404,6 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         quickAttrsContainer.appendChild(btn);
       });
+      updateQuickAttributeButtonsState();
 
       // Populate Grapes Datalist & Quick Pills
       try {
@@ -797,6 +830,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 4. Custom Attributes Management
   function addCustomAttributeRow(nameVal = '', valueVal = '', prepend = true) {
+    const normalizedNameCandidate = normalizeFieldValue('custom-name-field', nameVal);
+    if (normalizedNameCandidate) {
+      const existingRows = customAttrsContainer.querySelectorAll('.attr-row');
+      for (const existingRow of existingRows) {
+        const nameInputEl = existingRow.querySelector('.attr-name');
+        if (nameInputEl && nameInputEl.value.trim().toLowerCase() === normalizedNameCandidate.trim().toLowerCase()) {
+          showAlert(`L'attributo "${normalizedNameCandidate}" è già presente nella scheda!`, false, 'warning');
+          existingRow.style.transition = 'all 0.3s ease';
+          existingRow.style.boxShadow = '0 0 0 2px #e11d48';
+          const valInputEl = existingRow.querySelector('.attr-value');
+          if (valInputEl) valInputEl.focus();
+          setTimeout(() => { existingRow.style.boxShadow = 'none'; }, 2000);
+          return null;
+        }
+      }
+    }
+
     customAttrCount++;
     const nameInputId = `custom-name-${customAttrCount}`;
     const valInputId = `custom-val-${customAttrCount}`;
@@ -864,8 +914,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     };
 
-    nameInput.addEventListener('input', syncValueSuggestions);
-    nameInput.addEventListener('change', syncValueSuggestions);
+    nameInput.addEventListener('input', () => {
+      syncValueSuggestions();
+      updateQuickAttributeButtonsState();
+    });
+    nameInput.addEventListener('change', () => {
+      const currentVal = nameInput.value.trim().toLowerCase();
+      if (currentVal) {
+        const otherInputs = Array.from(customAttrsContainer.querySelectorAll('.attr-row .attr-name')).filter(inp => inp !== nameInput);
+        const isDup = otherInputs.some(inp => inp.value.trim().toLowerCase() === currentVal);
+        if (isDup) {
+          showAlert(`L'attributo "${nameInput.value}" è già presente nella scheda!`, false, 'warning');
+          nameInput.value = '';
+          syncValueSuggestions();
+        }
+      }
+      updateQuickAttributeButtonsState();
+    });
     nameInput.addEventListener('focus', syncValueSuggestions);
 
     // Initial sync
@@ -873,7 +938,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     row.querySelector('.btn-remove-attr').addEventListener('click', () => {
       row.remove();
+      updateQuickAttributeButtonsState();
     });
+
+    updateQuickAttributeButtonsState();
   }
 
   btnAddAttr.addEventListener('click', () => {
