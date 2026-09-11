@@ -12,11 +12,49 @@
           Gestione Prodotti
         </h1>
         <p class="text-xs text-stone-500 mt-1">
-          Visualizza, modifica, elimina e clona i vini in catalogo in 1-Click.
+          Visualizza, modifica, elimina, clona, esporta e importa i vini in catalogo.
         </p>
       </div>
 
-      <div class="flex gap-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <!-- Admin Export Dropdown -->
+        <div v-if="isAdmin" class="relative group">
+          <button 
+            type="button"
+            class="inline-flex items-center space-x-1.5 px-4 py-3 bg-amber-50 hover:bg-amber-100 text-amber-900 font-semibold text-xs rounded-xl border border-amber-200/80 transition-all shadow-2xs"
+          >
+            <Download class="w-4 h-4 text-amber-800" />
+            <span>Esporta Catalogo</span>
+          </button>
+          <div class="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-xl border border-stone-200/80 py-1.5 hidden group-hover:block z-30">
+            <button 
+              @click="handleExport('excel')" 
+              class="w-full text-left px-4 py-2.5 text-xs font-semibold text-stone-700 hover:bg-amber-50 flex items-center space-x-2 transition-colors"
+            >
+              <FileSpreadsheet class="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>Esporta Excel (.xlsx)</span>
+            </button>
+            <button 
+              @click="handleExport('json')" 
+              class="w-full text-left px-4 py-2.5 text-xs font-semibold text-stone-700 hover:bg-amber-50 flex items-center space-x-2 border-t border-stone-100 transition-colors"
+            >
+              <FileJson class="w-4 h-4 text-wine-800 shrink-0" />
+              <span>Esporta JSON (.json)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Admin Import Button -->
+        <button 
+          v-if="isAdmin"
+          @click="showImportModal = true" 
+          class="inline-flex items-center space-x-1.5 px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold text-xs rounded-xl border border-stone-200/80 transition-all shadow-2xs"
+          title="Importa o aggiorna vini da file Excel o JSON"
+        >
+          <Upload class="w-4 h-4 text-wine-800" />
+          <span>Importa / Ricarica</span>
+        </button>
+
         <NuxtLink to="/dashboard/prodotti/nuovo" class="inline-flex items-center space-x-2 px-6 py-3 bg-wine-800 hover:bg-wine-900 text-white font-semibold text-sm rounded-xl shadow-xs transition-all">
           <Plus class="w-4 h-4 text-amber-200" />
           <span>Inserisci Nuovo Vino</span>
@@ -152,16 +190,124 @@
 
     </div>
 
+    <!-- MODAL IMPORTA CATALOGO -->
+    <div v-if="showImportModal" class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-stone-100 space-y-6">
+        
+        <div class="flex items-center justify-between border-b border-stone-100 pb-3">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-xl bg-wine-50 border border-wine-200 text-wine-800 flex items-center justify-center">
+              <Upload class="w-5 h-5" />
+            </div>
+            <div>
+              <h3 class="font-sans text-lg font-bold text-stone-900">Importa / Ricarica Catalogo Vini</h3>
+              <p class="text-xs text-stone-500">Formati supportati: Excel (.xlsx) e JSON (.json)</p>
+            </div>
+          </div>
+          <button @click="showImportModal = false" class="text-stone-400 hover:text-stone-600 p-1">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div 
+            class="border-2 border-dashed border-stone-200 hover:border-wine-300 rounded-2xl p-6 text-center cursor-pointer transition-colors bg-stone-50/50"
+            @click="triggerFileInput"
+          >
+            <input 
+              type="file" 
+              ref="fileInputRef" 
+              accept=".xlsx,.xls,.json" 
+              class="hidden" 
+              @change="onFileSelected" 
+            />
+            <div v-if="selectedFile" class="space-y-1">
+              <span class="inline-block px-3 py-1 bg-wine-800 text-white font-mono text-xs font-bold rounded-lg">
+                {{ selectedFile.name }}
+              </span>
+              <p class="text-xs text-stone-500">Dimensione: {{ (selectedFile.size / 1024).toFixed(1) }} KB</p>
+              <p class="text-[11px] text-wine-800 font-semibold">Clicca per scegliere un altro file</p>
+            </div>
+            <div v-else class="space-y-2">
+              <Upload class="w-8 h-8 text-stone-400 mx-auto" />
+              <p class="text-xs font-semibold text-stone-700">Seleziona un file .xlsx o .json dal tuo computer</p>
+              <p class="text-[11px] text-stone-500 leading-relaxed">
+                Se il file contiene l'<strong>ID Prodotto</strong> o corrisponde per <strong>Cantina + Nome + Annata</strong>, i vini esistenti verranno <strong>aggiornati</strong>; altrimenti verranno creati nuovi.
+              </p>
+            </div>
+          </div>
+
+          <!-- Import Result Summary Card -->
+          <div v-if="importResult" class="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-3">
+            <div class="flex items-center space-x-2 text-xs font-bold text-stone-900">
+              <CheckCircle2 class="w-4 h-4 text-emerald-600" />
+              <span>Esito Importazione: {{ importResult.message }}</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+              <div class="bg-white p-2 rounded-xl border border-emerald-200 text-emerald-800 font-bold">
+                +{{ importResult.created }} Creati
+              </div>
+              <div class="bg-white p-2 rounded-xl border border-blue-200 text-blue-800 font-bold">
+                {{ importResult.updated }} Aggiornati
+              </div>
+              <div class="bg-white p-2 rounded-xl border border-rose-200 text-rose-800 font-bold">
+                {{ importResult.errors }} Errori
+              </div>
+            </div>
+            <div v-if="importResult.error_details && importResult.error_details.length" class="text-xs text-rose-700 space-y-1 max-h-24 overflow-y-auto pt-1 border-t border-stone-200/60">
+              <div v-for="(err, idx) in importResult.error_details" :key="idx">• {{ err }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end space-x-3 border-t border-stone-100">
+          <button type="button" @click="showImportModal = false" class="px-4 py-2.5 text-xs text-stone-600 font-semibold hover:bg-stone-50 rounded-xl">Annulla</button>
+          <button 
+            type="button" 
+            @click="handleImport" 
+            :disabled="!selectedFile || importing" 
+            class="px-6 py-2.5 bg-wine-800 hover:bg-wine-900 text-white rounded-xl text-xs font-bold shadow-xs disabled:opacity-50 inline-flex items-center space-x-1.5"
+          >
+            <RefreshCw v-if="importing" class="w-4 h-4 animate-spin text-amber-200" />
+            <span>{{ importing ? 'Importazione in corso...' : 'Avvia Importazione' }}</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
-import { ArrowLeft, Plus, Building2, Copy, Pencil, Trash2, Wine, Eye } from 'lucide-vue-next'
+import { 
+  ArrowLeft, Plus, Building2, Copy, Pencil, Trash2, Wine, Eye, 
+  Upload, Download, FileSpreadsheet, FileJson, X, CheckCircle2, RefreshCw 
+} from 'lucide-vue-next'
 
-const { fetchWithAuth, mediaBase } = useApi()
+const { fetchWithAuth, mediaBase, apiBase } = useApi()
 const { isAdmin } = useAuth()
 
 const selectedProducerId = ref('')
+const showImportModal = ref(false)
+const selectedFile = ref(null)
+const importing = ref(false)
+const importResult = ref(null)
+const fileInputRef = ref(null)
+
+const triggerFileInput = () => {
+  if (fileInputRef.value) {
+    fileInputRef.value.click()
+  }
+}
+
+const onFileSelected = (e) => {
+  const file = e.target.files[0]
+  if (file) {
+    selectedFile.value = file
+    importResult.value = null
+  }
+}
 
 const { data: producers } = await useAsyncData('admin_producers_list', async () => {
   if (!isAdmin.value) return null
@@ -191,6 +337,64 @@ const getProductImage = (prod) => {
 const { formatCategory, getCategoryBadgeClass } = useCategoryBadge()
 
 const toast = useToast()
+
+const handleExport = async (format) => {
+  try {
+    const tokenCookie = useCookie('auth_token')
+    const token = tokenCookie.value
+    const res = await fetch(`${apiBase}/products/export/${format}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    if (!res.ok) throw new Error('Errore durante il download del file')
+    const blob = await res.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = format === 'json' ? 'catalogo_vini.json' : 'catalogo_vini.xlsx'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
+    toast.success(`Catalogo esportato in formato ${format.toUpperCase()} con successo!`)
+  } catch (err) {
+    toast.error('Errore durante l\'esportazione del catalogo.')
+  }
+}
+
+const handleImport = async () => {
+  if (!selectedFile.value) return
+  const filename = selectedFile.value.name.toLowerCase()
+  const isExcel = filename.endsWith('.xlsx') || filename.endsWith('.xls')
+  const isJson = filename.endsWith('.json')
+
+  if (!isExcel && !isJson) {
+    toast.error('Seleziona un file valido (.xlsx o .json)')
+    return
+  }
+
+  const endpoint = isExcel ? '/products/import/excel' : '/products/import/json'
+  const formData = new FormData()
+  formData.append('file', selectedFile.value)
+
+  importing.value = true
+  importResult.value = null
+
+  try {
+    const res = await fetchWithAuth(endpoint, {
+      method: 'POST',
+      body: formData
+    })
+    importResult.value = res
+    toast.success(res.message || 'Importazione completata con successo!')
+    await refresh()
+  } catch (err) {
+    toast.error('Errore durante l\'importazione del file.')
+  } finally {
+    importing.value = false
+  }
+}
 
 const handleClone = async (prod) => {
   if (!confirm(`Vuoi clonare il vino "${prod.name}"? Verrà creata una copia in bozza che potrai modificare subito.`)) return
