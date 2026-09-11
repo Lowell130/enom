@@ -234,17 +234,36 @@ async def export_products_excel(
         formatted = await format_product_response(doc, db)
         products.append(formatted)
 
+    # Collect all registered attribute names from db.attributes first
+    attr_cursor = db.attributes.find().sort("name", 1)
+    attr_names = []
+    async for attr_doc in attr_cursor:
+        aname = attr_doc.get("name", "").strip()
+        if aname and aname not in attr_names:
+            attr_names.append(aname)
+
+    # Collect any custom attribute names from products that might not be in db.attributes
+    for p in products:
+        custom_attrs = p.get("custom_attributes") or []
+        for ca in custom_attrs:
+            if isinstance(ca, dict) and ca.get("name"):
+                cname = ca.get("name").strip()
+                if cname and cname not in attr_names:
+                    attr_names.append(cname)
+
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Catalogo Vini"
 
-    headers = [
+    base_headers = [
         "ID Prodotto", "Cantina", "ID Cantina", "Nome Vino", "Tipologia",
         "Denominazione", "Annata", "Riserva", "Alcol (% Vol)", "Vitigni",
         "Abbinamenti Gastronomici", "Temperatura Servizio", "Prezzo Indicativo",
         "Descrizione", "Esame Visivo", "Esame Olfattivo", "Esame Gustativo",
-        "Foto (URL)", "PDF Scheda (URL)", "Attributi Personalizzati", "Stato"
+        "Foto (URL)", "PDF Scheda (URL)"
     ]
+
+    headers = base_headers + attr_names + ["Stato"]
 
     ws.append(headers)
 
@@ -263,8 +282,11 @@ async def export_products_excel(
     for p in products:
         tasting = p.get("tasting_notes") or {}
         custom_attrs = p.get("custom_attributes") or []
-        custom_str = "; ".join([f"{a['name']}: {a['value']}" for a in custom_attrs if isinstance(a, dict) and a.get('name') and a.get('value')])
-        
+        attr_val_map = {}
+        for ca in custom_attrs:
+            if isinstance(ca, dict) and ca.get("name"):
+                attr_val_map[ca["name"].strip()] = ca.get("value", "")
+
         row_data = [
             p.get("id", ""),
             p.get("producer_name", ""),
@@ -284,10 +306,14 @@ async def export_products_excel(
             tasting.get("olfactory", "") if isinstance(tasting, dict) else "",
             tasting.get("taste", "") if isinstance(tasting, dict) else "",
             ", ".join(p.get("photos") or []),
-            p.get("technical_sheet_pdf", ""),
-            custom_str,
-            p.get("status", "PUBLISHED")
+            p.get("technical_sheet_pdf", "")
         ]
+
+        # Append dynamic attribute column values
+        for aname in attr_names:
+            row_data.append(attr_val_map.get(aname, ""))
+
+        row_data.append(p.get("status", "PUBLISHED"))
         ws.append(row_data)
 
     for col in ws.columns:
@@ -457,7 +483,8 @@ async def import_products_excel(
     if not rows or len(rows) < 2:
         raise HTTPException(status_code=400, detail="Il file Excel non contiene righe di dati")
 
-    raw_headers = [str(cell).strip().lower() if cell is not None else "" for cell in rows[0]]
+    raw_headers_orig = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
+    raw_headers = [h.lower() for h in raw_headers_orig]
     
     def get_col_idx(names: List[str]) -> Optional[int]:
         for n in names:
@@ -488,10 +515,27 @@ async def import_products_excel(
     custom_idx = get_col_idx(["attributi personalizzati", "custom_attributes"])
     status_idx = get_col_idx(["stato", "status"])
 
+    standard_indices = {
+        id_idx, producer_name_idx, producer_id_idx, name_idx, cat_idx, denom_idx,
+        vintage_idx, riserva_idx, alcohol_idx, grapes_idx, pairings_idx, temp_idx,
+        price_idx, desc_idx, visual_idx, olfactory_idx, taste_idx, photos_idx,
+        pdf_idx, custom_idx, status_idx
+    }
+    standard_indices.discard(None)
+
     producers = await db.producers.find().to_list(1000)
     producer_map_name = {p["company_name"].strip().lower(): p["_id"] for p in producers if p.get("company_name")}
     producer_map_id = {str(p["_id"]): p["_id"] for p in producers}
     fallback_producer_id = producers[0]["_id"] if producers else None
+
+    existing_attrs_docs = await db.attributes.find().to_list(1000)
+    attr_cache = {a["name"].strip().lower(): a for a in existing_attrs_docs if a.get("name")}
+
+    existing_grapes_docs = await db.grapes.find().to_list(1000)
+    grapes_cache = {g["name"].strip().lower(): g for g in existing_grapes_docs if g.get("name")}
+
+    existing_pairings_docs = await db.pairings.find().to_list(1000)
+    pairings_cache = {p["name"].strip().lower(): p for p in existing_pairings_docs if p.get("name")}
 
     created = 0
     updated = 0
@@ -558,6 +602,21 @@ async def import_products_excel(
             custom_str = str(row[custom_idx]) if custom_idx is not None and row[custom_idx] is not None else ""
             custom_attrs = parse_custom_attributes_from_str(custom_str)
 
+            # Process individual dynamic attribute columns
+            for col_i, header_orig in enumerate(raw_headers_orig):
+                if col_i in standard_indices:
+                    continue
+                if not header_orig:
+                    continue
+                if col_i < len(row) and row[col_i] is not None:
+                    cell_val = str(row[col_i]).strip()
+                    if cell_val:
+                        existing_attr = next((a for a in custom_attrs if isinstance(a, dict) and a.get("name", "").lower() == header_orig.lower()), None)
+                        if existing_attr:
+                            existing_attr["value"] = cell_val
+                        else:
+                            custom_attrs.append({"name": header_orig, "value": cell_val})
+
             doc = {
                 "name": prod_name,
                 "producer_id": target_producer_id,
@@ -594,9 +653,9 @@ async def import_products_excel(
                 res = await db.products.insert_one(doc)
                 created += 1
 
-            await sync_custom_attributes_with_master(custom_attrs, db)
-            await sync_grapes_with_master(grapes, db)
-            await sync_pairings_with_master(pairings, db)
+            await sync_custom_attributes_with_master(custom_attrs, db, attr_cache)
+            await sync_grapes_with_master(grapes, db, grapes_cache)
+            await sync_pairings_with_master(pairings, db, pairings_cache)
 
         except Exception as e:
             errors += 1
@@ -622,7 +681,7 @@ async def get_product_by_slug_or_id(identifier: str, db=Depends(get_database)):
         
     return await format_product_response(doc, db)
 
-async def sync_custom_attributes_with_master(custom_attributes: list, db):
+async def sync_custom_attributes_with_master(custom_attributes: list, db, attr_cache: dict = None):
     if not custom_attributes:
         return
     for attr in custom_attributes:
@@ -630,24 +689,35 @@ async def sync_custom_attributes_with_master(custom_attributes: list, db):
         val = attr.get("value", "").strip() if isinstance(attr, dict) else (getattr(attr, "value", "") or "").strip()
         if not name or not val:
             continue
-        existing = await db.attributes.find_one({"name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}})
+        name_lower = name.lower()
+        existing = None
+        if attr_cache is not None:
+            existing = attr_cache.get(name_lower)
+        else:
+            existing = await db.attributes.find_one({"name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}})
+        
         if existing:
             current_suggs = existing.get("suggested_values", [])
-            # Case-insensitive check to prevent duplicates
             if not any(s.strip().lower() == val.strip().lower() for s in current_suggs):
+                current_suggs.append(val.strip())
+                existing["suggested_values"] = current_suggs
                 await db.attributes.update_one(
                     {"_id": existing["_id"]},
                     {"$addToSet": {"suggested_values": val.strip()}}
                 )
         else:
-            await db.attributes.insert_one({
+            new_doc = {
                 "name": name,
                 "unit_or_hint": "",
                 "suggested_values": [val.strip()],
                 "created_at": datetime.utcnow()
-            })
+            }
+            res = await db.attributes.insert_one(new_doc)
+            new_doc["_id"] = res.inserted_id
+            if attr_cache is not None:
+                attr_cache[name_lower] = new_doc
 
-async def sync_grapes_with_master(grape_varieties: list, db):
+async def sync_grapes_with_master(grape_varieties: list, db, grapes_cache: dict = None):
     if not grape_varieties:
         return
     for item in grape_varieties:
@@ -656,15 +726,24 @@ async def sync_grapes_with_master(grape_varieties: list, db):
         clean_name = re.sub(r'\d+\s*%?', '', item).strip()
         if not clean_name:
             continue
-        existing = await db.grapes.find_one({"name": {"$regex": f"^{re.escape(clean_name)}$", "$options": "i"}})
+        clean_lower = clean_name.lower()
+        existing = None
+        if grapes_cache is not None:
+            existing = grapes_cache.get(clean_lower)
+        else:
+            existing = await db.grapes.find_one({"name": {"$regex": f"^{re.escape(clean_name)}$", "$options": "i"}})
         if not existing:
-            await db.grapes.insert_one({
+            new_doc = {
                 "name": clean_name,
                 "category": "AUTOCTONO",
                 "created_at": datetime.utcnow()
-            })
+            }
+            res = await db.grapes.insert_one(new_doc)
+            new_doc["_id"] = res.inserted_id
+            if grapes_cache is not None:
+                grapes_cache[clean_lower] = new_doc
 
-async def sync_pairings_with_master(food_pairings: list, db):
+async def sync_pairings_with_master(food_pairings: list, db, pairings_cache: dict = None):
     if not food_pairings:
         return
     for item in food_pairings:
@@ -673,13 +752,22 @@ async def sync_pairings_with_master(food_pairings: list, db):
         clean_name = item.strip()
         if not clean_name:
             continue
-        existing = await db.pairings.find_one({"name": {"$regex": f"^{re.escape(clean_name)}$", "$options": "i"}})
+        clean_lower = clean_name.lower()
+        existing = None
+        if pairings_cache is not None:
+            existing = pairings_cache.get(clean_lower)
+        else:
+            existing = await db.pairings.find_one({"name": {"$regex": f"^{re.escape(clean_name)}$", "$options": "i"}})
         if not existing:
-            await db.pairings.insert_one({
+            new_doc = {
                 "name": clean_name,
                 "category": "GENERALE",
                 "created_at": datetime.utcnow()
-            })
+            }
+            res = await db.pairings.insert_one(new_doc)
+            new_doc["_id"] = res.inserted_id
+            if pairings_cache is not None:
+                pairings_cache[clean_lower] = new_doc
 
 @router.post("", response_model=ProductResponse)
 async def create_product(
