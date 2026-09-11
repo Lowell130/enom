@@ -107,7 +107,7 @@
                 v-model="form.denominazione" 
                 type="text" 
                 required 
-                placeholder="es. Tintilia del Molise DOC" 
+                placeholder="es. DOC, IGT, DOP, DOCG, IGP" 
                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none"
               />
             </div>

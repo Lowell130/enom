@@ -20,6 +20,22 @@ def slugify(text: str) -> str:
     text = re.sub(r'[\s_-]+', '-', text)
     return text
 
+def parse_denominazione_acronym(denom: str) -> str:
+    if not denom:
+        return "DOC"
+    d_upper = str(denom).strip().upper()
+    if "DOCG" in d_upper or "D.O.C.G." in d_upper:
+        return "DOCG"
+    elif "DOC" in d_upper or "D.O.C." in d_upper:
+        return "DOC"
+    elif "DOP" in d_upper or "D.O.P." in d_upper:
+        return "DOP"
+    elif "IGP" in d_upper or "I.G.P." in d_upper:
+        return "IGP"
+    elif "IGT" in d_upper or "I.G.T." in d_upper:
+        return "IGT"
+    return "DOC"
+
 from html.parser import HTMLParser
 import urllib.request
 
@@ -415,7 +431,7 @@ async def import_products_json(
                 "name": prod_name,
                 "producer_id": target_producer_id,
                 "category": item.get("category", "VINO_ROSSO"),
-                "denominazione": item.get("denominazione", "DOC"),
+                "denominazione": parse_denominazione_acronym(item.get("denominazione", "DOC")),
                 "vintage_year": int(item["vintage_year"]) if item.get("vintage_year") and str(item["vintage_year"]).isdigit() else None,
                 "is_riserva": bool(item.get("is_riserva", False)),
                 "alcohol_degrees": float(item["alcohol_degrees"]) if item.get("alcohol_degrees") is not None and str(item["alcohol_degrees"]).replace('.','',1).isdigit() else None,
@@ -621,7 +637,7 @@ async def import_products_excel(
                 "name": prod_name,
                 "producer_id": target_producer_id,
                 "category": str(row[cat_idx]).strip().upper() if cat_idx is not None and row[cat_idx] else "VINO_ROSSO",
-                "denominazione": str(row[denom_idx]).strip() if denom_idx is not None and row[denom_idx] else "DOC",
+                "denominazione": parse_denominazione_acronym(str(row[denom_idx])) if denom_idx is not None and row[denom_idx] else "DOC",
                 "vintage_year": v_year,
                 "is_riserva": is_ris,
                 "alcohol_degrees": alc,
@@ -801,6 +817,7 @@ async def create_product(
         
     doc = product_in.model_dump()
     doc["producer_id"] = target_producer_id
+    doc["denominazione"] = parse_denominazione_acronym(doc.get("denominazione", "DOC"))
     doc["slug"] = slug
     doc["created_at"] = datetime.utcnow()
     doc["updated_at"] = datetime.utcnow()
@@ -885,6 +902,9 @@ async def update_product(
         else:
             del update_data["producer_id"]
             
+    if "denominazione" in update_data:
+        update_data["denominazione"] = parse_denominazione_acronym(update_data["denominazione"])
+
     if "name" in update_data and update_data["name"] != existing.get("name"):
         v_year = update_data.get('vintage_year', existing.get('vintage_year', ''))
         is_ris = update_data.get('is_riserva', existing.get('is_riserva', False))

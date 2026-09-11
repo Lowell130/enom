@@ -55,9 +55,11 @@
             class="w-full border border-stone-200/80 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none"
           >
             <option value="">Tutte le denominazioni</option>
-            <option value="DOC">DOC (Biferno, Tintilia, Pentro)</option>
-            <option value="IGT">IGT / IGP</option>
-            <option value="VINO_D_TAVOLA">Vino da Tavola</option>
+            <option value="DOC">DOC</option>
+            <option value="DOCG">DOCG</option>
+            <option value="IGT">IGT</option>
+            <option value="IGP">IGP</option>
+            <option value="DOP">DOP</option>
           </select>
         </div>
 
