@@ -278,13 +278,13 @@
           <div>
             <label class="block text-xs font-semibold text-stone-700 mb-1">URL Logo Cantina</label>
             <input v-model="editProducer.logo_url" type="text" placeholder="https://... o carica" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm mb-1" />
-            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'logo')" class="text-xs text-stone-500" />
+            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'logo', 'edit')" class="text-xs text-stone-500" />
           </div>
 
           <div>
             <label class="block text-xs font-semibold text-stone-700 mb-1">URL Foto Copertina Cantina</label>
             <input v-model="editProducer.cover_image_url" type="text" placeholder="https://... o carica" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm mb-1" />
-            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'cover')" class="text-xs text-stone-500" />
+            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'cover', 'edit')" class="text-xs text-stone-500" />
           </div>
 
           <div>
@@ -371,7 +371,7 @@ const openEditModal = (p) => {
   showEditModal.value = true
 }
 
-const handleFileUpload = async (event, target, type) => {
+const handleUploadMedia = async (event, type, target = 'edit') => {
   const file = event.target.files[0]
   if (!file) return
 
@@ -379,7 +379,7 @@ const handleFileUpload = async (event, target, type) => {
   formData.append('file', file)
 
   try {
-    const res = await fetchWithAuth('/upload', {
+    const res = await fetchWithAuth('/uploads/image', {
       method: 'POST',
       body: formData
     })
