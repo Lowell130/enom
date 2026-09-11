@@ -16,13 +16,23 @@ def slugify(text: str) -> str:
 
 @router.get("", response_model=list[ProducerResponse])
 async def get_producers(db=Depends(get_database)):
+    # 1. Bulk aggregate product counts per producer in 1 query
+    pipeline = [
+        {"$match": {"status": "PUBLISHED"}},
+        {"$group": {"_id": "$producer_id", "count": {"$sum": 1}}}
+    ]
+    counts_cursor = db.products.aggregate(pipeline)
+    count_map = {}
+    async for c in counts_cursor:
+        if c.get("_id"):
+            count_map[str(c["_id"])] = c.get("count", 0)
+
+    # 2. Fetch producers in 1 query
     cursor = db.producers.find({"status": "APPROVED"})
     producers = []
     async for doc in cursor:
         doc["id"] = str(doc["_id"])
-        # count products
-        prod_count = await db.products.count_documents({"producer_id": doc["_id"], "status": "PUBLISHED"})
-        doc["product_count"] = prod_count
+        doc["product_count"] = count_map.get(doc["id"], 0)
         producers.append(doc)
     return producers
 

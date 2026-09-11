@@ -9,16 +9,19 @@ router = APIRouter()
 async def get_report_summary() -> Dict[str, Any]:
     db = await get_database()
 
-    # 1. Fetch raw data
-    products = await db.products.find({"status": "PUBLISHED"}).to_list(1000)
+    import asyncio
+    # 1. Fetch raw data in parallel
+    products, producers, master_grapes, master_pairings, master_attributes = await asyncio.gather(
+        db.products.find({"status": "PUBLISHED"}).to_list(1000),
+        db.producers.find().to_list(1000),
+        db.grapes.find().to_list(1000),
+        db.pairings.find().to_list(1000),
+        db.attributes.find().to_list(1000)
+    )
+
     # If no published wines, fallback to all products
     if not products:
         products = await db.products.find().to_list(1000)
-
-    producers = await db.producers.find().to_list(1000)
-    master_grapes = await db.grapes.find().to_list(1000)
-    master_pairings = await db.pairings.find().to_list(1000)
-    master_attributes = await db.attributes.find().to_list(1000)
 
     # 2. Executive KPIs
     total_products = len(products)

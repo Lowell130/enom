@@ -55,22 +55,28 @@ async def list_inquiries(
             return []
         query["producer_id"] = ObjectId(user_producer_id)
         
+    # Pre-fetch producer and product maps to eliminate N+1 queries
+    producers = await db.producers.find().to_list(1000)
+    producer_map = {str(p["_id"]): p.get("company_name", "") for p in producers}
+
+    products = await db.products.find({}, {"name": 1}).to_list(1000)
+    product_map = {str(p["_id"]): p.get("name", "") for p in products}
+
     cursor = db.inquiries.find(query).sort("created_at", -1)
+    raw_inquiries = await cursor.to_list(1000)
+    
     inquiries = []
-    async for doc in cursor:
+    for doc in raw_inquiries:
         doc["id"] = str(doc["_id"])
         doc["producer_id"] = str(doc["producer_id"])
+        doc["producer_name"] = producer_map.get(doc["producer_id"], "")
         
-        producer = await db.producers.find_one({"_id": ObjectId(doc["producer_id"])})
-        if producer:
-            doc["producer_name"] = producer.get("company_name", "")
-            
         if doc.get("product_id"):
             doc["product_id"] = str(doc["product_id"])
-            product = await db.products.find_one({"_id": ObjectId(doc["product_id"])})
-            if product:
-                doc["product_name"] = product.get("name", "")
-                
+            doc["product_name"] = product_map.get(doc["product_id"], "")
+        else:
+            doc["product_name"] = ""
+            
         inquiries.append(doc)
     return inquiries
 

@@ -184,10 +184,24 @@ async def get_products(
         ]
         
     cursor = db.products.find(query).sort("created_at", -1)
+    raw_products = await cursor.to_list(1000)
+
+    # Bulk fetch all producers to eliminate N+1 queries
+    producers = await db.producers.find().to_list(1000)
+    producer_map = {str(p["_id"]): p for p in producers}
+
     products = []
-    async for doc in cursor:
-        formatted = await format_product_response(doc, db)
-        products.append(formatted)
+    for doc in raw_products:
+        doc["id"] = str(doc["_id"])
+        doc["producer_id"] = str(doc["producer_id"])
+        prod_obj = producer_map.get(doc["producer_id"])
+        if prod_obj:
+            doc["producer_name"] = prod_obj.get("company_name", "")
+            doc["producer_slug"] = prod_obj.get("slug", "")
+        else:
+            doc["producer_name"] = ""
+            doc["producer_slug"] = ""
+        products.append(doc)
     return products
 
 def parse_custom_attributes_from_str(val_str: str) -> list:
@@ -223,11 +237,22 @@ async def export_products_json(
     if current_user.get("role") != "ADMIN":
         raise HTTPException(status_code=403, detail="Accesso riservato all'amministratore")
     
-    cursor = db.products.find().sort("created_at", -1)
+    producers = await db.producers.find().to_list(1000)
+    producer_map = {str(p["_id"]): p for p in producers}
+
+    raw_products = await db.products.find().sort("created_at", -1).to_list(1000)
     products = []
-    async for doc in cursor:
-        formatted = await format_product_response(doc, db)
-        products.append(formatted)
+    for doc in raw_products:
+        doc["id"] = str(doc["_id"])
+        doc["producer_id"] = str(doc["producer_id"])
+        prod_obj = producer_map.get(doc["producer_id"])
+        if prod_obj:
+            doc["producer_name"] = prod_obj.get("company_name", "")
+            doc["producer_slug"] = prod_obj.get("slug", "")
+        else:
+            doc["producer_name"] = ""
+            doc["producer_slug"] = ""
+        products.append(doc)
         
     json_data = json.dumps(products, indent=2, default=str, ensure_ascii=False)
     return Response(
@@ -244,11 +269,22 @@ async def export_products_excel(
     if current_user.get("role") != "ADMIN":
         raise HTTPException(status_code=403, detail="Accesso riservato all'amministratore")
 
-    cursor = db.products.find().sort("created_at", -1)
+    producers = await db.producers.find().to_list(1000)
+    producer_map = {str(p["_id"]): p for p in producers}
+
+    raw_products = await db.products.find().sort("created_at", -1).to_list(1000)
     products = []
-    async for doc in cursor:
-        formatted = await format_product_response(doc, db)
-        products.append(formatted)
+    for doc in raw_products:
+        doc["id"] = str(doc["_id"])
+        doc["producer_id"] = str(doc["producer_id"])
+        prod_obj = producer_map.get(doc["producer_id"])
+        if prod_obj:
+            doc["producer_name"] = prod_obj.get("company_name", "")
+            doc["producer_slug"] = prod_obj.get("slug", "")
+        else:
+            doc["producer_name"] = ""
+            doc["producer_slug"] = ""
+        products.append(doc)
 
     # Collect all registered attribute names from db.attributes first
     attr_cursor = db.attributes.find().sort("name", 1)

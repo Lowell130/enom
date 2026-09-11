@@ -31,17 +31,22 @@ async def get_all_users(
     current_admin: dict = Depends(get_current_admin),
     db=Depends(get_database)
 ):
+    producers = await db.producers.find().to_list(1000)
+    producer_map = {str(p["_id"]): p.get("company_name", "") for p in producers}
+
     cursor = db.users.find().sort("created_at", -1)
+    raw_users = await cursor.to_list(1000)
+
     users = []
-    async for u in cursor:
+    for u in raw_users:
         u["id"] = str(u["_id"])
         del u["_id"]
         if "password_hash" in u:
             del u["password_hash"]
         if u.get("producer_id"):
             u["producer_id"] = str(u["producer_id"])
-            prod = await db.producers.find_one({"_id": ObjectId(u["producer_id"])})
-            if prod:
-                u["company_name"] = prod.get("company_name", "")
+            u["company_name"] = producer_map.get(u["producer_id"], "")
+        else:
+            u["company_name"] = ""
         users.append(u)
     return users
