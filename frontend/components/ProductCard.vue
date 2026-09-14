@@ -6,6 +6,7 @@
       <img 
         :src="productImage" 
         :alt="product.name" 
+        loading="lazy"
         class="h-full object-contain group-hover:scale-105 transition-transform duration-500"
       />
       
@@ -16,6 +17,10 @@
         </span>
         <span v-if="product.is_riserva" class="px-3 py-1 text-xs font-bold rounded-full bg-amber-700 text-white shadow-xs">
           Riserva
+        </span>
+        <span v-if="isOrganicProduct(product)" class="px-3 py-1 text-xs font-bold rounded-full bg-emerald-700 text-white shadow-xs inline-flex items-center space-x-1">
+          <Leaf class="w-3.5 h-3.5 text-emerald-200" />
+          <span>Biologico</span>
         </span>
       </div>
 
@@ -83,7 +88,7 @@
 </template>
 
 <script setup>
-import { Building2, Utensils, Wine, ChevronRight } from 'lucide-vue-next'
+import { Building2, Utensils, Wine, ChevronRight, Leaf } from 'lucide-vue-next'
 
 const props = defineProps({
   product: {
@@ -93,6 +98,7 @@ const props = defineProps({
 })
 
 const { mediaBase } = useApi()
+const { isOrganicProduct } = useOrganic()
 
 const productImage = computed(() => {
   if (props.product.photos && props.product.photos.length > 0) {

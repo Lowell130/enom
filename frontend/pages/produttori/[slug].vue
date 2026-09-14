@@ -172,6 +172,15 @@ const { data: producer, pending } = await useAsyncData(`producer_${route.params.
   fetchWithAuth(`/producers/${route.params.slug}`)
 )
 
+watchEffect(() => {
+  if (producer.value) {
+    useSeoMeta({
+      title: `${producer.value.company_name} - Cantina del Molise`,
+      description: producer.value.description || `Scopri la cantina ${producer.value.company_name} a ${producer.value.address?.city || 'Molise'}. Vini, storia e contatti su EnotecaMolise.`
+    })
+  }
+})
+
 const canEdit = computed(() => {
   if (!isAuthenticated.value || !producer.value) return false
   if (isAdmin.value) return true

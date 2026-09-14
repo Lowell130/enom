@@ -543,7 +543,8 @@ const route = useRoute()
 const productId = route.params.id
 
 const { fetchWithAuth } = useApi()
-const { isAdmin } = useAuth()
+const { user, isAdmin } = useAuth()
+const toast = useToast()
 
 const submitting = ref(false)
 const error = ref('')
@@ -643,6 +644,13 @@ const syncGrapesInputFromList = () => {
 
 const { data: productData, pending } = await useAsyncData(`fetch_product_${productId}`, async () => {
   const prod = await fetchWithAuth(`/products/${productId}`)
+
+  const myProducerId = user.value?.producer_id || user.value?.producer?.id
+  if (!isAdmin.value && myProducerId && String(prod.producer_id) !== String(myProducerId)) {
+    toast.error('Non hai i permessi per modificare questo vino')
+    await navigateTo('/dashboard/prodotti')
+    return null
+  }
 
   let alc = prod.alcohol_degrees
   let temp = prod.serving_temperature
@@ -745,8 +753,6 @@ const removeCustomAttributeRow = (index) => {
   customAttributes.value.splice(index, 1)
 }
 
-const toast = useToast()
-
 const handleFileUpload = async (event) => {
   const file = event.target.files[0]
   if (!file) return
@@ -817,7 +823,7 @@ const handleSubmit = async () => {
       }
     })
     toast.success('Scheda vino aggiornata con successo!')
-    navigateTo('/dashboard/prodotti')
+    await navigateTo('/dashboard/prodotti')
   } catch (err) {
     error.value = 'Errore durante l\'aggiornamento della scheda vino.'
     toast.error('Errore durante l\'aggiornamento della scheda vino.')

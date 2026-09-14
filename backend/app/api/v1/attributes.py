@@ -23,6 +23,11 @@ class AttributeResponse(AttributeCreate):
 
 DEFAULT_ATTRIBUTES_SEED = [
     {
+        "name": "Tipo Vino",
+        "unit_or_hint": "Tipologia / Certificazione",
+        "suggested_values": ["Vino Biologico", "Vino Biodinamico", "Vino Naturale", "Vino Convenzionale"]
+    },
+    {
         "name": "Gradazione Alcolica",
         "unit_or_hint": "% Vol",
         "suggested_values": ["10.0%", "10.5%", "11.0%", "11.5%", "12.0%", "12.5%", "13.0%", "13.5%", "14.0%", "14.5%", "15.0%", "15.5%", "16.0%"]

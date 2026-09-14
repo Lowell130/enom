@@ -32,7 +32,7 @@
           <input 
             v-model="scrapeUrlInput" 
             type="url" 
-            placeholder="https://www.dimajonorante.it/vini/ramitello-biferno-rosso-doc/" 
+            placeholder="https://sito-azienda.it/pagina-vino" 
             class="flex-1 border border-wine-700/80 rounded-xl px-4 py-2.5 text-sm bg-white/10 text-white placeholder-wine-300 focus:ring-2 focus:ring-amber-300 focus:outline-none"
           />
           <button 
@@ -611,7 +611,8 @@ const handleScrapeUrl = async () => {
     if (data.photo_url) photoUrlInput.value = data.photo_url
     toast.success('Dati del vino estratti con successo dalla pagina web!')
   } catch (err) {
-    toast.error('Impossibile estrarre i dati da questo URL. Usa l\'Estensione Chrome per la massima precisione.')
+    const msg = err?.data?.detail || err?.statusMessage || err?.message || 'Impossibile estrarre i dati da questo URL.'
+    toast.error(msg)
   } finally {
     scrapingUrl.value = false
   }
@@ -832,7 +833,7 @@ const handleSubmit = async () => {
       }
     })
     toast.success('Vino inserito con successo nel catalogo!')
-    navigateTo('/dashboard/prodotti')
+    await navigateTo('/dashboard/prodotti')
   } catch (err) {
     error.value = 'Errore durante l\'inserimento del vino. Verifica i dati inseriti.'
     toast.error('Errore durante l\'inserimento del vino.')

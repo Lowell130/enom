@@ -286,7 +286,7 @@ import {
 } from 'lucide-vue-next'
 
 const { fetchWithAuth, mediaBase, apiBase } = useApi()
-const { isAdmin } = useAuth()
+const { user, isAdmin } = useAuth()
 
 const selectedProducerId = ref('')
 const showImportModal = ref(false)
@@ -314,16 +314,26 @@ const { data: producers } = await useAsyncData('admin_producers_list', async () 
   return await fetchWithAuth('/producers')
 })
 
-const { data: products, pending, refresh } = await useAsyncData('dashboard_products', () => 
-  fetchWithAuth('/products?status=ALL')
-)
+const { data: products, pending, refresh } = await useAsyncData('dashboard_products', () => {
+  let url = '/products?status=ALL'
+  const myProducerId = user.value?.producer_id || user.value?.producer?.id
+  if (!isAdmin.value && myProducerId) {
+    url += `&producer_id=${myProducerId}`
+  }
+  return fetchWithAuth(url)
+})
 
 const filteredProducts = computed(() => {
   if (!products.value) return []
-  if (isAdmin.value && selectedProducerId.value) {
-    return products.value.filter(p => p.producer_id === selectedProducerId.value)
+  if (isAdmin.value) {
+    if (selectedProducerId.value) {
+      return products.value.filter(p => String(p.producer_id) === String(selectedProducerId.value))
+    }
+    return products.value
   }
-  return products.value
+  const myProducerId = user.value?.producer_id || user.value?.producer?.id
+  if (!myProducerId) return []
+  return products.value.filter(p => String(p.producer_id) === String(myProducerId))
 })
 
 const getProductImage = (prod) => {

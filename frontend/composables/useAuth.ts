@@ -35,6 +35,19 @@ export const useAuth = () => {
     return res
   }
 
+  const registerProducer = async (data: { email: string; password: string; company_name: string }) => {
+    await fetchWithAuth('/auth/register', {
+      method: 'POST',
+      body: {
+        email: data.email,
+        password: data.password,
+        company_name: data.company_name,
+        role: 'PRODUCER'
+      }
+    })
+    return await login({ email: data.email, password: data.password })
+  }
+
   const logout = () => {
     tokenCookie.value = null
     user.value = null
@@ -51,6 +64,7 @@ export const useAuth = () => {
     loading,
     fetchUser,
     login,
+    registerProducer,
     logout,
     isAdmin,
     isProducer,

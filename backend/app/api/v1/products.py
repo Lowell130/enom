@@ -8,9 +8,14 @@ from typing import Optional, List
 import re
 import io
 import json
+import requests
+import urllib3
+from bs4 import BeautifulSoup
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 router = APIRouter()
 
@@ -193,19 +198,51 @@ async def scrape_url(payload: dict):
         raise HTTPException(status_code=400, detail="URL non valido")
     
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            html = response.read().decode('utf-8', errors='ignore')
-            
-        parser = SimpleHTMLScraper()
-        parser.feed(html)
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Referer': 'https://www.google.com/'
+        })
+        resp = session.get(url, timeout=12, verify=False)
         
-        name = clean_wine_title(parser.og_title or parser.title)
-        description = parser.og_desc or (parser.paragraphs[0] if parser.paragraphs else "")
-        photo_url = parser.og_image
-        
-        lower_html = html.lower()
-        
+        if resp.status_code in [401, 403]:
+            raise HTTPException(
+                status_code=400, 
+                detail="Il sito di destinazione applica protezioni anti-bot (Cloudflare/Wordfence). Inserisci i dettagli del vino manualmente o usa l'Estensione Chrome."
+            )
+        elif resp.status_code != 200:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Impossibile accedere alla pagina del vino (Errore HTTP {resp.status_code})"
+            )
+
+        resp.encoding = resp.apparent_encoding or 'utf-8'
+        html_text = resp.text
+
+        soup = BeautifulSoup(html_text, 'html.parser')
+
+        og_title = soup.find('meta', property='og:title') or soup.find('meta', attrs={'name': 'og:title'})
+        title_tag = soup.find('title')
+        raw_title = og_title.get('content', '') if og_title else (title_tag.text if title_tag else '')
+        name = clean_wine_title(raw_title)
+
+        if "403" in name.lower() or "forbidden" in name.lower() or "access denied" in name.lower():
+            raise HTTPException(
+                status_code=400, 
+                detail="Il sito di destinazione applica protezioni anti-bot. Inserisci i dettagli del vino manualmente."
+            )
+
+        og_desc = soup.find('meta', property='og:description') or soup.find('meta', attrs={'name': 'description'})
+        p_desc = soup.find('p')
+        raw_desc = og_desc.get('content', '') if og_desc else (p_desc.text if p_desc else '')
+
+        og_img = soup.find('meta', property='og:image') or soup.find('meta', attrs={'name': 'og:image'})
+        photo_url = og_img.get('content', '') if og_img else ''
+
+        lower_html = html_text.lower()
+
         category = "VINO_ROSSO"
         if "spumante" in lower_html or "brut" in lower_html:
             category = "SPUMANTE"
@@ -215,21 +252,19 @@ async def scrape_url(payload: dict):
             category = "VINO_BIANCO"
         elif "passito" in lower_html:
             category = "PASSITO"
-            
+
         denominazione = "DOC"
         if "tintilia" in lower_html or "biferno" in lower_html or "doc" in lower_html:
             denominazione = "DOC"
         elif "igt" in lower_html:
             denominazione = "IGT"
-            
+
         is_riserva = "riserva" in lower_html
-        
-        # Catalogo Vini Molise è Senza Annata (S.A.) by default
         vintage_year = None
-        
+
         alc_match = re.search(r'(\d{2}(?:[.,]\d)?)\s*%\s*(?:vol)?', lower_html)
         alcohol_degrees = float(alc_match.group(1).replace(',', '.')) if alc_match else None
-        
+
         return {
             "name": name.strip(),
             "category": category,
@@ -237,10 +272,12 @@ async def scrape_url(payload: dict):
             "vintage_year": vintage_year,
             "is_riserva": is_riserva,
             "alcohol_degrees": alcohol_degrees,
-            "description": description.strip(),
+            "description": raw_desc.strip(),
             "photo_url": photo_url,
             "technical_sheet_pdf": ""
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Errore durante l'analisi dell'URL: {str(e)}")
 
@@ -269,11 +306,28 @@ async def get_products(
     if producer_id and ObjectId.is_valid(producer_id):
         query["producer_id"] = ObjectId(producer_id)
     if search:
-        query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"description": {"$regex": search, "$options": "i"}},
-            {"grape_varieties": {"$elemMatch": {"$regex": search, "$options": "i"}}}
+        escaped_search = re.escape(search.strip())
+        # Find matching producer IDs first
+        matching_producers = await db.producers.find({
+            "$or": [
+                {"company_name": {"$regex": escaped_search, "$options": "i"}},
+                {"slug": {"$regex": escaped_search, "$options": "i"}}
+            ]
+        }).to_list(500)
+        matching_prod_ids = [p["_id"] for p in matching_producers]
+
+        search_or_conditions = [
+            {"name": {"$regex": escaped_search, "$options": "i"}},
+            {"description": {"$regex": escaped_search, "$options": "i"}},
+            {"denominazione": {"$regex": escaped_search, "$options": "i"}},
+            {"grape_varieties": {"$elemMatch": {"$regex": escaped_search, "$options": "i"}}},
+            {"custom_attributes.value": {"$regex": escaped_search, "$options": "i"}},
+            {"custom_attributes.name": {"$regex": escaped_search, "$options": "i"}}
         ]
+        if matching_prod_ids:
+            search_or_conditions.append({"producer_id": {"$in": matching_prod_ids}})
+
+        query["$or"] = search_or_conditions
         
     cursor = db.products.find(query).sort("created_at", -1)
     raw_products = await cursor.to_list(1000)

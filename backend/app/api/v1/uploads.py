@@ -15,6 +15,9 @@ os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
 ALLOWED_IMAGE_EXTENSIONS = {".webp", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".bmp", ".tiff", ".avif", ".ico"}
 
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+MAX_DOC_SIZE_BYTES = 15 * 1024 * 1024   # 15MB
+
 @router.post("/image")
 async def upload_image(
     file: UploadFile = File(...),
@@ -29,6 +32,8 @@ async def upload_image(
         raise HTTPException(status_code=400, detail="Il file deve essere un'immagine")
         
     contents = await file.read()
+    if len(contents) > MAX_IMAGE_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="L'immagine supera la dimensione massima consentita di 10MB")
     
     # SVG images shouldn't be parsed by PIL as raster
     if ext == ".svg" or (file.content_type and "svg" in file.content_type):
@@ -70,6 +75,8 @@ async def upload_document(
         raise HTTPException(status_code=400, detail="Il documento deve essere in formato PDF")
         
     contents = await file.read()
+    if len(contents) > MAX_DOC_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="Il documento supera la dimensione massima consentita di 15MB")
     filename = f"{uuid.uuid4().hex}.pdf"
     file_path = os.path.join(settings.UPLOAD_DIR, filename)
     

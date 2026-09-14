@@ -47,6 +47,10 @@
             <span v-if="product.is_riserva" class="px-3 py-1 text-xs font-bold rounded-full bg-amber-700 text-white shadow-xs">
               Riserva
             </span>
+            <span v-if="isOrganicProduct(product)" class="px-3 py-1 text-xs font-bold rounded-full bg-emerald-700 text-white shadow-xs inline-flex items-center space-x-1">
+              <Leaf class="w-3.5 h-3.5 text-emerald-200" />
+              <span>Vino Biologico</span>
+            </span>
           </div>
           <div class="absolute top-4 right-4 z-10">
             <span :class="['px-3 py-1 text-xs font-semibold rounded-lg border shadow-xs', getCategoryBadgeClass(product.category)]">
@@ -86,6 +90,11 @@
 
           <!-- Quick Badges -->
           <div class="mt-6 flex flex-wrap items-center gap-3 text-sm font-medium text-stone-700 border-b border-stone-200/60 pb-6">
+            <span v-if="isOrganicProduct(product)" class="inline-flex items-center space-x-1.5 bg-emerald-50 text-emerald-900 px-3.5 py-1.5 rounded-xl border border-emerald-200 font-semibold shadow-2xs">
+              <Leaf class="w-4 h-4 text-emerald-700" />
+              <span>Vino Biologico</span>
+            </span>
+
             <span v-if="product.alcohol_degrees" class="inline-flex items-center space-x-1.5 bg-wine-50 text-wine-900 px-3.5 py-1.5 rounded-xl border border-wine-100 font-semibold">
               <Wine class="w-4 h-4 text-wine-800" />
               <span>{{ product.alcohol_degrees }}% Vol.</span>
@@ -293,12 +302,13 @@
 </template>
 
 <script setup>
-import { ShieldCheck, Pencil, Building2, Wine, Thermometer, Tag, Utensils, MessageSquare, FileDown, Eye, Sparkles, GlassWater, ChevronRight } from 'lucide-vue-next'
+import { ShieldCheck, Pencil, Building2, Wine, Thermometer, Tag, Utensils, MessageSquare, FileDown, Eye, Sparkles, GlassWater, ChevronRight, Leaf } from 'lucide-vue-next'
 
 const route = useRoute()
 const { fetchWithAuth, mediaBase } = useApi()
 const { user, isAdmin, isAuthenticated } = useAuth()
 const { formatCategory, getCategoryBadgeClass } = useCategoryBadge()
+const { isOrganicProduct } = useOrganic()
 
 const isModalOpen = ref(false)
 
@@ -310,6 +320,15 @@ const { data: product, pending } = await useAsyncData(`product_${route.params.sl
       return null
     }
     throw err
+  }
+})
+
+watchEffect(() => {
+  if (product.value) {
+    useSeoMeta({
+      title: `${product.value.name} - ${product.value.producer_name || 'EnotecaMolise'}`,
+      description: product.value.description || `Scopri ${product.value.name} prodotto da ${product.value.producer_name}. Scheda tecnica e dettagli enologici su EnotecaMolise.`
+    })
   }
 })
 

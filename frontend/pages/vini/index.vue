@@ -14,7 +14,7 @@
 
     <!-- Filters Bar -->
     <div class="bg-white rounded-2xl p-6 shadow-xs border border-stone-200/60 mb-12">
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
         
         <!-- Search Input -->
         <div>
@@ -63,6 +63,18 @@
           </select>
         </div>
 
+        <!-- Organic Filter -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1.5">Certificazione</label>
+          <select 
+            v-model="filters.organic" 
+            class="w-full border border-stone-200/80 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none"
+          >
+            <option value="">Tutte</option>
+            <option value="organic">Vino Biologico 🌿</option>
+          </select>
+        </div>
+
         <!-- Reset Button -->
         <div class="flex items-end">
           <button 
@@ -100,38 +112,82 @@
 <script setup>
 import { Search, RotateCcw, Wine } from 'lucide-vue-next'
 
+const route = useRoute()
+const router = useRouter()
 const { fetchWithAuth } = useApi()
+const { isOrganicProduct } = useOrganic()
+
+useSeoMeta({
+  title: 'Catalogo Vini del Molise - EnotecaMolise',
+  description: 'Esplora il catalogo completo dei vini molisani. Filtra per tipologia, denominazione, vini biologici e cantina.'
+})
 
 const filters = reactive({
   search: '',
   category: '',
-  denominazione: ''
+  denominazione: '',
+  organic: ''
+})
+
+const syncFiltersFromRoute = () => {
+  if (route.query.search !== undefined) filters.search = String(route.query.search || '')
+  if (route.query.category !== undefined) filters.category = String(route.query.category || '')
+  if (route.query.denominazione !== undefined) filters.denominazione = String(route.query.denominazione || '')
+  if (route.query.organic !== undefined) filters.organic = String(route.query.organic || '')
+}
+
+onMounted(() => {
+  syncFiltersFromRoute()
+})
+
+watch(() => route.query, () => {
+  syncFiltersFromRoute()
 })
 
 const resetFilters = () => {
   filters.search = ''
   filters.category = ''
   filters.denominazione = ''
+  filters.organic = ''
+  router.replace({ query: {} })
 }
 
 const { data: products, pending } = await useAsyncData('catalog_products', () => 
   fetchWithAuth('/products?status=PUBLISHED')
 )
 
+const matchProductWithSearch = (p, searchQuery) => {
+  if (!searchQuery || !searchQuery.trim()) return true
+  
+  const q = searchQuery.toLowerCase().trim()
+  const words = q.split(/\s+/).filter(Boolean)
+  const producerSlugSpaced = (p.producer_slug || '').replace(/-/g, ' ')
+  
+  const searchableText = [
+    p.name || '',
+    p.producer_name || '',
+    producerSlugSpaced,
+    p.denominazione || '',
+    p.category || '',
+    p.description || '',
+    p.vintage_year ? String(p.vintage_year) : '',
+    p.is_riserva ? 'riserva' : '',
+    (p.grape_varieties || []).join(' '),
+    isOrganicProduct(p) ? 'biologico bio organic' : '',
+    (p.custom_attributes || []).map(a => `${a.name || ''} ${a.value || ''}`).join(' ')
+  ].join(' ').toLowerCase()
+
+  if (searchableText.includes(q)) return true
+  return words.every(word => searchableText.includes(word))
+}
+
 const filteredProducts = computed(() => {
   if (!products.value) return []
   return products.value.filter(p => {
     if (filters.category && p.category !== filters.category) return false
     if (filters.denominazione && !p.denominazione.includes(filters.denominazione)) return false
-    if (filters.search) {
-      const q = filters.search.toLowerCase()
-      const nameMatch = p.name.toLowerCase().includes(q)
-      const descMatch = (p.description || '').toLowerCase().includes(q)
-      const denomMatch = (p.denominazione || '').toLowerCase().includes(q)
-      const riservaMatch = p.is_riserva && 'riserva'.includes(q)
-      const grapeMatch = (p.grape_varieties || []).some(g => g.toLowerCase().includes(q))
-      if (!nameMatch && !descMatch && !denomMatch && !riservaMatch && !grapeMatch) return false
-    }
+    if (filters.organic === 'organic' && !isOrganicProduct(p)) return false
+    if (filters.search && !matchProductWithSearch(p, filters.search)) return false
     return true
   })
 })

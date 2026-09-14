@@ -15,7 +15,7 @@
         </NuxtLink>
 
         <!-- Navigation Links -->
-        <nav class="hidden md:flex items-center space-x-8 text-sm font-medium tracking-wide">
+        <nav class="hidden md:flex items-center space-x-6 lg:space-x-8 text-sm font-medium tracking-wide">
           <NuxtLink to="/" class="text-stone-600 hover:text-wine-800 transition-colors py-1 border-b-2 border-transparent" active-class="text-wine-800 font-semibold border-wine-800">
             Home
           </NuxtLink>
@@ -30,12 +30,31 @@
           </NuxtLink>
         </nav>
 
-        <!-- User Actions / Login -->
-        <div class="flex items-center space-x-4">
+        <!-- User Actions & Search -->
+        <div class="flex items-center space-x-3">
+          <!-- Search Trigger Button -->
+          <button 
+            @click="isSearchOpen = true"
+            class="hidden sm:flex items-center space-x-2.5 px-3.5 py-2 bg-stone-100/80 hover:bg-stone-100 text-stone-500 rounded-xl text-xs font-medium border border-stone-200/60 transition-all hover:text-stone-900 group shadow-2xs"
+            title="Cerca vino o cantina (Ctrl+K)"
+          >
+            <Search class="w-3.5 h-3.5 text-stone-400 group-hover:text-wine-800 transition-colors" />
+            <span>Cerca vino o cantina...</span>
+            <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-stone-400 bg-white border border-stone-200 rounded shadow-2xs">⌘K</kbd>
+          </button>
+
+          <button 
+            @click="isSearchOpen = true"
+            class="sm:hidden p-2.5 text-stone-600 hover:text-wine-800 transition-colors rounded-xl bg-stone-100/60 border border-stone-200/50"
+            title="Cerca"
+          >
+            <Search class="w-4 h-4" />
+          </button>
+
           <template v-if="isAuthenticated">
             <NuxtLink to="/dashboard" class="inline-flex items-center space-x-2 px-4 py-2.5 text-sm font-semibold rounded-xl text-white bg-wine-800 hover:bg-wine-900 transition-all shadow-xs">
               <LayoutDashboard class="w-4 h-4 text-amber-200" />
-              <span>{{ isAdmin ? 'Dashboard Admin' : 'Area Produttore' }}</span>
+              <span class="hidden md:inline">{{ isAdmin ? 'Dashboard Admin' : 'Area Produttore' }}</span>
             </NuxtLink>
             <button @click="logout" class="p-2 text-stone-500 hover:text-wine-800 transition-colors" title="Esci">
               <LogOut class="w-4 h-4" />
@@ -51,10 +70,26 @@
 
       </div>
     </div>
+
+    <!-- Global Search Modal -->
+    <GlobalSearchModal :is-open="isSearchOpen" @close="isSearchOpen = false" />
   </header>
 </template>
 
 <script setup>
-import { Wine, LayoutDashboard, LogOut, LogIn } from 'lucide-vue-next'
+import { Wine, LayoutDashboard, LogOut, LogIn, Search } from 'lucide-vue-next'
+
 const { isAuthenticated, isAdmin, logout } = useAuth()
+const isSearchOpen = ref(false)
+
+onMounted(() => {
+  const handleKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault()
+      isSearchOpen.value = true
+    }
+  }
+  window.addEventListener('keydown', handleKeyDown)
+  onUnmounted(() => window.removeEventListener('keydown', handleKeyDown))
+})
 </script>

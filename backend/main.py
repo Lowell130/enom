@@ -51,6 +51,33 @@ async def startup_event():
     await connect_to_mongo()
     db = await get_database()
     
+    # 0. Database Indexes for Maximum Performance
+    indexes_to_create = [
+        (db.products, "slug", {"unique": True}),
+        (db.products, "producer_id", {}),
+        (db.products, "status", {}),
+        (db.products, "category", {}),
+        (db.producers, "slug", {"unique": True}),
+        (db.producers, "status", {}),
+        (db.users, "email", {"unique": True}),
+        (db.attributes, "name", {}),
+    ]
+
+    for collection, field, kwargs in indexes_to_create:
+        try:
+            await collection.create_index(field, **kwargs)
+        except Exception as e:
+            err_str = str(e)
+            if "IndexKeySpecsConflict" in err_str or "86" in err_str:
+                try:
+                    await collection.drop_index(f"{field}_1")
+                    await collection.create_index(field, **kwargs)
+                except Exception:
+                    try:
+                        await collection.create_index(field)
+                    except Exception:
+                        pass
+
     # 1. Clean up & Seed Master Attributes
     await db.attributes.delete_many({
         "name": {"$regex": "^(Denominazione|Grado Alcolico|Gradazione Alcolica|Temperatura di Servizio)$", "$options": "i"}
@@ -88,6 +115,16 @@ async def startup_event():
             "created_at": datetime.utcnow()
         })
         print(f"Default Admin created: {admin_email} / AdminPass2026!")
+
+    # 2b. Ensure cantina@valbiferno.it is linked to producer
+    valbiferno_producer = await db.producers.find_one({"$or": [{"company_name": {"$regex": "valbiferno", "$options": "i"}}, {"slug": "cantine-valbiferno"}]})
+    if valbiferno_producer:
+        valbiferno_user = await db.users.find_one({"email": "cantina@valbiferno.it"})
+        if valbiferno_user and (not valbiferno_user.get("producer_id") or str(valbiferno_user.get("producer_id")) != str(valbiferno_producer["_id"])):
+            await db.users.update_one(
+                {"_id": valbiferno_user["_id"]},
+                {"$set": {"producer_id": valbiferno_producer["_id"], "role": "PRODUCER"}}
+            )
 
     # Update Castropignano / Il Colle Tinto exact geo_coordinates in DB
     await db.producers.update_many(
@@ -217,7 +254,8 @@ async def startup_event():
                 "indicative_price": "24.00€",
                 "photos": ["https://images.unsplash.com/photo-1558001373-7b9fcc986b26?auto=format&fit=crop&w=600&q=80"],
                 "custom_attributes": [
-                    {"name": "Denominazione", "value": "DOC"},
+                    {"name": "Tipo", "value": "Vino Biologico"},
+                    {"name": "Denominazione", "value": "Tintilia del Molise DOC"},
                     {"name": "Uvaggio", "value": "Tintilia 100%"},
                     {"name": "Grado Alcolico", "value": "14.5% vol"},
                     {"name": "Vinificazione", "value": "Acciaio inox a temperatura controllata"},

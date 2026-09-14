@@ -21,7 +21,27 @@
             Dalla Tintilia autoctona ai grandi Rossi del Biferno e Spumanti raffinati. Il portale che connette direttamente gli appassionati con le migliori cantine del Molise.
           </p>
 
-          <div class="pt-4 flex flex-wrap gap-4">
+          <!-- Interactive Hero Search Input -->
+          <div class="pt-2 max-w-xl">
+            <form @submit.prevent="handleHeroSearch" class="relative flex items-center">
+              <Search class="w-5 h-5 text-amber-300 absolute left-4 pointer-events-none" />
+              <input 
+                v-model="heroQuery"
+                type="text"
+                placeholder="Cerca vino, cantina, vitigno (es. Tintilia, Biferno, Biologico)..."
+                class="w-full bg-white/10 hover:bg-white/15 focus:bg-white/20 text-white placeholder-stone-300 text-sm sm:text-base rounded-2xl pl-12 pr-28 py-3.5 border border-white/25 focus:border-amber-400/80 focus:outline-none backdrop-blur-md transition-all shadow-lg"
+              />
+              <button 
+                type="submit"
+                class="absolute right-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center space-x-1"
+              >
+                <span>Cerca</span>
+                <ArrowRight class="w-3.5 h-3.5" />
+              </button>
+            </form>
+          </div>
+
+          <div class="pt-2 flex flex-wrap gap-4">
             <NuxtLink to="/vini" class="inline-flex items-center space-x-2 px-8 py-4 bg-amber-700 hover:bg-amber-800 text-white font-semibold text-sm rounded-xl shadow-md transition-all hover:scale-105">
               <span>Esplora i Vini</span>
               <ArrowRight class="w-4 h-4" />
@@ -117,8 +137,25 @@
 </template>
 
 <script setup>
-import { Sparkles, ArrowRight, Building2 } from 'lucide-vue-next'
+import { Sparkles, ArrowRight, Building2, Search } from 'lucide-vue-next'
+
+const router = useRouter()
 const { fetchWithAuth } = useApi()
+
+useSeoMeta({
+  title: 'EnotecaMolise - I Grandi Vini del Molise & Le Cantine Molisane',
+  description: 'Scopri i migliori vini del Molise: Tintilia, Biferno, Pentro e Spumanti. Connettiti direttamente con le cantine molisane.'
+})
+
+const heroQuery = ref('')
+
+const handleHeroSearch = () => {
+  if (heroQuery.value.trim()) {
+    router.push(`/vini?search=${encodeURIComponent(heroQuery.value.trim())}`)
+  } else {
+    router.push('/vini')
+  }
+}
 
 const { data: products, pending: pendingProducts } = await useAsyncData('home_products', () => 
   fetchWithAuth('/products?status=PUBLISHED')

@@ -6,6 +6,7 @@
       <img 
         :src="coverImage" 
         :alt="producer.company_name" 
+        loading="lazy"
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-75"
       />
       <div class="absolute inset-0 bg-gradient-to-t from-stone-900/60 via-stone-900/20 to-transparent"></div>
@@ -16,7 +17,7 @@
       <div>
         <div class="flex items-end space-x-4 mb-4">
           <div class="w-16 h-16 -mt-8 rounded-xl bg-white p-1 shadow-md border border-stone-100/90 overflow-hidden flex-shrink-0 relative z-10">
-            <img :src="logoImage" :alt="producer.company_name" class="w-full h-full object-cover rounded-lg" />
+            <img :src="logoImage" :alt="producer.company_name" loading="lazy" class="w-full h-full object-cover rounded-lg" />
           </div>
           <div class="pt-3 min-w-0 flex-1">
             <h3 class="font-serif text-xl font-bold text-stone-900 leading-snug group-hover:text-wine-800 transition-colors truncate">
