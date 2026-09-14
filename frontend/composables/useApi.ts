@@ -21,7 +21,7 @@ export const useApi = () => {
         headers,
       })
     } catch (err: any) {
-      console.error(`API Error on ${endpoint}:`, err)
+      console.error(`API Error on ${endpoint}: ${err?.message || err}`)
       throw err
     }
   }

@@ -164,11 +164,11 @@ async def startup_event():
         sample_products = [
             {
                 "producer_id": inserted_p1.inserted_id,
-                "name": "Biferno Rosso Riserva DOC",
-                "slug": "biferno-rosso-riserva-doc-2018",
+                "name": "Biferno Rosso Riserva",
+                "slug": "biferno-rosso-riserva",
                 "category": "VINO_ROSSO",
-                "denominazione": "Biferno Rosso Riserva DOC",
-                "vintage_year": 2018,
+                "denominazione": "DOC",
+                "vintage_year": None,
                 "alcohol_degrees": 14.0,
                 "grape_varieties": ["Montepulciano 80%", "Aglianico 20%"],
                 "description": "Rosso di grande struttura affinato 24 mesi in botti di rovere. Profumi intensi di mora selvatica, vaniglia e spezie mediterranee.",
@@ -182,7 +182,7 @@ async def startup_event():
                 "indicative_price": "18.00€ - 22.00€",
                 "photos": ["https://images.unsplash.com/photo-1586370434639-0fe43b2d32e6?auto=format&fit=crop&w=600&q=80"],
                 "custom_attributes": [
-                    {"name": "Denominazione", "value": "Biferno Rosso Riserva DOC"},
+                    {"name": "Denominazione", "value": "DOC"},
                     {"name": "Uvaggio", "value": "Montepulciano 80%, Aglianico 20%"},
                     {"name": "Grado Alcolico", "value": "14.0% vol"},
                     {"name": "Vinificazione", "value": "Acciaio e affinamento 24 mesi in rovere"},
@@ -199,11 +199,11 @@ async def startup_event():
             },
             {
                 "producer_id": inserted_p2.inserted_id,
-                "name": "Tintilia del Molise DOC Purezza",
-                "slug": "tintilia-del-molise-doc-purezza-2020",
+                "name": "Tintilia del Molise Purezza",
+                "slug": "tintilia-del-molise-purezza",
                 "category": "VINO_ROSSO",
-                "denominazione": "Tintilia del Molise DOC",
-                "vintage_year": 2020,
+                "denominazione": "DOC",
+                "vintage_year": None,
                 "alcohol_degrees": 14.5,
                 "grape_varieties": ["Tintilia 100%"],
                 "description": "L'espressione pura del vitigno autoctono molisano per eccellenza. Vinificazione in acciaio per preservare l'aroma primario speziato.",
@@ -217,7 +217,7 @@ async def startup_event():
                 "indicative_price": "24.00€",
                 "photos": ["https://images.unsplash.com/photo-1558001373-7b9fcc986b26?auto=format&fit=crop&w=600&q=80"],
                 "custom_attributes": [
-                    {"name": "Denominazione", "value": "Tintilia del Molise DOC"},
+                    {"name": "Denominazione", "value": "DOC"},
                     {"name": "Uvaggio", "value": "Tintilia 100%"},
                     {"name": "Grado Alcolico", "value": "14.5% vol"},
                     {"name": "Vinificazione", "value": "Acciaio inox a temperatura controllata"},
@@ -236,6 +236,11 @@ async def startup_event():
         
         await db.products.insert_many(sample_products)
         print("Sample data seeded successfully!")
+
+    # 4. Automatic Catalog Migration: Clean up titles, slugs and ensure Senza Annata (S.A.)
+    migrated_count = await products.run_products_cleanup_migration(db)
+    if migrated_count > 0:
+        print(f"Catalog migration: {migrated_count} existing wines updated to Senza Annata (S.A.) and clean slugs.")
 
 @app.on_event("shutdown")
 async def shutdown_event():

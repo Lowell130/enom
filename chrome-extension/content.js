@@ -198,7 +198,12 @@ function extractWineDataFromPage() {
   // Name
   const ogTitle = document.querySelector('meta[property="og:title"]')?.content;
   const h1Text = document.querySelector('h1')?.innerText?.trim();
-  data.name = (ogTitle || h1Text || document.title || "").replace(/[\r\n]+/g, ' ').trim();
+  let rawName = (ogTitle || h1Text || document.title || "").replace(/[\r\n]+/g, ' ').trim();
+  data.name = rawName
+    .replace(/\b(d\.?o\.?c\.?g\.?|d\.?o\.?c\.?|i\.?g\.?t\.?|i\.?g\.?p\.?|d\.?o\.?p\.?)\b/gi, '')
+    .replace(/\b(19\d{2}|20\d{2})\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   // Description
   const ogDesc = document.querySelector('meta[property="og:description"]')?.content ||

@@ -14,8 +14,8 @@
         <span class="px-3 py-1 text-xs font-bold tracking-wider uppercase rounded-full bg-wine-800 text-white shadow-xs">
           {{ product.denominazione }}
         </span>
-        <span v-if="product.vintage_year || product.is_riserva" class="px-3 py-1 text-xs font-bold rounded-full bg-amber-700 text-white shadow-xs">
-          {{ product.vintage_year && product.is_riserva ? `${product.vintage_year} Riserva` : (product.vintage_year || 'Riserva') }}
+        <span v-if="product.is_riserva" class="px-3 py-1 text-xs font-bold rounded-full bg-amber-700 text-white shadow-xs">
+          Riserva
         </span>
       </div>
 

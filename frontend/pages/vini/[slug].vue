@@ -44,8 +44,8 @@
             <span class="px-3 py-1 text-xs font-bold rounded-full bg-wine-800 text-white shadow-xs">
               {{ product.denominazione }}
             </span>
-            <span v-if="product.vintage_year || product.is_riserva" class="px-3 py-1 text-xs font-bold rounded-full bg-amber-700 text-white shadow-xs">
-              {{ product.vintage_year && product.is_riserva ? `Annata ${product.vintage_year} - Riserva` : (product.vintage_year ? `Annata ${product.vintage_year}` : 'Riserva') }}
+            <span v-if="product.is_riserva" class="px-3 py-1 text-xs font-bold rounded-full bg-amber-700 text-white shadow-xs">
+              Riserva
             </span>
           </div>
           <div class="absolute top-4 right-4 z-10">
@@ -276,6 +276,20 @@
     />
 
   </div>
+
+  <!-- Fallback if Product Not Found (404) -->
+  <div v-else class="py-24 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+    <div class="w-16 h-16 rounded-2xl bg-wine-50 text-wine-800 flex items-center justify-center mx-auto mb-4 border border-wine-100 shadow-2xs">
+      <Wine class="w-8 h-8" />
+    </div>
+    <h1 class="font-serif text-3xl sm:text-4xl font-bold text-stone-900 mb-2">Vino non trovato</h1>
+    <p class="text-stone-600 mb-8 font-light text-base max-w-md mx-auto">
+      La scheda del vino richiesta potrebbe non essere ancora presente nel catalogo o lo slug specificato non è corretto.
+    </p>
+    <NuxtLink to="/vini" class="inline-flex items-center space-x-2 px-6 py-3 bg-wine-800 hover:bg-wine-900 text-white font-semibold text-sm rounded-xl transition-all shadow-xs">
+      <span>Torna al catalogo vini</span>
+    </NuxtLink>
+  </div>
 </template>
 
 <script setup>
@@ -288,9 +302,16 @@ const { formatCategory, getCategoryBadgeClass } = useCategoryBadge()
 
 const isModalOpen = ref(false)
 
-const { data: product, pending } = await useAsyncData(`product_${route.params.slug}`, () => 
-  fetchWithAuth(`/products/${route.params.slug}`)
-)
+const { data: product, pending } = await useAsyncData(`product_${route.params.slug}`, async () => {
+  try {
+    return await fetchWithAuth(`/products/${route.params.slug}`)
+  } catch (err) {
+    if (err?.statusCode === 404 || err?.status === 404 || err?.response?.status === 404) {
+      return null
+    }
+    throw err
+  }
+})
 
 const { data: wineryProducts } = await useAsyncData(`winery_products_${route.params.slug}`, async () => {
   if (!product.value?.producer_id) return []
@@ -327,16 +348,8 @@ const displaySpecs = computed(() => {
   if (product.value.denominazione && !customMap.has('denominazione')) {
     list.push({ name: 'Denominazione', value: product.value.denominazione })
   }
-  if ((product.value.vintage_year || product.value.is_riserva) && !customMap.has('annata') && !customMap.has('annata vendemmia')) {
-    let yearVal = ''
-    if (product.value.vintage_year && product.value.is_riserva) {
-      yearVal = `${product.value.vintage_year} Riserva`
-    } else if (product.value.vintage_year) {
-      yearVal = String(product.value.vintage_year)
-    } else if (product.value.is_riserva) {
-      yearVal = 'Riserva'
-    }
-    list.push({ name: 'Annata / Tipologia', value: yearVal })
+  if (product.value.is_riserva && !customMap.has('menzione') && !customMap.has('riserva')) {
+    list.push({ name: 'Menzione', value: 'Riserva' })
   }
   if (product.value.grape_varieties && product.value.grape_varieties.length && !customMap.has('uvaggio') && !customMap.has('vitigni')) {
     list.push({ name: 'Uvaggio', value: product.value.grape_varieties.join(', ') })

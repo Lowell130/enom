@@ -144,8 +144,14 @@ function normalizeFieldValue(fieldId, rawValue, attrName = null) {
   }
 
   switch (fieldId) {
-    case 'name':
-      return toTitleCase(val);
+    case 'name': {
+      let cleaned = val
+        .replace(/\b(d\.?o\.?c\.?g\.?|d\.?o\.?c\.?|i\.?g\.?t\.?|i\.?g\.?p\.?|d\.?o\.?p\.?)\b/gi, '')
+        .replace(/\b(19\d{2}|20\d{2})\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return toTitleCase(cleaned || val);
+    }
 
     case 'denominazione':
       const upper = val.toUpperCase().replace(/\./g, '');
