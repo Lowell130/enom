@@ -161,9 +161,10 @@ const matchProductWithSearch = (p, searchQuery) => {
   if (!searchQuery || !searchQuery.trim()) return true
   
   const q = searchQuery.toLowerCase().trim()
-  const words = q.split(/\s+/).filter(Boolean)
+  const words = q.split(/\s+/).filter(w => w.length > 2)
   const producerSlugSpaced = (p.producer_slug || '').replace(/-/g, ' ')
   
+  const pairingsText = (p.food_pairings || []).join(' ').toLowerCase()
   const searchableText = [
     p.name || '',
     p.producer_name || '',
@@ -174,12 +175,23 @@ const matchProductWithSearch = (p, searchQuery) => {
     p.vintage_year ? String(p.vintage_year) : '',
     p.is_riserva ? 'riserva' : '',
     (p.grape_varieties || []).join(' '),
+    pairingsText,
     isOrganicProduct(p) ? 'biologico bio organic' : '',
     (p.custom_attributes || []).map(a => `${a.name || ''} ${a.value || ''}`).join(' ')
   ].join(' ').toLowerCase()
 
   if (searchableText.includes(q)) return true
-  return words.every(word => searchableText.includes(word))
+  if (words.length === 0) return searchableText.includes(q)
+
+  const allWordsMatch = words.every(word => searchableText.includes(word))
+  if (allWordsMatch) return true
+
+  if (p.food_pairings && p.food_pairings.length > 0) {
+    const matchingPairingWords = words.filter(word => pairingsText.includes(word))
+    if (matchingPairingWords.length >= Math.min(2, words.length)) return true
+  }
+
+  return false
 }
 
 const filteredProducts = computed(() => {

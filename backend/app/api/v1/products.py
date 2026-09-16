@@ -321,6 +321,7 @@ async def get_products(
             {"description": {"$regex": escaped_search, "$options": "i"}},
             {"denominazione": {"$regex": escaped_search, "$options": "i"}},
             {"grape_varieties": {"$elemMatch": {"$regex": escaped_search, "$options": "i"}}},
+            {"food_pairings": {"$elemMatch": {"$regex": escaped_search, "$options": "i"}}},
             {"custom_attributes.value": {"$regex": escaped_search, "$options": "i"}},
             {"custom_attributes.name": {"$regex": escaped_search, "$options": "i"}}
         ]
@@ -407,6 +408,16 @@ async def export_products_json(
         headers={"Content-Disposition": "attachment; filename=catalogo_vini.json"}
     )
 
+ILLEGAL_CHARACTERS_RE = re.compile(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x84\x86-\x9F]')
+
+def clean_excel_val(val):
+    if val is None:
+        return ""
+    if isinstance(val, (int, float, bool)):
+        return val
+    val_str = str(val)
+    return ILLEGAL_CHARACTERS_RE.sub("", val_str)
+
 @router.get("/export/excel")
 async def export_products_excel(
     current_user: dict = Depends(get_current_user),
@@ -422,7 +433,7 @@ async def export_products_excel(
     products = []
     for doc in raw_products:
         doc["id"] = str(doc["_id"])
-        doc["producer_id"] = str(doc["producer_id"])
+        doc["producer_id"] = str(doc.get("producer_id", ""))
         prod_obj = producer_map.get(doc["producer_id"])
         if prod_obj:
             doc["producer_name"] = prod_obj.get("company_name", "")
@@ -463,7 +474,7 @@ async def export_products_excel(
 
     headers = base_headers + attr_names + ["Stato"]
 
-    ws.append(headers)
+    ws.append([clean_excel_val(h) for h in headers])
 
     header_fill = PatternFill(start_color="581C26", end_color="581C26", fill_type="solid")
     header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
@@ -512,7 +523,9 @@ async def export_products_excel(
             row_data.append(attr_val_map.get(aname, ""))
 
         row_data.append(p.get("status", "PUBLISHED"))
-        ws.append(row_data)
+        
+        clean_row = [clean_excel_val(v) for v in row_data]
+        ws.append(clean_row)
 
     for col in ws.columns:
         max_len = 0

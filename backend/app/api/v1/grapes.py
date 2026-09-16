@@ -20,22 +20,30 @@ class GrapeResponse(GrapeCreate):
     id: str
 
 DEFAULT_GRAPES_SEED = [
-    {"name": "Tintilia", "category": "AUTOCTONO"},
-    {"name": "Montepulciano", "category": "AUTOCTONO"},
-    {"name": "Trebbiano del Molise", "category": "AUTOCTONO"},
-    {"name": "Malvasia", "category": "AUTOCTONO"},
     {"name": "Aglianico", "category": "AUTOCTONO"},
-    {"name": "Falanghina", "category": "AUTOCTONO"},
-    {"name": "Sangiovese", "category": "AUTOCTONO"},
     {"name": "Bombino Bianco", "category": "AUTOCTONO"},
-    {"name": "Greco", "category": "AUTOCTONO"},
+    {"name": "Cabernet Sauvignon", "category": "INTERNAZIONALE"},
     {"name": "Cerasuolo", "category": "AUTOCTONO"},
     {"name": "Chardonnay", "category": "INTERNAZIONALE"},
-    {"name": "Cabernet Sauvignon", "category": "INTERNAZIONALE"},
+    {"name": "Falanghina", "category": "AUTOCTONO"},
+    {"name": "Garganega", "category": "AUTOCTONO"},
+    {"name": "Garganica", "category": "AUTOCTONO"},
+    {"name": "Greco", "category": "AUTOCTONO"},
+    {"name": "Malvasia", "category": "AUTOCTONO"},
     {"name": "Merlot", "category": "INTERNAZIONALE"},
-    {"name": "Syrah", "category": "INTERNAZIONALE"},
+    {"name": "Montepulciano", "category": "AUTOCTONO"},
+    {"name": "Moscato", "category": "AUTOCTONO"},
+    {"name": "Moscato Bianco", "category": "AUTOCTONO"},
+    {"name": "Moscato Reale", "category": "AUTOCTONO"},
+    {"name": "Pinot Grigio", "category": "INTERNAZIONALE"},
     {"name": "Pinot Nero", "category": "INTERNAZIONALE"},
-    {"name": "Sauvignon Blanc", "category": "INTERNAZIONALE"}
+    {"name": "Riesling", "category": "INTERNAZIONALE"},
+    {"name": "Sangiovese", "category": "AUTOCTONO"},
+    {"name": "Sauvignon Blanc", "category": "INTERNAZIONALE"},
+    {"name": "Syrah", "category": "INTERNAZIONALE"},
+    {"name": "Tintilia", "category": "AUTOCTONO"},
+    {"name": "Trebbiano", "category": "AUTOCTONO"},
+    {"name": "Trebbiano del Molise", "category": "AUTOCTONO"}
 ]
 
 @router.get("", response_model=List[GrapeResponse])

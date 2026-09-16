@@ -453,9 +453,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (grapesDatalist) {
             grapesDatalist.innerHTML = '';
             grapesData.forEach(g => {
-              const opt = document.createElement('option');
-              opt.value = g.name;
-              grapesDatalist.appendChild(opt);
+              if (g && g.name && !g.name.includes('-') && !g.name.toLowerCase().includes('in purezza') && !g.name.toLowerCase().includes('passito') && !g.name.toLowerCase().includes('uve bianche')) {
+                const opt = document.createElement('option');
+                opt.value = g.name;
+                grapesDatalist.appendChild(opt);
+              }
             });
           }
           renderGrapesQuickPills(grapesData);
@@ -568,7 +570,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!container || !grapesData) return;
     container.innerHTML = '';
     
+    // Filter out combined or legacy multi-grape entries
+    const singleGrapesOnly = [];
     grapesData.forEach(g => {
+      if (!g || !g.name) return;
+      const n = g.name.trim();
+      if (n.includes('-') || n.toLowerCase().includes(' in purezza') || n.toLowerCase().includes(' passito') || n.toLowerCase().includes('uve bianche')) {
+        return;
+      }
+      if (!singleGrapesOnly.some(x => x.name.toLowerCase() === n.toLowerCase())) {
+        singleGrapesOnly.push(g);
+      }
+    });
+
+    singleGrapesOnly.forEach(g => {
       const pill = document.createElement('button');
       pill.type = 'button';
       pill.className = 'val-pill';
