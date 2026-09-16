@@ -4,14 +4,8 @@
       <div class="flex justify-between items-center h-20">
         
         <!-- Logo -->
-        <NuxtLink to="/" class="flex items-center space-x-3 group">
-          <div class="w-10 h-10 rounded-full bg-wine-800 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
-            <Wine class="w-5 h-5 text-amber-200" />
-          </div>
-          <div class="flex flex-col">
-            <span class="font-serif text-2xl font-semibold tracking-tight text-stone-900 leading-none group-hover:text-wine-800 transition-colors">EnotecaMolise</span>
-            <span class="text-[11px] tracking-widest uppercase font-medium text-stone-500 mt-1">I Vini del Molise</span>
-          </div>
+        <NuxtLink to="/">
+          <AppLogo variant="light" />
         </NuxtLink>
 
         <!-- Navigation Links -->

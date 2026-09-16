@@ -160,9 +160,10 @@ const newPairing = reactive({
 
 const editingPairing = ref(null)
 
-const { data: pairings, pending, refresh } = await useAsyncData('master_pairings_admin', () => 
-  fetchWithAuth('/pairings')
-)
+const { data: pairings, pending, refresh } = await useAsyncData('master_pairings_admin', async () => {
+  const res = await fetchWithAuth('/pairings')
+  return res || []
+}, { default: () => [] })
 
 const toast = useToast()
 

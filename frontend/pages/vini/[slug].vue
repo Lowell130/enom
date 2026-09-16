@@ -314,14 +314,12 @@ const isModalOpen = ref(false)
 
 const { data: product, pending } = await useAsyncData(`product_${route.params.slug}`, async () => {
   try {
-    return await fetchWithAuth(`/products/${route.params.slug}`)
+    const res = await fetchWithAuth(`/products/${route.params.slug}`)
+    return res || null
   } catch (err) {
-    if (err?.statusCode === 404 || err?.status === 404 || err?.response?.status === 404) {
-      return null
-    }
-    throw err
+    return null
   }
-})
+}, { default: () => null })
 
 watchEffect(() => {
   if (product.value) {
@@ -400,7 +398,7 @@ const mainImage = computed(() => {
     const url = product.value.photos[0]
     return url.startsWith('http') ? url : `${mediaBase}${url}`
   }
-  return 'https://images.unsplash.com/photo-1586370434639-0fe43b2d32e6?auto=format&fit=crop&w=600&q=80'
+  return '/default_wine_bottle.jpg'
 })
 
 const pdfUrl = computed(() => {

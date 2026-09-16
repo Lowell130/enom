@@ -198,7 +198,8 @@ onMounted(() => {
 })
 
 const { data: stats } = await useAsyncData('admin_stats', async () => {
-  if (!isAdmin.value) return null
-  return await fetchWithAuth('/admin/stats')
-})
+  if (!isAdmin.value) return {}
+  const res = await fetchWithAuth('/admin/stats')
+  return res || {}
+}, { default: () => ({}) })
 </script>

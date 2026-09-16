@@ -452,9 +452,10 @@ useHead({
   ]
 })
 
-const { data: reportData, pending } = await useAsyncData('reports_summary', () => 
-  fetchWithAuth('/reports/summary')
-)
+const { data: reportData, pending } = await useAsyncData('reports_summary', async () => {
+  const res = await fetchWithAuth('/reports/summary')
+  return res || null
+}, { default: () => null })
 
 // Helpers
 const getCategoryLabel = (cat) => {

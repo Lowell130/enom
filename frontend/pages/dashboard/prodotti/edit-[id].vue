@@ -644,6 +644,7 @@ const syncGrapesInputFromList = () => {
 
 const { data: productData, pending } = await useAsyncData(`fetch_product_${productId}`, async () => {
   const prod = await fetchWithAuth(`/products/${productId}`)
+  if (!prod) return null
 
   const myProducerId = user.value?.producer_id || user.value?.producer?.id
   if (!isAdmin.value && myProducerId && String(prod.producer_id) !== String(myProducerId)) {
@@ -712,7 +713,7 @@ const { data: productData, pending } = await useAsyncData(`fetch_product_${produ
     custom_name_input: ''
   }))
   return prod
-})
+}, { default: () => null })
 
 const handleAttributeNameChange = (attr) => {
   if (attr.name === '__NEW__') {

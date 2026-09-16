@@ -1,74 +1,109 @@
 <template>
-  <div class="bg-white rounded-2xl border border-stone-200/60 shadow-xs hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col group">
+  <div class="bg-white rounded-xl border border-stone-200/80 shadow-2xs hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group">
     
-    <!-- Cover Image -->
-    <div class="h-44 bg-wine-950 relative overflow-hidden">
+    <!-- Cover Header -->
+    <div class="h-48 sm:h-52 bg-stone-950 relative overflow-hidden">
       <img 
         :src="coverImage" 
         :alt="producer.company_name" 
         loading="lazy"
-        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-75"
+        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-80"
       />
-      <div class="absolute inset-0 bg-gradient-to-t from-stone-900/60 via-stone-900/20 to-transparent"></div>
+      <div class="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/30 to-transparent"></div>
+
+      <!-- Top Badges Overlay (Crisp Badges, No Super Rounded Pills) -->
+      <div class="absolute top-4 left-4 right-4 flex items-center justify-between z-10 gap-2">
+        <span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-stone-950/80 backdrop-blur-md text-amber-200 border border-amber-400/30 text-xs font-semibold">
+          <MapPin class="w-3.5 h-3.5 text-amber-400" />
+          <span>{{ producer.address?.city || 'Molise' }} ({{ producer.address?.province || 'CB' }})</span>
+        </span>
+
+        <span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-wine-900/90 backdrop-blur-md text-white border border-wine-400/30 text-xs font-bold">
+          <Wine class="w-3.5 h-3.5 text-amber-300" />
+          <span>{{ producer.product_count || 0 }} {{ producer.product_count === 1 ? 'Vino' : 'Vini' }}</span>
+        </span>
+      </div>
+
+      <!-- Bottom-Right Contact Icons on Cover -->
+      <div class="absolute bottom-3 right-4 flex items-center space-x-1.5 z-10">
+        <a 
+          v-if="producer.contacts?.website"
+          :href="formatWebsiteUrl(producer.contacts.website)"
+          target="_blank"
+          class="p-2 text-stone-200 hover:text-white bg-stone-900/70 hover:bg-wine-800 backdrop-blur-md rounded-md border border-white/20 transition-all"
+          title="Sito Web Cantina"
+        >
+          <Globe class="w-3.5 h-3.5" />
+        </a>
+
+        <a 
+          v-if="producer.contacts?.whatsapp_number"
+          :href="getWhatsAppUrl({ number: producer.contacts.whatsapp_number, companyName: producer.company_name })"
+          target="_blank"
+          class="p-2 text-emerald-300 hover:text-white bg-emerald-950/70 hover:bg-emerald-700 backdrop-blur-md rounded-md border border-emerald-400/30 transition-all"
+          title="WhatsApp Diretto"
+        >
+          <MessageSquare class="w-3.5 h-3.5" />
+        </a>
+
+        <a 
+          v-if="producer.contacts?.instagram"
+          :href="formatSocialUrl(producer.contacts.instagram, 'instagram')"
+          target="_blank"
+          class="p-2 text-pink-300 hover:text-white bg-stone-900/70 hover:bg-pink-700 backdrop-blur-md rounded-md border border-white/20 transition-all"
+          title="Instagram Cantina"
+        >
+          <Instagram class="w-3.5 h-3.5" />
+        </a>
+
+        <a 
+          v-if="producer.contacts?.facebook"
+          :href="formatSocialUrl(producer.contacts.facebook, 'facebook')"
+          target="_blank"
+          class="p-2 text-blue-300 hover:text-white bg-stone-900/70 hover:bg-blue-700 backdrop-blur-md rounded-md border border-white/20 transition-all"
+          title="Facebook Cantina"
+        >
+          <Facebook class="w-3.5 h-3.5" />
+        </a>
+      </div>
     </div>
 
-    <!-- Content -->
-    <div class="p-6 pt-0 flex-1 flex flex-col justify-between relative z-10">
+    <!-- Card Content -->
+    <div class="px-6 pb-6 pt-0 flex-1 flex flex-col justify-between relative z-10">
       <div>
-        <div class="flex items-end space-x-4 mb-4">
-          <div class="w-16 h-16 -mt-8 rounded-xl bg-white p-1 shadow-md border border-stone-100/90 overflow-hidden flex-shrink-0 relative z-10">
+        <!-- Logo overlapping cover image -->
+        <div class="-mt-10 mb-3 relative z-10 flex items-end">
+          <div class="w-20 h-20 rounded-xl bg-white p-1.5 shadow-md border border-stone-200 overflow-hidden flex-shrink-0 group-hover:border-wine-800 transition-colors">
             <img :src="logoImage" :alt="producer.company_name" loading="lazy" class="w-full h-full object-cover rounded-lg" />
-          </div>
-          <div class="pt-3 min-w-0 flex-1">
-            <h3 class="font-serif text-xl font-bold text-stone-900 leading-snug group-hover:text-wine-800 transition-colors truncate">
-              {{ producer.company_name }}
-            </h3>
-            <p class="text-xs text-stone-500 font-medium inline-flex items-center space-x-1 mt-1">
-              <MapPin class="w-3.5 h-3.5 text-wine-800 flex-shrink-0" />
-              <span class="truncate">{{ producer.address?.city || 'Molise' }} ({{ producer.address?.province || 'CB' }})</span>
-            </p>
           </div>
         </div>
 
-        <p class="text-sm text-stone-600 line-clamp-3 leading-relaxed mt-2 font-light">
-          {{ producer.description }}
+        <!-- Winery Name -->
+        <NuxtLink :to="`/produttori/${producer.slug}`" class="block">
+          <h3 class="font-serif text-2xl font-bold text-stone-900 group-hover:text-wine-800 transition-colors leading-tight">
+            {{ producer.company_name }}
+          </h3>
+        </NuxtLink>
+
+        <!-- Description -->
+        <p class="text-sm text-stone-600 line-clamp-3 leading-relaxed mt-2.5 font-light">
+          {{ producer.description || 'Cantina vinicola d\'eccellenza nel cuore del territorio molisano.' }}
         </p>
       </div>
 
-      <div class="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between gap-2 flex-wrap">
-        <div class="flex items-center space-x-2">
-          <span class="inline-flex items-center space-x-1 text-xs font-semibold text-wine-800 bg-wine-50 px-3 py-1.5 rounded-full border border-wine-100">
-            <Wine class="w-3.5 h-3.5 text-wine-800" />
-            <span>{{ producer.product_count || 0 }} Vini</span>
-          </span>
-
-          <a 
-            v-if="producer.contacts?.website"
-            :href="formatWebsiteUrl(producer.contacts.website)"
-            target="_blank"
-            class="p-1.5 text-stone-500 hover:text-wine-800 bg-stone-100 hover:bg-wine-50 rounded-lg border border-stone-200/60 transition-colors"
-            title="Visita il sito web della cantina"
-          >
-            <Globe class="w-3.5 h-3.5" />
-          </a>
-
-          <a 
-            v-if="producer.contacts?.whatsapp_number"
-            :href="getWhatsAppUrl({ number: producer.contacts.whatsapp_number, companyName: producer.company_name })"
-            target="_blank"
-            class="p-1.5 text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200/60 transition-colors"
-            title="Contatta via WhatsApp"
-          >
-            <MessageSquare class="w-3.5 h-3.5" />
-          </a>
+      <!-- Action Footer -->
+      <div class="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between">
+        <div class="text-xs font-semibold text-stone-500 uppercase tracking-wider flex items-center space-x-1">
+          <Building2 class="w-3.5 h-3.5 text-wine-800" />
+          <span>{{ producer.address?.city || 'Molise' }}</span>
         </div>
 
         <NuxtLink 
           :to="`/produttori/${producer.slug}`" 
-          class="inline-flex items-center space-x-1 text-sm font-bold text-wine-800 hover:text-wine-900 group-hover:translate-x-0.5 transition-transform"
+          class="inline-flex items-center space-x-2 px-4 py-2 bg-wine-800 hover:bg-wine-900 text-white rounded-md text-xs font-bold transition-all shadow-2xs group-hover:bg-wine-900"
         >
-          <span>Vedi Cantina</span>
-          <ChevronRight class="w-4 h-4" />
+          <span>Scopri Cantina</span>
+          <ChevronRight class="w-3.5 h-3.5" />
         </NuxtLink>
       </div>
 
@@ -78,7 +113,7 @@
 </template>
 
 <script setup>
-import { MapPin, Wine, ChevronRight, Globe, MessageSquare } from 'lucide-vue-next'
+import { MapPin, Wine, ChevronRight, Globe, MessageSquare, Building2, Instagram, Facebook } from 'lucide-vue-next'
 
 const props = defineProps({
   producer: {
@@ -90,6 +125,15 @@ const props = defineProps({
 const { mediaBase } = useApi()
 const { getWhatsAppUrl, formatWebsiteUrl } = useWhatsApp()
 
+const formatSocialUrl = (handleOrUrl, platform) => {
+  if (!handleOrUrl) return '#'
+  if (handleOrUrl.startsWith('http')) return handleOrUrl
+  const clean = handleOrUrl.replace('@', '')
+  return platform === 'instagram' 
+    ? `https://instagram.com/${clean}` 
+    : `https://facebook.com/${clean}`
+}
+
 const logoImage = computed(() => {
   if (props.producer.logo_url) {
     return props.producer.logo_url.startsWith('http') ? props.producer.logo_url : `${mediaBase}${props.producer.logo_url}`
@@ -98,9 +142,9 @@ const logoImage = computed(() => {
 })
 
 const coverImage = computed(() => {
-  if (props.producer.cover_image_url) {
+  if (props.producer.cover_image_url && !props.producer.cover_image_url.includes('photo-1506377247377')) {
     return props.producer.cover_image_url.startsWith('http') ? props.producer.cover_image_url : `${mediaBase}${props.producer.cover_image_url}`
   }
-  return 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1200&q=80'
+  return 'https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&w=1600&q=80'
 })
 </script>

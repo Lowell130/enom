@@ -140,44 +140,46 @@ async def startup_event():
         }}
     )
 
+    # Ensure exact geo_coordinates for all known producers in DB
+    geo_updates = [
+        ({"slug": "borgo-di-colloredo"}, {"lat": 41.9385, "lng": 15.0118}),
+        ({"slug": "tenute-di-giulio"}, {"lat": 41.9421, "lng": 15.0154}),
+        ({"slug": "cantina-herero"}, {"lat": 41.5658, "lng": 14.6582}),
+        ({"slug": "campi-valerio"}, {"lat": 41.5251, "lng": 14.1788}),
+        ({"slug": "cantina-san-zenone"}, {"lat": 41.9588, "lng": 14.7782}),
+    ]
+    for query, geo in geo_updates:
+        await db.producers.update_many(query, {"$set": {"address.geo_coordinates": geo}})
+
+    # Update default cover image for existing producers if using old fallback image
+    await db.producers.update_many(
+        {"$or": [
+            {"cover_image_url": {"$regex": "photo-1506377247377", "$options": "i"}},
+            {"cover_image_url": None},
+            {"cover_image_url": ""}
+        ]},
+        {"$set": {
+            "cover_image_url": "https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&w=1600&q=80"
+        }}
+    )
+
     # 3. Seed Initial Sample Molise Producers & Wines if DB is empty
     producer_count = await db.producers.count_documents({})
     if producer_count == 0:
         print("Seeding initial Molise producers and products...")
         sample_producers = [
             {
-                "company_name": "Cantine Valbiferno",
-                "slug": "cantine-valbiferno",
+                "company_name": "Cantina Il Colle Tinto",
+                "slug": "cantina-il-colle-tinto",
                 "logo_url": "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=300&q=80",
-                "cover_image_url": "https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=1200&q=80",
-                "description": "Fondata nelle colline incontaminate del Biferno, la nostra cantina coltiva vitigni autoctoni molisani con passione artigianale e rispetto della tradizione.",
-                "address": {"street": "Contrada Colle di Salcito 14", "city": "Campobasso", "province": "CB", "zip_code": "86100"},
+                "cover_image_url": "https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&w=1600&q=80",
+                "description": "Fondata nelle colline di Castropignano, Cantina Il Colle Tinto produce vini di eccellenza espressione autentica del territorio molisano.",
+                "address": {"street": "Contrada Iannaricciola 27", "city": "Castropignano", "province": "CB", "zip_code": "86010", "geo_coordinates": {"lat": 41.6147818, "lng": 14.5462307}},
                 "contacts": {
-                    "phone": "+39 0874 123456",
-                    "email_contact": "info@valbiferno.it",
-                    "whatsapp_number": "390874123456",
-                    "website": "https://valbiferno.it",
-                    "instagram": "@cantinevalbiferno",
-                    "facebook": "CantineValbiferno"
-                },
-                "status": "APPROVED",
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            },
-            {
-                "company_name": "Tenuta Tintilia del Matese",
-                "slug": "tenuta-tintilia-del-matese",
-                "logo_url": "https://images.unsplash.com/photo-1528823872057-9c018a7a70b3?auto=format&fit=crop&w=300&q=80",
-                "cover_image_url": "https://images.unsplash.com/photo-1516594915697-87eb3b1c14ea?auto=format&fit=crop&w=1200&q=80",
-                "description": "Specializzati esclusivamente nel vitigno regale autoctono Tintilia. Vigneti ad alta quota sui pendii del massiccio del Matese.",
-                "address": {"street": "Via Matese 45", "city": "Isernia", "province": "IS", "zip_code": "86170"},
-                "contacts": {
-                    "phone": "+39 0865 987654",
-                    "email_contact": "contatti@tintiliamatese.it",
-                    "whatsapp_number": "390865987654",
-                    "website": "https://tintiliamatese.it",
-                    "instagram": "@tintilia_matese",
-                    "facebook": "TenutaTintiliaMatese"
+                    "phone": "+39 0874 98765",
+                    "email_contact": "info@colletinto.it",
+                    "whatsapp_number": "39087498765",
+                    "website": "https://colletinto.it"
                 },
                 "status": "APPROVED",
                 "created_at": datetime.utcnow(),
@@ -186,11 +188,10 @@ async def startup_event():
         ]
         
         inserted_p1 = await db.producers.insert_one(sample_producers[0])
-        inserted_p2 = await db.producers.insert_one(sample_producers[1])
         
         p1_pwd = get_password_hash("CantinaPass2026!")
         await db.users.insert_one({
-            "email": "cantina@valbiferno.it",
+            "email": "cantina@colletinto.it",
             "password_hash": p1_pwd,
             "role": "PRODUCER",
             "producer_id": inserted_p1.inserted_id,

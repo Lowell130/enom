@@ -305,7 +305,7 @@ const getProductImage = (prod) => {
     const url = prod.photos[0]
     return url.startsWith('http') ? url : `${mediaBase}${url}`
   }
-  return 'https://images.unsplash.com/photo-1586370434639-0fe43b2d32e6?auto=format&fit=crop&w=600&q=80'
+  return '/default_wine_bottle.jpg'
 }
 
 const applySuggestion = (sug) => {

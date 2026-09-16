@@ -55,10 +55,13 @@
                 </NuxtLink>
               </td>
 
-              <!-- Città / Prov -->
+              <!-- Città / Prov & Coordinate GPS -->
               <td class="py-4 px-6 text-xs whitespace-nowrap">
-                <span class="font-bold text-stone-900 block text-xs">{{ p.address?.city || 'Molise' }}</span>
-                <span class="text-stone-500 font-medium block mt-0.5">Prov. {{ p.address?.province || 'CB' }}</span>
+                <span class="font-bold text-stone-900 block text-xs">{{ p.address?.city || 'Molise' }} ({{ p.address?.province || 'CB' }})</span>
+                <span v-if="p.address?.geo_coordinates?.lat" class="text-wine-800 font-mono text-[11px] block mt-0.5" title="Coordinate GPS">
+                  📍 {{ p.address.geo_coordinates.lat.toFixed(4) }}, {{ p.address.geo_coordinates.lng.toFixed(4) }}
+                </span>
+                <span v-else class="text-stone-400 font-medium block mt-0.5 text-[11px]">Coordinate non set</span>
               </td>
 
               <!-- Contatti -->
@@ -170,6 +173,18 @@
             <input v-model="newProducer.street" type="text" placeholder="Via Matese 10" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
           </div>
 
+          <!-- Coordinate GPS Mappa -->
+          <div class="grid grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200/80">
+            <div>
+              <label class="block text-[11px] font-semibold text-stone-700 mb-1">Latitudine GPS (es. 41,6147818)</label>
+              <input v-model="newProducer.lat" type="text" placeholder="41,6147818" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-stone-700 mb-1">Longitudine GPS (es. 14,5462307)</label>
+              <input v-model="newProducer.lng" type="text" placeholder="14,5462307" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
+            </div>
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-semibold text-stone-700 mb-1">Email Contatto</label>
@@ -253,6 +268,18 @@
             <input v-model="editProducer.street" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
           </div>
 
+          <!-- Coordinate GPS Mappa -->
+          <div class="grid grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200/80">
+            <div>
+              <label class="block text-[11px] font-semibold text-stone-700 mb-1">Latitudine GPS (es. 41,6147818)</label>
+              <input v-model="editProducer.lat" type="text" placeholder="41,6147818" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-stone-700 mb-1">Longitudine GPS (es. 14,5462307)</label>
+              <input v-model="editProducer.lng" type="text" placeholder="14,5462307" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
+            </div>
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-semibold text-stone-700 mb-1">Email Contatto</label>
@@ -312,9 +339,10 @@ const toast = useToast()
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 
-const { data: producers, pending, refresh } = await useAsyncData('admin_producers_manage', () => 
-  fetchWithAuth('/producers')
-)
+const { data: producers, pending, refresh } = await useAsyncData('admin_producers_manage', async () => {
+  const res = await fetchWithAuth('/producers')
+  return res || []
+}, { default: () => [] })
 
 const newProducer = reactive({
   company_name: '',
@@ -322,6 +350,8 @@ const newProducer = reactive({
   province: 'CB',
   zip_code: '',
   street: '',
+  lat: '',
+  lng: '',
   email_contact: '',
   phone: '',
   whatsapp_number: '',
@@ -338,6 +368,8 @@ const editProducer = reactive({
   province: '',
   zip_code: '',
   street: '',
+  lat: '',
+  lng: '',
   email_contact: '',
   phone: '',
   whatsapp_number: '',
@@ -355,12 +387,15 @@ const getLogo = (p) => {
 }
 
 const openEditModal = (p) => {
+  const pGeo = p.address?.geo_coordinates || {}
   editProducer.id = p.id
   editProducer.company_name = p.company_name
   editProducer.city = p.address?.city || ''
   editProducer.province = p.address?.province || ''
   editProducer.zip_code = p.address?.zip_code || ''
   editProducer.street = p.address?.street || ''
+  editProducer.lat = pGeo.lat || ''
+  editProducer.lng = pGeo.lng || ''
   editProducer.email_contact = p.contacts?.email_contact || ''
   editProducer.phone = p.contacts?.phone || ''
   editProducer.whatsapp_number = p.contacts?.whatsapp_number || ''
@@ -392,8 +427,17 @@ const handleUploadMedia = async (event, type, target = 'edit') => {
   }
 }
 
+const parseCoordInput = (val) => {
+  if (val === null || val === undefined || val === '') return null
+  const num = Number(String(val).replace(',', '.').trim())
+  return isNaN(num) ? null : num
+}
+
 const handleAddProducer = async () => {
   try {
+    const latNum = parseCoordInput(newProducer.lat)
+    const lngNum = parseCoordInput(newProducer.lng)
+    const geo = (latNum !== null && lngNum !== null) ? { lat: latNum, lng: lngNum } : null
     await fetchWithAuth('/producers', {
       method: 'POST',
       body: {
@@ -405,7 +449,8 @@ const handleAddProducer = async () => {
           street: newProducer.street, 
           city: newProducer.city, 
           province: newProducer.province,
-          zip_code: newProducer.zip_code
+          zip_code: newProducer.zip_code,
+          geo_coordinates: geo
         },
         contacts: { 
           email_contact: newProducer.email_contact, 
@@ -420,6 +465,8 @@ const handleAddProducer = async () => {
     newProducer.company_name = ''
     newProducer.street = ''
     newProducer.zip_code = ''
+    newProducer.lat = ''
+    newProducer.lng = ''
     newProducer.email_contact = ''
     newProducer.phone = ''
     newProducer.whatsapp_number = ''
@@ -436,6 +483,9 @@ const handleAddProducer = async () => {
 
 const handleUpdateProducer = async () => {
   try {
+    const latNum = parseCoordInput(editProducer.lat)
+    const lngNum = parseCoordInput(editProducer.lng)
+    const geo = (latNum !== null && lngNum !== null) ? { lat: latNum, lng: lngNum } : null
     await fetchWithAuth(`/producers/${editProducer.id}`, {
       method: 'PUT',
       body: {
@@ -447,7 +497,8 @@ const handleUpdateProducer = async () => {
           street: editProducer.street,
           city: editProducer.city,
           province: editProducer.province,
-          zip_code: editProducer.zip_code
+          zip_code: editProducer.zip_code,
+          geo_coordinates: geo
         },
         contacts: {
           email_contact: editProducer.email_contact,

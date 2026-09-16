@@ -166,9 +166,10 @@ const newAttr = reactive({
 
 const editingAttr = ref(null)
 
-const { data: attributes, pending, refresh } = await useAsyncData('master_attributes', () => 
-  fetchWithAuth('/attributes')
-)
+const { data: attributes, pending, refresh } = await useAsyncData('master_attributes', async () => {
+  const res = await fetchWithAuth('/attributes')
+  return res || []
+}, { default: () => [] })
 
 const toast = useToast()
 

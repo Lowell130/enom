@@ -310,18 +310,20 @@ const onFileSelected = (e) => {
 }
 
 const { data: producers } = await useAsyncData('admin_producers_list', async () => {
-  if (!isAdmin.value) return null
-  return await fetchWithAuth('/producers')
-})
+  if (!isAdmin.value) return []
+  const res = await fetchWithAuth('/producers')
+  return res || []
+}, { default: () => [] })
 
-const { data: products, pending, refresh } = await useAsyncData('dashboard_products', () => {
+const { data: products, pending, refresh } = await useAsyncData('dashboard_products', async () => {
   let url = '/products?status=ALL'
   const myProducerId = user.value?.producer_id || user.value?.producer?.id
   if (!isAdmin.value && myProducerId) {
     url += `&producer_id=${myProducerId}`
   }
-  return fetchWithAuth(url)
-})
+  const res = await fetchWithAuth(url)
+  return res || []
+}, { default: () => [] })
 
 const filteredProducts = computed(() => {
   if (!products.value) return []
@@ -341,7 +343,7 @@ const getProductImage = (prod) => {
     const url = prod.photos[0]
     return url.startsWith('http') ? url : `${mediaBase}${url}`
   }
-  return 'https://images.unsplash.com/photo-1586370434639-0fe43b2d32e6?auto=format&fit=crop&w=600&q=80'
+  return '/default_wine_bottle.jpg'
 }
 
 const { formatCategory, getCategoryBadgeClass } = useCategoryBadge()

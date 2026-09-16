@@ -42,7 +42,7 @@
       <!-- General Info -->
       <div>
         <h3 class="font-sans text-lg font-bold text-wine-900 mb-4 border-b border-stone-100 pb-2">
-          Dati Aziendali
+          Dati Aziendali & Posizione Mappa
         </h3>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -69,6 +69,28 @@
           <div class="sm:col-span-2">
             <label class="block text-xs font-semibold text-stone-700 mb-1">Indirizzo (Via/Contrada)</label>
             <input v-model="form.street" type="text" placeholder="es. Contrada Colle 14" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
+          </div>
+
+          <!-- Coordinate GPS Mappa -->
+          <div class="sm:col-span-2 bg-stone-50 p-4 rounded-xl border border-stone-200/80 space-y-3">
+            <div class="flex items-center space-x-2 text-wine-900 font-bold text-xs">
+              <MapPin class="w-4 h-4 text-wine-800" />
+              <span>Coordinate GPS Mappa Interattiva</span>
+            </div>
+            <p class="text-xs text-stone-500 font-light leading-relaxed">
+              Inserisci la latitudine e longitudine della tua cantina per posizionare con precisione la tua azienda sulla Mappa delle Cantine Molisane.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-stone-700 mb-1">Latitudine (es. 41,6147818 o 41.6147818)</label>
+                <input v-model="form.lat" type="text" placeholder="41,6147818" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-wine-800 focus:outline-none font-mono" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-stone-700 mb-1">Longitudine (es. 14,5462307 o 14.5462307)</label>
+                <input v-model="form.lng" type="text" placeholder="14,5462307" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-wine-800 focus:outline-none font-mono" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -178,8 +200,9 @@
 </template>
 
 <script setup>
-import { ArrowLeft, Building2, RefreshCw, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, Building2, RefreshCw, Trash2, MapPin } from 'lucide-vue-next'
 
+const route = useRoute()
 const { fetchWithAuth } = useApi()
 const { user, fetchUser, isAdmin } = useAuth()
 const toast = useToast()
@@ -206,11 +229,15 @@ const loadProfile = async () => {
     const me = await fetchUser()
     
     // If Admin, load producers list so they can switch
-    if (me?.role === 'ADMIN' && !producersList.value.length) {
-      const list = await fetchWithAuth('/producers')
-      producersList.value = list || []
-      if (list && list.length && !selectedAdminProducerId.value) {
-        selectedAdminProducerId.value = list[0].id
+    if (me?.role === 'ADMIN') {
+      if (!producersList.value.length) {
+        const list = await fetchWithAuth('/producers')
+        producersList.value = list || []
+      }
+      if (route.query.producer_id) {
+        selectedAdminProducerId.value = String(route.query.producer_id)
+      } else if (producersList.value.length && !selectedAdminProducerId.value) {
+        selectedAdminProducerId.value = producersList.value[0].id
       }
     }
 
@@ -255,6 +282,13 @@ onMounted(() => {
   loadProfile()
 })
 
+watch(() => route.query.producer_id, (newPId) => {
+  if (newPId && isAdmin.value) {
+    selectedAdminProducerId.value = String(newPId)
+    loadProfile()
+  }
+})
+
 watch(() => user.value, (newVal) => {
   if (newVal && !form.value) {
     loadProfile()
@@ -279,11 +313,19 @@ const handleUpload = async (event, type) => {
   }
 }
 
+const parseCoordInput = (val) => {
+  if (val === null || val === undefined || val === '') return null
+  const num = Number(String(val).replace(',', '.').trim())
+  return isNaN(num) ? null : num
+}
+
 const handleSubmit = async () => {
   const targetId = form.value?.id || currentProducerId.value
   if (!targetId) return
   submitting.value = true
   try {
+    const latNum = parseCoordInput(form.value.lat)
+    const lngNum = parseCoordInput(form.value.lng)
     await fetchWithAuth(`/producers/${targetId}`, {
       method: 'PUT',
       body: {
@@ -296,7 +338,7 @@ const handleSubmit = async () => {
           city: form.value.city,
           province: form.value.province,
           zip_code: form.value.zip_code,
-          geo_coordinates: (form.value.lat && form.value.lng) ? { lat: Number(form.value.lat), lng: Number(form.value.lng) } : null
+          geo_coordinates: (latNum !== null && lngNum !== null) ? { lat: latNum, lng: lngNum } : null
         },
         contacts: {
           email_contact: form.value.email_contact,

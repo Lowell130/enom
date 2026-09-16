@@ -4,11 +4,10 @@
       <div class="grid grid-cols-1 md:grid-cols-4 gap-10">
         
         <div class="md:col-span-2">
-          <div class="flex items-center space-x-3 mb-4">
-            <div class="w-9 h-9 rounded-full bg-wine-800 flex items-center justify-center text-white">
-              <Wine class="w-5 h-5 text-amber-200" />
-            </div>
-            <span class="font-serif text-2xl font-semibold text-white tracking-tight">EnotecaMolise</span>
+          <div class="mb-4">
+            <NuxtLink to="/">
+              <AppLogo variant="dark" />
+            </NuxtLink>
           </div>
           <p class="text-sm text-stone-400 leading-relaxed max-w-md font-light">
             Il portale centrale dei viticoltori e delle cantine del Molise. Un viaggio tra Tintilia DOC, Biferno, Pentro e spumanti autoctoni. Valorizziamo l'eccellenza enologica molisana.

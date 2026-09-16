@@ -85,9 +85,10 @@ import { ArrowLeft, Phone, Building2, Mail, CheckCircle, MessageSquare } from 'l
 
 const { fetchWithAuth } = useApi()
 
-const { data: inquiries, pending, refresh } = await useAsyncData('user_inquiries', () => 
-  fetchWithAuth('/inquiries')
-)
+const { data: inquiries, pending, refresh } = await useAsyncData('user_inquiries', async () => {
+  const res = await fetchWithAuth('/inquiries')
+  return res || []
+}, { default: () => [] })
 
 const toast = useToast()
 

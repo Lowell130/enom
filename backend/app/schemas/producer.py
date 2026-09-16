@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class AddressSchema(BaseModel):
@@ -7,7 +7,25 @@ class AddressSchema(BaseModel):
     city: Optional[str] = "Campobasso"
     province: Optional[str] = "CB"
     zip_code: Optional[str] = ""
-    geo_coordinates: Optional[Dict[str, float]] = None
+    geo_coordinates: Optional[Dict[str, Any]] = None
+
+    @field_validator("geo_coordinates", mode="before")
+    @classmethod
+    def parse_geo_coordinates(cls, v):
+        if not v or not isinstance(v, dict):
+            return v
+        cleaned = {}
+        for key in ["lat", "lng"]:
+            if key in v:
+                val = v[key]
+                if isinstance(val, (int, float)):
+                    cleaned[key] = float(val)
+                elif isinstance(val, str) and val.strip():
+                    try:
+                        cleaned[key] = float(val.replace(",", ".").strip())
+                    except ValueError:
+                        pass
+        return cleaned if cleaned else None
 
 class ContactsSchema(BaseModel):
     phone: Optional[str] = ""

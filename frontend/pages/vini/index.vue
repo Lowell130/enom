@@ -152,9 +152,10 @@ const resetFilters = () => {
   router.replace({ query: {} })
 }
 
-const { data: products, pending } = await useAsyncData('catalog_products', () => 
-  fetchWithAuth('/products?status=PUBLISHED')
-)
+const { data: products, pending } = await useAsyncData('catalog_products', async () => {
+  const res = await fetchWithAuth('/products?status=PUBLISHED')
+  return res || []
+}, { default: () => [] })
 
 const matchProductWithSearch = (p, searchQuery) => {
   if (!searchQuery || !searchQuery.trim()) return true

@@ -620,9 +620,10 @@ const handleScrapeUrl = async () => {
 
 const selectedPairingsList = ref([])
 
-const { data: masterPairings } = await useAsyncData('master_pairings_product_new', () =>
-  fetchWithAuth('/pairings')
-)
+const { data: masterPairings } = await useAsyncData('master_pairings_product_new', async () => {
+  const res = await fetchWithAuth('/pairings')
+  return res || []
+}, { default: () => [] })
 
 const isPairingSelected = (name) => {
   return selectedPairingsList.value.some(p => p.toLowerCase() === name.toLowerCase())
@@ -680,9 +681,10 @@ const form = reactive({
   status: 'PUBLISHED'
 })
 
-const { data: masterAttributes, refresh: refreshMasterAttributes } = await useAsyncData('master_attributes_product_new', () => 
-  fetchWithAuth('/attributes')
-)
+const { data: masterAttributes, refresh: refreshMasterAttributes } = await useAsyncData('master_attributes_product_new', async () => {
+  const res = await fetchWithAuth('/attributes')
+  return res || []
+}, { default: () => [] })
 
 const availableMasterAttributes = computed(() => {
   if (!masterAttributes.value) return []
@@ -692,14 +694,16 @@ const availableMasterAttributes = computed(() => {
   })
 })
 
-const { data: masterGrapes } = await useAsyncData('master_grapes_product_new', () =>
-  fetchWithAuth('/grapes')
-)
+const { data: masterGrapes } = await useAsyncData('master_grapes_product_new', async () => {
+  const res = await fetchWithAuth('/grapes')
+  return res || []
+}, { default: () => [] })
 
 const { data: producers } = await useAsyncData('admin_producers_new_product', async () => {
-  if (!isAdmin.value) return null
-  return await fetchWithAuth('/producers')
-})
+  if (!isAdmin.value) return []
+  const res = await fetchWithAuth('/producers')
+  return res || []
+}, { default: () => [] })
 
 const selectedGrapesList = ref([])
 

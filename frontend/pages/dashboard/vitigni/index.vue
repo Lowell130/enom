@@ -153,9 +153,10 @@ const newGrape = reactive({
 
 const editingGrape = ref(null)
 
-const { data: grapes, pending, refresh } = await useAsyncData('master_grapes_admin', () => 
-  fetchWithAuth('/grapes')
-)
+const { data: grapes, pending, refresh } = await useAsyncData('master_grapes_admin', async () => {
+  const res = await fetchWithAuth('/grapes')
+  return res || []
+}, { default: () => [] })
 
 const toast = useToast()
 

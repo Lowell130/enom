@@ -1,8 +1,9 @@
 <template>
-  <div class="bg-white rounded-3xl border border-stone-200/70 shadow-xs overflow-hidden">
+  <div class="bg-white rounded-xl border border-stone-200/80 shadow-xs overflow-hidden">
+    <!-- Header -->
     <div class="p-4 bg-stone-50 border-b border-stone-200/60 flex items-center justify-between">
-      <div class="flex items-center space-x-2">
-        <div class="w-8 h-8 rounded-xl bg-wine-800 text-amber-200 flex items-center justify-center font-bold text-xs shadow-xs">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-wine-800 text-stone-100 flex items-center justify-center font-bold text-xs shadow-xs">
           <MapPin class="w-4 h-4" />
         </div>
         <div>
@@ -14,15 +15,15 @@
           </p>
         </div>
       </div>
-      <span class="px-2.5 py-1 text-xs font-semibold bg-wine-50 text-wine-900 rounded-full border border-wine-100">
+      <span class="px-2.5 py-1 text-xs font-semibold bg-wine-50 text-wine-900 rounded-md border border-wine-100">
         {{ validProducers.length }} {{ validProducers.length === 1 ? 'Cantina' : 'Cantine' }}
       </span>
     </div>
 
     <!-- Map Container -->
-    <div ref="mapContainer" class="w-full h-80 sm:h-96 relative z-0 bg-stone-100">
-      <div v-if="loadingMap" class="absolute inset-0 flex items-center justify-center bg-stone-100 text-stone-400 text-xs font-medium">
-        Caricamento mappa interattiva...
+    <div ref="mapContainer" class="w-full h-80 sm:h-[420px] relative z-0 bg-stone-100 min-h-[320px]">
+      <div v-if="loadingMap" class="absolute inset-0 flex items-center justify-center bg-stone-100 text-stone-400 text-xs font-medium space-x-2">
+        <span>Caricamento mappa interattiva...</span>
       </div>
     </div>
   </div>
@@ -50,25 +51,29 @@ const { getWhatsAppUrl } = useWhatsApp()
 const mapContainer = ref(null)
 const loadingMap = ref(true)
 let mapInstance = null
+let resizeObserver = null
 
-// Database of fallback coordinates for Molise towns
+// Complete database of fallback coordinates for Molise municipalities & key wine areas
 const cityCoordinates = {
-  'castropignano': [41.6748, 14.5768],
+  // Campobasso Province
   'campobasso': [41.5603, 14.6626],
-  'isernia': [41.5960, 14.2345],
+  'castropignano': [41.6748, 14.5768],
   'termoli': [41.9961, 14.9922],
   'larino': [41.8014, 14.9108],
-  'agnone': [41.8105, 14.3779],
-  'venafro': [41.4839, 14.0440],
-  'bojano': [41.4828, 14.4750],
-  'ferrazzano': [41.5301, 14.6739],
-  'gildone': [41.5122, 14.7397],
+  'campomarino': [41.9564, 15.0342],
   'san martino in pensilis': [41.8708, 15.0125],
   'guglionesi': [41.9161, 14.9167],
   'ururi': [41.8211, 15.0175],
-  'monteroduni': [41.5211, 14.1756],
-  'roccamandolfi': [41.4988, 14.3541],
-  'capracotta': [41.8344, 14.2678],
+  'petacciato': [42.0125, 14.8603],
+  'montenero di bisaccia': [41.9567, 14.7806],
+  'portocannone': [41.9167, 15.0083],
+  'montecilfone': [41.9028, 14.8378],
+  'mafalda': [41.9444, 14.7167],
+  'san giacomo degli schiavoni': [41.9617, 14.9472],
+  'ferrazzano': [41.5301, 14.6739],
+  'gildone': [41.5122, 14.7397],
+  'bojano': [41.4828, 14.4750],
+  'boiano': [41.4828, 14.4750],
   'trivento': [41.7765, 14.5516],
   'ripalimosani': [41.6111, 14.6611],
   'oratino': [41.5833, 14.5833],
@@ -87,13 +92,25 @@ const cityCoordinates = {
   'riccia': [41.4833, 14.8333],
   'jelsi': [41.5167, 14.8000],
   'gambatesa': [41.5086, 14.9081],
-  'campomarino': [41.9564, 15.0342],
-  'petacciato': [42.0125, 14.8603],
-  'montenero di bisaccia': [41.9567, 14.7806],
-  'portocannone': [41.9167, 15.0083],
-  'montecilfone': [41.9028, 14.8378],
-  'mafalda': [41.9444, 14.7167],
-  'san giacomo degli schiavoni': [41.9617, 14.9472],
+  'campodipietra': [41.5583, 14.7472],
+  'toro': [41.5722, 14.7639],
+  'monacilioni': [41.6139, 14.8111],
+  'sant\'elia a pianisi': [41.6222, 14.8778],
+  'bonefro': [41.7056, 14.9333],
+  'casacalenda': [41.7389, 14.8472],
+  'rotello': [41.7472, 15.0028],
+  'morrone del sannio': [41.7139, 14.7778],
+  'ripabottoni': [41.6917, 14.8111],
+  'guardialfiera': [41.8028, 14.7972],
+  'palata': [41.8889, 14.7889],
+
+  // Isernia Province
+  'isernia': [41.5960, 14.2345],
+  'venafro': [41.4839, 14.0440],
+  'agnone': [41.8105, 14.3779],
+  'monteroduni': [41.5211, 14.1756],
+  'roccamandolfi': [41.4988, 14.3541],
+  'capracotta': [41.8344, 14.2678],
   'frosolone': [41.6044, 14.4464],
   'carovilli': [41.7139, 14.3000],
   'pesche': [41.6111, 14.2806],
@@ -110,101 +127,83 @@ const cityCoordinates = {
   'poggio sannita': [41.7778, 14.4111],
   'vastogirardi': [41.7778, 14.2667],
   'bagnoli del trigno': [41.7028, 14.4569],
-  'duronia': [41.6625, 14.4639]
+  'duronia': [41.6625, 14.4639],
+  'cantalupo nel sannio': [41.5167, 14.3833],
+  'santa maria del molise': [41.5528, 14.3667],
+  'macchiagodena': [41.5611, 14.4056],
+  'carpinone': [41.5917, 14.3222],
+  'pescolanciano': [41.6778, 14.3361]
 }
-
-const geocodeCache = reactive({})
 
 const validProducers = computed(() => {
   return (props.producers || []).filter(p => p && p.company_name)
 })
 
-const getProducerCoordinates = async (producer, index = 0) => {
-  const company = (producer.company_name || '').toLowerCase()
-  const street = (producer.address?.street || '').trim()
-  const city = (producer.address?.city || '').trim()
-  const zip = (producer.address?.zip_code || producer.zip_code || '').trim()
-
-  // 1. Specific Winery & Contrada Exact Override (Cantina Il Colle Tinto, Contrada Iannaricciola 27, Castropignano)
-  if (company.includes('colle tinto') || street.toLowerCase().includes('iannaricciola')) {
-    return [41.6748, 14.5768]
+const parseCoord = (val) => {
+  if (typeof val === 'number' && !isNaN(val)) return val
+  if (typeof val === 'string' && val.trim()) {
+    const num = parseFloat(val.replace(',', '.').trim())
+    if (!isNaN(num) && num !== 0) return num
   }
+  return null
+}
 
-  // 2. Explicit geo_coordinates lat/lng in DB
+// Instant, synchronous coordinate resolution (0 network latency)
+const getProducerCoordinatesSync = (producer, index = 0) => {
+  const company = (producer.company_name || '').toLowerCase()
+  const street = (producer.address?.street || '').toLowerCase()
+  const city = (producer.address?.city || '').toLowerCase().trim()
+
+  // 1. Explicit geo_coordinates in DB
   const geo = producer.address?.geo_coordinates || producer.geo_coordinates
-  if (geo && typeof geo.lat === 'number' && typeof geo.lng === 'number' && geo.lat !== 0 && geo.lng !== 0) {
-    return [geo.lat, geo.lng]
+  if (geo) {
+    const lat = parseCoord(geo.lat)
+    const lng = parseCoord(geo.lng)
+    if (lat !== null && lng !== null) {
+      return [lat, lng]
+    }
   }
   if (producer.latitude && producer.longitude) {
-    const lat = parseFloat(producer.latitude)
-    const lng = parseFloat(producer.longitude)
-    if (!isNaN(lat) && !isNaN(lng) && lat !== 0) {
+    const lat = parseCoord(producer.latitude)
+    const lng = parseCoord(producer.longitude)
+    if (lat !== null && lng !== null) {
       return [lat, lng]
     }
   }
 
-  const cacheKey = `${company}_${street}_${zip}_${city}`
-  if (geocodeCache[cacheKey]) {
-    return geocodeCache[cacheKey]
+  // 2. Exact company overrides for official cantine
+  if (company.includes('colle tinto') || street.includes('iannaricciola')) return [41.6147818, 14.5462307]
+  if (company.includes('colloredo')) return [41.8874849, 15.0733404]
+  if (company.includes('giulio')) return [41.8874849, 15.0733405]
+  if (company.includes('herero')) return [41.5494343, 14.6481744]
+  if (company.includes('valerio')) return [41.53885, 14.1560701]
+  if (company.includes('zenone')) return [41.9821036, 14.7844206]
+  if (company.includes('norante') || company.includes('majo')) return [41.9107052, 15.0961883]
+  if (company.includes('catabbo')) return [41.8785571, 15.0263503]
+  if (company.includes('cipressi')) return [41.871341, 14.6886823]
+  if (company.includes('uva')) return [41.8054757, 14.9428415]
+  if (company.includes('vinica') || company.includes('agricolavinica') || company.includes('agricovinica')) return [41.6114758, 14.6820045]
+
+  // 3. Match city in local database
+  if (city && cityCoordinates[city]) {
+    const base = cityCoordinates[city]
+    const offsetLat = ((index % 4) - 1.5) * 0.003
+    const offsetLng = (Math.floor(index / 4) % 4 - 1.5) * 0.003
+    return [base[0] + offsetLat, base[1] + offsetLng]
   }
 
-  // 3. Try Nominatim Live Search by Company Name + City
-  if (company && city) {
-    try {
-      const q = `${producer.company_name}, ${city}, Italy`
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
-      const data = await res.json()
-      if (data && data.length > 0) {
-        const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)]
-        geocodeCache[cacheKey] = coords
-        return coords
-      }
-    } catch (e) {}
+  // 4. Match city partial substring
+  for (const [key, coords] of Object.entries(cityCoordinates)) {
+    if (city.includes(key) || key.includes(city)) {
+      const offsetLat = ((index % 4) - 1.5) * 0.003
+      const offsetLng = (Math.floor(index / 4) % 4 - 1.5) * 0.003
+      return [coords[0] + offsetLat, coords[1] + offsetLng]
+    }
   }
 
-  // 4. Try Nominatim Live Search with full address (Street + ZIP + City)
-  if (street || zip) {
-    try {
-      const q = [street, zip, city, 'Molise', 'Italy'].filter(Boolean).join(', ')
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
-      const data = await res.json()
-      if (data && data.length > 0) {
-        const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)]
-        geocodeCache[cacheKey] = coords
-        return coords
-      }
-    } catch (e) {}
-  }
-
-  // 5. Try Nominatim Search without street number (e.g., "Contrada Iannaricciola, Castropignano")
-  if (street && city) {
-    try {
-      const cleanStreet = street.replace(/,\s*\d+/g, '').trim()
-      const q = `${cleanStreet}, ${city}, Italy`
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
-      const data = await res.json()
-      if (data && data.length > 0) {
-        const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)]
-        geocodeCache[cacheKey] = coords
-        return coords
-      }
-    } catch (e) {}
-  }
-
-  // 6. Local static city table lookup
-  const cityKey = city.toLowerCase()
-  if (cityKey && cityCoordinates[cityKey]) {
-    const base = cityCoordinates[cityKey]
-    const offsetLat = (index % 3 - 1) * 0.003
-    const offsetLng = (Math.floor(index / 3) % 3 - 1) * 0.003
-    const coords = [base[0] + offsetLat, base[1] + offsetLng]
-    geocodeCache[cacheKey] = coords
-    return coords
-  }
-
-  // 7. Default Molise center fallback
-  const offsetLat = (index * 0.012) % 0.15 - 0.075
-  const offsetLng = (index * 0.018) % 0.20 - 0.10
+  // 5. Default Molise center fallback with spread offset
+  const offsetLat = ((index % 5) - 2) * 0.012
+  const offsetLng = (Math.floor(index / 5) % 5 - 2) * 0.015
   return [41.62 + offsetLat, 14.60 + offsetLng]
 }
 
@@ -251,7 +250,7 @@ const initMap = async () => {
   }
 
   const producersList = validProducers.value
-  const coordsList = await Promise.all(producersList.map((p, idx) => getProducerCoordinates(p, idx)))
+  const coordsList = producersList.map((p, idx) => getProducerCoordinatesSync(p, idx))
 
   let center = [41.62, 14.60]
   if (coordsList.length === 1) {
@@ -261,38 +260,44 @@ const initMap = async () => {
   mapInstance = L.map(mapContainer.value, {
     center: center,
     zoom: coordsList.length === 1 ? 13 : props.zoom,
-    zoomControl: true
+    zoomControl: true,
+    scrollWheelZoom: false
   })
 
+  // Standard OpenStreetMap Tile Layer
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | EnotecaMolise.it',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | EnotecaMolise',
     maxZoom: 18
   }).addTo(mapInstance)
 
+  // Sleek Monochromatic Burgundy Pin SVG
   const createCustomIcon = () => {
     return L.divIcon({
       className: 'custom-wine-pin',
       html: `
         <div style="
           background-color: #6B1D2F;
-          color: #FFF;
+          color: #FFFFFF;
           width: 32px;
           height: 32px;
-          border-radius: 50%;
-          border: 2px solid #FFF;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          border-radius: 8px;
+          border: 2px solid #FFFFFF;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.25);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-weight: bold;
-          font-size: 14px;
         ">
-          🍷
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 22h8"></path>
+            <path d="M12 15v7"></path>
+            <path d="M12 15a7 7 0 0 0 7-7H5a7 7 0 0 0 7 7z"></path>
+            <path d="M5 8V3h14v5"></path>
+          </svg>
         </div>
       `,
       iconSize: [32, 32],
-      iconAnchor: [16, 16],
-      popupAnchor: [0, -16]
+      iconAnchor: [16, 32],
+      popupAnchor: [0, -32]
     })
   }
 
@@ -315,23 +320,27 @@ const initMap = async () => {
 
     const streetStr = producer.address?.street ? `${producer.address.street}, ` : ''
     const zipStr = producer.address?.zip_code ? `${producer.address.zip_code} ` : ''
+    const cityStr = producer.address?.city || 'Molise'
+    const provStr = producer.address?.province || 'CB'
 
     const popupHtml = `
-      <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 4px; max-width: 230px;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-          <img src="${logo}" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover; border: 1px solid #E7E5E4;" />
+      <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 4px; max-width: 240px;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+          <img src="${logo}" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid #E7E5E4;" />
           <div>
-            <strong style="font-size: 14px; color: #1C1917; display: block; line-height: 1.2;">${producer.company_name}</strong>
-            <span style="font-size: 11px; color: #78716C; display: block; margin-top: 2px;">📍 ${streetStr}${zipStr}${producer.address?.city || 'Molise'} (${producer.address?.province || 'CB'})</span>
+            <strong style="font-size: 13px; color: #1C1917; display: block; leading-height: 1.2;">${producer.company_name}</strong>
+            <span style="font-size: 11px; color: #78716C; display: block; margin-top: 2px;">
+              ${streetStr}${zipStr}${cityStr} (${provStr})
+            </span>
           </div>
         </div>
-        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
-          <a href="/produttori/${producer.slug}" style="display: block; text-align: center; background-color: #6B1D2F; color: #FFF; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; text-decoration: none;">
+        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+          <a href="/produttori/${producer.slug}" style="display: block; text-align: center; background-color: #6B1D2F; color: #FFF; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; text-decoration: none;">
             Vedi Scheda Cantina
           </a>
           ${waUrl !== '#' ? `
-            <a href="${waUrl}" target="_blank" style="display: block; text-align: center; background-color: #047857; color: #FFF; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; text-decoration: none;">
-              💬 WhatsApp Diretto
+            <a href="${waUrl}" target="_blank" style="display: block; text-align: center; background-color: #047857; color: #FFF; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; text-decoration: none;">
+              Contatta su WhatsApp
             </a>
           ` : ''}
         </div>
@@ -339,15 +348,47 @@ const initMap = async () => {
     `
 
     marker.bindPopup(popupHtml)
+
+    // Open popup automatically if single producer view
+    if (producersList.length === 1) {
+      marker.openPopup()
+    }
   })
 
   if (producersList.length > 1 && bounds.length > 0) {
     mapInstance.fitBounds(bounds, { padding: [40, 40] })
   }
+
+  // Ensure Leaflet resizes correctly after rendering or view mode switches
+  nextTick(() => {
+    setTimeout(() => {
+      if (mapInstance) {
+        mapInstance.invalidateSize()
+      }
+    }, 200)
+  })
+}
+
+// Handle container resizing (e.g. view mode toggles)
+const handleResize = () => {
+  if (mapInstance) {
+    mapInstance.invalidateSize()
+  }
 }
 
 onMounted(() => {
   initMap()
+
+  window.addEventListener('resize', handleResize)
+
+  if (window.ResizeObserver && mapContainer.value) {
+    resizeObserver = new ResizeObserver(() => {
+      if (mapInstance) {
+        mapInstance.invalidateSize()
+      }
+    })
+    resizeObserver.observe(mapContainer.value)
+  }
 })
 
 watch(() => props.producers, () => {
@@ -355,9 +396,30 @@ watch(() => props.producers, () => {
 }, { deep: true })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+  }
   if (mapInstance) {
     mapInstance.remove()
     mapInstance = null
   }
 })
 </script>
+
+<style>
+/* Leaflet Popup & Pin Overrides */
+.custom-wine-pin {
+  background: transparent !important;
+  border: none !important;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 8px !important;
+  padding: 6px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid #E7E5E4 !important;
+}
+.leaflet-container {
+  font-family: inherit !important;
+}
+</style>

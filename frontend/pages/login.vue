@@ -3,12 +3,9 @@
     
     <div class="bg-white rounded-3xl p-8 border border-stone-200/60 shadow-lg">
       
-      <div class="text-center mb-6 space-y-2">
-        <div class="w-12 h-12 rounded-full bg-wine-800 flex items-center justify-center text-white mx-auto shadow-xs">
-          <Wine class="w-6 h-6 text-amber-200" />
-        </div>
-        <h1 class="font-serif text-3xl font-light text-stone-900">Area Riservata</h1>
-        <p class="text-xs text-stone-500 font-light">Accedi per gestire la tua cantina o registra la tua azienda vinicola</p>
+      <div class="text-center mb-6 space-y-2 flex flex-col items-center">
+        <AppLogo variant="light" />
+        <p class="text-xs text-stone-500 font-light pt-2">Accedi per gestire la tua cantina o registra la tua azienda vinicola</p>
       </div>
 
       <!-- Tab Switcher -->
