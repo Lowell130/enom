@@ -284,6 +284,9 @@
           </button>
         </div>
 
+      </div>
+    </div>
+
     <!-- Modal Importazione PDF con IA -->
     <div v-if="showPdfModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-xs flex items-center justify-center p-4">
       <div class="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl relative border border-stone-100 max-h-[90vh] flex flex-col">
