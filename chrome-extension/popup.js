@@ -200,25 +200,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     inputEl.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  const VALID_SINGLE_GRAPES = [
+    "Aglianico", "Bombino Bianco", "Cabernet Sauvignon", "Cerasuolo", "Chardonnay",
+    "Falanghina", "Garganega", "Garganica", "Greco", "Malvasia", "Merlot",
+    "Montepulciano", "Moscato", "Moscato Bianco", "Moscato Reale", "Pinot Grigio",
+    "Pinot Nero", "Riesling", "Sangiovese", "Sauvignon Blanc", "Syrah", "Tintilia",
+    "Trebbiano", "Trebbiano del Molise"
+  ];
+
+  function sanitizeGrapeList(rawGrapesData) {
+    const resultNames = new Set();
+    (rawGrapesData || []).forEach(g => {
+      if (!g || !g.name) return;
+      const rawName = g.name.trim();
+
+      const directMatch = VALID_SINGLE_GRAPES.find(vg => vg.toLowerCase() === rawName.toLowerCase());
+      if (directMatch) {
+        resultNames.add(directMatch);
+        return;
+      }
+
+      VALID_SINGLE_GRAPES.forEach(vg => {
+        const regex = new RegExp(`\\b${vg.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'i');
+        if (regex.test(rawName)) {
+          resultNames.add(vg);
+        }
+      });
+    });
+
+    if (resultNames.size === 0) {
+      VALID_SINGLE_GRAPES.forEach(vg => resultNames.add(vg));
+    }
+
+    const sortedNames = Array.from(resultNames).sort((a, b) => a.localeCompare(b));
+    return sortedNames.map(name => ({ name }));
+  }
+
   function renderPopupGrapesQuickPills(grapesData) {
     const container = document.getElementById('popup-grapes-quick-pills');
     if (!container || !grapesData) return;
     container.innerHTML = '';
-    
-    // Filter out combined or legacy multi-grape entries
-    const singleGrapesOnly = [];
-    grapesData.forEach(g => {
-      if (!g || !g.name) return;
-      const n = g.name.trim();
-      if (n.includes('-') || n.toLowerCase().includes(' in purezza') || n.toLowerCase().includes(' passito') || n.toLowerCase().includes('uve bianche')) {
-        return;
-      }
-      if (!singleGrapesOnly.some(x => x.name.toLowerCase() === n.toLowerCase())) {
-        singleGrapesOnly.push(g);
-      }
-    });
 
-    singleGrapesOnly.forEach(g => {
+    const cleanGrapes = sanitizeGrapeList(grapesData);
+    cleanGrapes.forEach(g => {
       const pill = document.createElement('button');
       pill.type = 'button';
       pill.className = 'val-pill';
