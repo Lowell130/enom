@@ -20,21 +20,21 @@ class PairingResponse(PairingCreate):
     id: str
 
 DEFAULT_PAIRINGS_SEED = [
-    {"name": "Carne Rossa alla Griglia", "category": "CARNI"},
-    {"name": "Cacciagione e Selvaggina", "category": "CARNI"},
-    {"name": "Arrosti e Tagliate di Manzo", "category": "CARNI"},
-    {"name": "Formaggi Stagionati Molisani", "category": "FORMAGGI"},
-    {"name": "Formaggi a Pasta Filata e Erborinati", "category": "FORMAGGI"},
-    {"name": "Salumi e Affettati Tipici Molisani", "category": "SALUMI"},
-    {"name": "Primi Piatti con Ragù di Carne", "category": "PRIMI"},
-    {"name": "Pasta Fresca e Zuppe di Legumi", "category": "PRIMI"},
-    {"name": "Risotti ai Funghi Porcini o Tartufo", "category": "PRIMI"},
-    {"name": "Pesce alla Griglia e Frutti di Mare", "category": "PESCE"},
-    {"name": "Brodetto di Pesce e Zuppe Marinare", "category": "PESCE"},
-    {"name": "Aperitivi, Antipasti e Finger Food", "category": "APERITIVI"},
+    {"name": "Antipasti & Aperitivi", "category": "APERITIVI"},
+    {"name": "Arrosti & Tagliate", "category": "CARNI"},
+    {"name": "Cacciagione & Selvaggina", "category": "CARNI"},
+    {"name": "Carni Rosse & Grigliate", "category": "CARNI"},
     {"name": "Pampanella Molisana", "category": "CARNI"},
-    {"name": "Dolci Secchi, Pasticceria e Frutta", "category": "DOLCI"},
-    {"name": "Pizze e Lievitati Artigianali", "category": "GENERALE"}
+    {"name": "Formaggi Freschi", "category": "FORMAGGI"},
+    {"name": "Formaggi Stagionati", "category": "FORMAGGI"},
+    {"name": "Salumi & Affettati", "category": "SALUMI"},
+    {"name": "Primi Piatti & Ragù", "category": "PRIMI"},
+    {"name": "Risotti & Tartufo", "category": "PRIMI"},
+    {"name": "Pesce & Frutti di Mare", "category": "PESCE"},
+    {"name": "Piatti Vegetariani", "category": "GENERALE"},
+    {"name": "Pizze & Lievitati", "category": "GENERALE"},
+    {"name": "Pasticceria & Dolci", "category": "DOLCI"},
+    {"name": "Paté & Piatti Freddi", "category": "GENERALE"}
 ]
 
 @router.get("", response_model=List[PairingResponse])

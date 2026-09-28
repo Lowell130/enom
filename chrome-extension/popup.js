@@ -236,6 +236,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     return sortedNames.map(name => ({ name }));
   }
 
+  const PAIRING_CANONICAL_RULES = [
+    { pattern: /cacciagione|selvaggina/i, canonical: "Cacciagione & Selvaggina" },
+    { pattern: /antipast|aperitiv|finger food/i, canonical: "Antipasti & Aperitivi" },
+    { pattern: /carne rossa|carni rosse|griglia|grigliat/i, canonical: "Carni Rosse & Grigliate" },
+    { pattern: /arrost|tagliat/i, canonical: "Arrosti & Tagliate" },
+    { pattern: /pampanella/i, canonical: "Pampanella Molisana" },
+    { pattern: /formagg.*fresch|spalmabil/i, canonical: "Formaggi Freschi" },
+    { pattern: /formagg.*stagionat|pasta filata|erborinat|media stagionatura/i, canonical: "Formaggi Stagionati" },
+    { pattern: /salumi|affettat/i, canonical: "Salumi & Affettati" },
+    { pattern: /primi|sugo|ragù|ragu|zupp.*legum/i, canonical: "Primi Piatti & Ragù" },
+    { pattern: /risott|tartufo|porcini/i, canonical: "Risotti & Tartufo" },
+    { pattern: /pesce|frutti di mare|brodetto/i, canonical: "Pesce & Frutti di Mare" },
+    { pattern: /vegetarian/i, canonical: "Piatti Vegetariani" },
+    { pattern: /pizz|lievitat/i, canonical: "Pizze & Lievitati" },
+    { pattern: /dolc|pasticceri/i, canonical: "Pasticceria & Dolci" },
+    { pattern: /paté|pate|piatti freddi/i, canonical: "Paté & Piatti Freddi" }
+  ];
+
+  function sanitizePairingsList(rawPairingsData) {
+    const canonicalNames = new Set();
+    (rawPairingsData || []).forEach(p => {
+      if (!p || !p.name) return;
+      const rawName = p.name.trim();
+      let matched = false;
+      for (const rule of PAIRING_CANONICAL_RULES) {
+        if (rule.pattern.test(rawName)) {
+          canonicalNames.add(rule.canonical);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched && rawName.length > 2) {
+        canonicalNames.add(rawName);
+      }
+    });
+
+    const sorted = Array.from(canonicalNames).sort((a, b) => a.localeCompare(b));
+    return sorted.map(name => ({ name }));
+  }
+
   function renderPopupGrapesQuickPills(grapesData) {
     const container = document.getElementById('popup-grapes-quick-pills');
     if (!container || !grapesData) return;
