@@ -1239,3 +1239,90 @@ async def cleanup_slugs_and_titles(
     
     migrated_count = await run_products_cleanup_migration(db)
     return {"message": f"Pulizia catalogo completata con successo: {migrated_count} vini aggiornati a Senza Annata (S.A.) e slug puliti."}
+
+from app.services.pdf_importer import process_pdf_wine_file
+
+@router.post("/import/parse-pdfs")
+async def parse_pdfs_batch(
+    files: List[UploadFile] = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    if not files:
+        raise HTTPException(status_code=400, detail="Nessun file PDF caricato")
+
+    parsed_wines = []
+    for file in files:
+        if not file.filename.lower().endswith(".pdf"):
+            continue
+        pdf_bytes = await file.read()
+        extracted = process_pdf_wine_file(pdf_bytes, file.filename)
+        extracted["source_file"] = file.filename
+        parsed_wines.append(extracted)
+
+    return {"wines": parsed_wines, "count": len(parsed_wines)}
+
+class ConfirmBatchImportPayload(BaseModel):
+    producer_id: str
+    wines: List[dict]
+
+@router.post("/import/confirm-batch")
+async def confirm_pdf_batch_import(
+    payload: ConfirmBatchImportPayload,
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    if not ObjectId.is_valid(payload.producer_id):
+        raise HTTPException(status_code=400, detail="ID Cantina non valido")
+        
+    producer_obj_id = ObjectId(payload.producer_id)
+    producer = await db.producers.find_one({"_id": producer_obj_id})
+    if not producer:
+        raise HTTPException(status_code=404, detail="Cantina non trovata")
+
+    created_wines = []
+    for w in payload.wines:
+        name = clean_wine_title(w.get("name", "Vino Senza Nome"))
+        denom = parse_denominazione_acronym(w.get("denominazione", "DOC"))
+        is_riserva = bool(w.get("is_riserva", False))
+        
+        slug = await generate_unique_product_slug(
+            db=db,
+            name=name,
+            producer_id=producer_obj_id,
+            is_riserva=is_riserva
+        )
+
+        doc = {
+            "producer_id": producer_obj_id,
+            "name": name,
+            "slug": slug,
+            "category": w.get("category", "VINO_ROSSO"),
+            "denominazione": denom,
+            "vintage_year": w.get("vintage_year"),
+            "is_riserva": is_riserva,
+            "alcohol_degrees": w.get("alcohol_degrees"),
+            "grape_varieties": w.get("grape_varieties") or [],
+            "description": w.get("description", ""),
+            "tasting_notes": w.get("tasting_notes") or {},
+            "food_pairings": w.get("food_pairings") or [],
+            "serving_temperature": w.get("serving_temperature", "16-18°C"),
+            "indicative_price": w.get("indicative_price", ""),
+            "photos": w.get("photos") or ["https://images.unsplash.com/photo-1586370434639-0fe43b2d32e6?auto=format&fit=crop&w=600&q=80"],
+            "technical_sheet_pdf": "",
+            "custom_attributes": w.get("custom_attributes") or [],
+            "status": "PUBLISHED",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+
+        res = await db.products.insert_one(doc)
+        doc["id"] = str(res.inserted_id)
+        
+        # Auto-sync taxonomy with master collections
+        await sync_grapes_with_master(doc["grape_varieties"], db)
+        await sync_pairings_with_master(doc["food_pairings"], db)
+        await sync_custom_attributes_with_master(doc["custom_attributes"], db)
+
+        created_wines.append(doc)
+
+    return {"message": f"{len(created_wines)} vini importati con successo nel catalogo", "imported_count": len(created_wines)}
