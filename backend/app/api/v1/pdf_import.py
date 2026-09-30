@@ -4,8 +4,8 @@
   POST /products/import/parse-pdfs    analizza uno o piu' PDF e propone i vini (nessuna scrittura nel DB)
   POST /products/import/confirm-batch crea/aggiorna i vini revisionati dall'amministratore
 """
+import hashlib
 import logging
-import re
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
@@ -23,6 +23,7 @@ from app.services.catalog import (
     generate_unique_product_slug,
     parse_denominazione_acronym,
 )
+from app.services.duplicates import compare_names, find_duplicate, name_key
 from app.services.pdf_importer import CANONICAL_PAIRINGS, SUPPORTED_EXTENSIONS, match_producer, process_document
 from app.services.taxonomy import (
     sync_custom_attributes_with_master,
@@ -45,16 +46,26 @@ async def _load_taxonomy(db):
     return attributes, grapes, pairings or CANONICAL_PAIRINGS
 
 
-async def _find_existing(db, producer_id: ObjectId, name: str) -> Optional[Dict[str, Any]]:
-    if not name:
-        return None
-    doc = await db.products.find_one(
-        {"producer_id": producer_id, "name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}},
-        {"name": 1, "slug": 1, "status": 1},
-    )
-    if not doc:
-        return None
-    return {"id": str(doc["_id"]), "name": doc.get("name", ""), "slug": doc.get("slug", ""), "status": doc.get("status", "")}
+async def _producer_wines(db, producer_id: ObjectId) -> List[Dict[str, Any]]:
+    return await db.products.find(
+        {"producer_id": producer_id},
+        {"name": 1, "slug": 1, "status": 1, "category": 1, "is_riserva": 1},
+    ).to_list(2000)
+
+
+def _mark_batch_duplicates(wines: List[Dict[str, Any]]) -> None:
+    """Nello stesso import, i vini ripetuti (stessa cantina, stesso nome) dopo il primo non vengono importati."""
+    seen: List[Dict[str, Any]] = []
+    for w in wines:
+        for first in seen:
+            if first.get("producer_id") and first.get("producer_id") == w.get("producer_id") \
+                    and bool(first.get("is_riserva")) == bool(w.get("is_riserva")) \
+                    and compare_names(first["name"], w["name"])[0]:
+                w["batch_duplicate_of"] = {"name": first["name"], "source_file": first.get("source_file", "")}
+                w["action"] = "skip"
+                break
+        else:
+            seen.append(w)
 
 
 @router.get("/import/ai-status")
@@ -88,6 +99,8 @@ async def parse_pdfs_batch(
     producer_names = {p["_id"]: p.get("company_name", "") for p in producers}
 
     results = []
+    catalog_cache: Dict[Any, List[Dict[str, Any]]] = {}
+    seen_hashes: Dict[str, str] = {}
     for file in files:
         filename = file.filename or "documento.pdf"
         entry: Dict[str, Any] = {"filename": filename, "status": "error", "error": None, "wines": []}
@@ -97,6 +110,13 @@ async def parse_pdfs_batch(
             file_bytes = await file.read(MAX_PDF_BYTES + 1)
             if len(file_bytes) > MAX_PDF_BYTES:
                 raise AIExtractionError("Il file supera i 15 MB")
+            digest = hashlib.sha256(file_bytes).hexdigest()
+            entry["file_hash"] = digest
+            if digest in seen_hashes:
+                entry.update({"status": "duplicate", "error": f"File identico a {seen_hashes[digest]}: analizzato una sola volta"})
+                results.append(entry)
+                continue
+            seen_hashes[digest] = filename
 
             parsed = await run_in_threadpool(process_document, file_bytes, filename, attributes, grapes, pairings)
 
@@ -106,10 +126,16 @@ async def parse_pdfs_batch(
                 matched_id, score = match_producer(parsed["producer"], producers)
 
             wines = []
+            if matched_id and matched_id not in catalog_cache:
+                catalog_cache[matched_id] = await _producer_wines(db, matched_id)
             for w in parsed["wines"]:
                 w["producer_id"] = str(matched_id) if matched_id else ""
-                w["existing_product"] = await _find_existing(db, matched_id, w["name"]) if matched_id else None
+                w["name_key"] = name_key(w["name"])
+                w["existing_product"] = find_duplicate(
+                    w["name"], catalog_cache.get(matched_id, []), w.get("category", ""), w.get("is_riserva")
+                ) if matched_id else None
                 w["action"] = "update" if w["existing_product"] else "create"
+                w["batch_duplicate_of"] = None
                 w["source_file"] = filename
                 wines.append(w)
 
@@ -132,12 +158,65 @@ async def parse_pdfs_batch(
             entry["error"] = "Errore imprevisto durante l'analisi del file"
         results.append(entry)
 
+    _mark_batch_duplicates([w for r in results for w in r["wines"]])
     return {
         "files": results,
         "wines": [w for r in results for w in r["wines"]],  # compatibilita' con il vecchio frontend
         "count": sum(len(r["wines"]) for r in results),
         "ai": provider_status(),
     }
+
+
+class DuplicateCheckPayload(BaseModel):
+    producer_id: str
+    name: str = Field(max_length=200)
+    category: Optional[str] = ""
+    is_riserva: Optional[bool] = None
+
+
+@router.post("/import/check-duplicate")
+async def check_duplicate(
+    payload: DuplicateCheckPayload,
+    current_admin: dict = Depends(get_current_admin),
+    db=Depends(get_database)
+):
+    """Ricontrolla i doppioni quando nella revisione si cambia cantina o nome del vino."""
+    if not ObjectId.is_valid(payload.producer_id):
+        return {"existing_product": None, "name_key": name_key(payload.name)}
+    candidates = await _producer_wines(db, ObjectId(payload.producer_id))
+    return {
+        "existing_product": find_duplicate(payload.name, candidates, payload.category or "", payload.is_riserva),
+        "name_key": name_key(payload.name),
+    }
+
+
+class BatchWineRef(BaseModel):
+    producer_id: Optional[str] = ""
+    name: str = Field(default="", max_length=200)
+    is_riserva: Optional[bool] = False
+    source_file: Optional[str] = ""
+
+
+class BatchCheckPayload(BaseModel):
+    wines: List[BatchWineRef] = Field(max_length=MAX_BATCH_WINES)
+
+
+@router.post("/import/check-batch")
+async def check_batch(payload: BatchCheckPayload, current_admin: dict = Depends(get_current_admin)):
+    """Per ogni vino dell'import indica se ripete un vino precedente dello stesso import (stessa cantina)."""
+    wines = [w.model_dump() for w in payload.wines]
+    for w in wines:
+        w["batch_duplicate_of"] = None
+    _mark_batch_duplicates(wines)
+    result = []
+    for i, w in enumerate(wines):
+        dup = w.get("batch_duplicate_of")
+        first_index = None
+        if dup:
+            first_index = next(j for j, o in enumerate(wines[:i])
+                               if o["name"] == dup["name"] and o.get("source_file", "") == dup["source_file"])
+        result.append({"index": i, "duplicate_of_index": first_index})
+    return {"results": result}
 
 
 class ImportedAttribute(BaseModel):
@@ -243,6 +322,8 @@ async def confirm_pdf_batch_import(
         return producer_cache[pid]
 
     created, updated, skipped, errors = 0, 0, 0, []
+    duplicates: List[str] = []
+    created_in_batch: Dict[str, List[Dict[str, Any]]] = {}
     for idx, w in enumerate(payload.wines, 1):
         label = w.name or f"vino {idx}"
         if w.action == "skip":
@@ -282,6 +363,14 @@ async def confirm_pdf_batch_import(
             await db.products.update_one({"_id": existing["_id"]}, {"$set": update})
             updated += 1
         else:
+            # rete di sicurezza: lo stesso vino inviato due volte nella stessa conferma viene creato una sola volta
+            twin = next((c for c in created_in_batch.get(pid, [])
+                         if bool(c["is_riserva"]) == bool(doc["is_riserva"]) and compare_names(c["name"], doc["name"])[0]), None)
+            if twin:
+                skipped += 1
+                duplicates.append(f"{label}: doppione di \"{twin['name']}\" nello stesso import, non creato")
+                continue
+            created_in_batch.setdefault(pid, []).append({"name": doc["name"], "is_riserva": doc["is_riserva"]})
             doc["producer_id"] = producer_oid
             doc["slug"] = await generate_unique_product_slug(
                 db=db, name=doc["name"], producer_id=producer_oid, is_riserva=bool(doc["is_riserva"])
@@ -313,5 +402,6 @@ async def confirm_pdf_batch_import(
         "created": created,
         "updated": updated,
         "skipped": skipped,
+        "duplicates": duplicates,
         "errors": errors,
     }

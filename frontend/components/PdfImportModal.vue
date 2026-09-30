@@ -84,7 +84,7 @@
             <li v-for="fs in fileStates" :key="fs.name" class="flex items-center justify-between text-xs border border-stone-200 rounded-xl px-3 py-2">
               <span class="font-medium text-stone-800 truncate">{{ fs.name }}</span>
               <span class="shrink-0 font-semibold inline-flex items-center gap-1.5"
-                :class="{ 'text-stone-400': fs.state === 'queued', 'text-amber-700': fs.state === 'running', 'text-emerald-700': fs.state === 'ok', 'text-rose-700': fs.state === 'error' }">
+                :class="{ 'text-stone-400': fs.state === 'queued', 'text-amber-700': fs.state === 'running', 'text-emerald-700': fs.state === 'ok', 'text-rose-700': fs.state === 'error', 'text-stone-500': fs.state === 'duplicate' }">
                 <RefreshCw v-if="fs.state === 'running'" class="w-3.5 h-3.5 animate-spin" />
                 {{ fileStateLabel(fs) }}
               </span>
@@ -98,6 +98,9 @@
           <div v-for="fs in failedFiles" :key="'err-' + fs.name" class="flex items-start justify-between gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 text-xs">
             <span class="text-rose-900"><strong>{{ fs.name }}</strong>: {{ fs.error }}</span>
             <button type="button" class="shrink-0 font-bold text-rose-800 hover:underline" @click="retryFile(fs)">Riprova</button>
+          </div>
+          <div v-for="fs in duplicateFiles" :key="'dup-' + fs.name" class="bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-xs text-stone-600">
+            <strong>{{ fs.name }}</strong> è identico a <strong>{{ fs.duplicateOf }}</strong>: analizzato una sola volta.
           </div>
 
           <div v-if="!wines.length" class="text-center text-sm text-stone-500 py-10">Nessun vino da importare.</div>
@@ -125,11 +128,22 @@
               <!-- intestazione vino -->
               <div class="p-4 flex flex-col lg:flex-row lg:items-center gap-3">
                 <div class="flex-1 min-w-0">
-                  <input v-model="w.name" type="text" placeholder="Nome del vino"
+                  <input v-model="w.name" type="text" placeholder="Nome del vino" @change="recheckWine(w)"
                     class="w-full font-bold text-sm text-stone-900 border border-stone-200 rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-wine-800 focus:outline-none" />
                   <div class="flex flex-wrap items-center gap-1.5 mt-1.5 text-[10px]">
                     <span class="px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-mono">{{ w.source_file }}</span>
-                    <span v-if="w.existing_product && w.action === 'update'" class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-bold">Aggiorna vino esistente</span>
+                    <span v-if="w._batchDupOf" class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold"
+                      :title="`Stesso vino già presente in questo import (${w._batchDupOf.source_file})`">
+                      Doppione di «{{ w._batchDupOf.name }}» in {{ w._batchDupOf.source_file }}
+                    </span>
+                    <template v-if="w.existing_product">
+                      <span v-if="w.existing_product.match === 'similar'" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold"
+                        title="Nome simile a un vino della stessa cantina già in catalogo: verifica che sia lo stesso">
+                        Possibile doppione in catalogo: «{{ w.existing_product.name }}»
+                      </span>
+                      <span v-else class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-bold">Già in catalogo: «{{ w.existing_product.name }}»</span>
+                    </template>
+                    <span v-if="w.action === 'update'" class="px-2 py-0.5 rounded-full bg-sky-50 text-sky-800 border border-sky-200 font-semibold">verrà aggiornato</span>
                     <span v-else-if="w.action === 'create'" class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">Nuovo vino</span>
                     <span v-for="m in w.missing_fields" :key="m" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-semibold">manca: {{ m }}</span>
                     <span v-for="(wr, wi) in w.warnings" :key="'w' + wi" class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-200">{{ wr }}</span>
@@ -141,9 +155,9 @@
                     <option value="">— Scegli la cantina —</option>
                     <option v-for="p in producers" :key="p.id" :value="p.id">{{ p.company_name }}</option>
                   </select>
-                  <select v-model="w.action" class="border border-stone-200 rounded-lg px-2 py-1.5 text-xs bg-white">
+                  <select v-model="w.action" @change="w._userAction = true" class="border border-stone-200 rounded-lg px-2 py-1.5 text-xs bg-white max-w-[220px]">
                     <option value="create">Crea nuovo</option>
-                    <option v-if="w.existing_product" value="update">Aggiorna esistente</option>
+                    <option v-if="w.existing_product" value="update">Aggiorna «{{ w.existing_product.name }}»</option>
                     <option value="skip">Non importare</option>
                   </select>
                   <button type="button" class="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500" @click="w._open = !w._open" :aria-label="w._open ? 'Chiudi dettagli' : 'Apri dettagli'">
@@ -232,6 +246,9 @@
           <div class="text-center py-8 space-y-3">
             <CheckCircle2 class="w-12 h-12 text-emerald-600 mx-auto" />
             <p class="text-lg font-bold text-stone-900">{{ result?.message }}</p>
+            <ul v-if="result?.duplicates?.length" class="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-2xl p-3 text-left max-w-xl mx-auto space-y-1">
+              <li v-for="(d, i) in result.duplicates" :key="'d' + i">• {{ d }}</li>
+            </ul>
             <ul v-if="result?.errors?.length" class="text-xs text-rose-800 bg-rose-50 border border-rose-200 rounded-2xl p-3 text-left max-w-xl mx-auto space-y-1">
               <li v-for="(e, i) in result.errors" :key="i">• {{ e }}</li>
             </ul>
@@ -313,8 +330,9 @@ const attributeNames = ref([])
 let keySeq = 0
 
 const providerLabel = computed(() => ({ gemini: 'Google Gemini', anthropic: 'Anthropic Claude' }[aiStatus.value?.provider] || aiStatus.value?.provider))
-const doneCount = computed(() => fileStates.value.filter(f => f.state === 'ok' || f.state === 'error').length)
+const doneCount = computed(() => fileStates.value.filter(f => ['ok', 'error', 'duplicate'].includes(f.state)).length)
 const failedFiles = computed(() => fileStates.value.filter(f => f.state === 'error'))
+const duplicateFiles = computed(() => fileStates.value.filter(f => f.state === 'duplicate'))
 const selectedCount = computed(() => wines.value.filter(w => w.action !== 'skip').length)
 const hasPdfWines = computed(() => wines.value.some(w => w._file && isPdfFile(w._file)))
 
@@ -348,15 +366,72 @@ const fileStateLabel = (fs) => ({
   queued: 'in coda',
   running: 'analisi IA…',
   ok: `${fs.count} ${fs.count === 1 ? 'vino' : 'vini'}`,
-  error: 'errore'
+  error: 'errore',
+  duplicate: `identico a ${fs.duplicateOf}`
 }[fs.state])
+
+// impronta del contenuto: riconosce lo stesso file anche se rinominato
+const fileFingerprint = async (file) => {
+  try {
+    if (globalThis.crypto?.subtle) {
+      const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
+      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
+    }
+  } catch (e) { /* fallback sotto */ }
+  return `${file.size}|${file.lastModified}`
+}
+
+// Doppioni tra i vini di questo import (stessa logica di confronto del server)
+const checkBatch = async () => {
+  if (!wines.value.length) return
+  try {
+    const res = await fetchWithAuth('/products/import/check-batch', {
+      method: 'POST',
+      body: { wines: wines.value.map(w => ({ producer_id: w.producer_id || '', name: w.name || '', is_riserva: !!w.is_riserva, source_file: w.source_file || '' })) }
+    })
+    for (const r of res?.results || []) {
+      const w = wines.value[r.index]
+      if (!w) continue
+      const first = r.duplicate_of_index != null ? wines.value[r.duplicate_of_index] : null
+      if (first) {
+        const isNew = !w._batchDupOf
+        w._batchDupOf = { name: first.name, source_file: first.source_file }
+        if (isNew && !w._userAction) { w.action = 'skip'; w._dupAuto = true }
+      } else {
+        w._batchDupOf = null
+        if (w._dupAuto && w.action === 'skip') w.action = w.existing_product ? 'update' : 'create'
+        w._dupAuto = false
+      }
+    }
+  } catch (e) { /* controllo facoltativo: in caso di errore la conferma ha comunque una verifica lato server */ }
+}
+
+// Ricontrolla il catalogo quando cambiano cantina o nome del vino
+const recheckWine = async (w) => {
+  if (w.producer_id && (w.name || '').trim()) {
+    try {
+      const res = await fetchWithAuth('/products/import/check-duplicate', {
+        method: 'POST',
+        body: { producer_id: w.producer_id, name: w.name, category: w.category || '', is_riserva: !!w.is_riserva }
+      })
+      w.existing_product = res?.existing_product || null
+    } catch (e) { /* lascia il valore precedente */ }
+  } else {
+    w.existing_product = null
+  }
+  if (w.existing_product && w.action === 'create' && !w._userAction) w.action = 'update'
+  if (!w.existing_product && w.action === 'update') w.action = 'create'
+  await checkBatch()
+}
 
 const prepareWine = (w, file) => ({
   ...w,
   _key: ++keySeq,
   _open: false,
   _file: file,
-  _origProducer: w.producer_id || '',
+  _batchDupOf: null,
+  _dupAuto: false,
+  _userAction: false,
   _grapesText: (w.grape_varieties || []).join(', '),
   denominazione: w.denominazione || '',
   vintage_year: w.vintage_year ?? null,
@@ -401,11 +476,20 @@ const analyze = async () => {
   busy.value = true
   step.value = 'analyzing'
   wines.value = []
-  fileStates.value = files.value.map(f => ({ name: f.name, file: f, state: 'queued', count: 0, error: '' }))
+  fileStates.value = files.value.map(f => ({ name: f.name, file: f, state: 'queued', count: 0, error: '', duplicateOf: '' }))
   // un file alla volta: avanzamento visibile ed errori isolati per documento
+  const seen = new Map()
   for (const fs of fileStates.value) {
+    const fp = await fileFingerprint(fs.file)
+    if (seen.has(fp)) {
+      fs.state = 'duplicate'
+      fs.duplicateOf = seen.get(fp)
+      continue
+    }
+    seen.set(fp, fs.name)
     await parseOne(fs)
   }
+  await checkBatch()
   if (wines.value.length === 1) wines.value[0]._open = true
   busy.value = false
   step.value = 'review'
@@ -414,16 +498,11 @@ const analyze = async () => {
 const retryFile = async (fs) => {
   busy.value = true
   await parseOne(fs)
+  await checkBatch()
   busy.value = false
 }
 
-const onProducerChange = (w) => {
-  // il vino esistente trovato appartiene alla cantina originale: se si cambia cantina si crea un vino nuovo
-  if (w.existing_product && w.producer_id !== w._origProducer) {
-    w.existing_product = null
-    if (w.action === 'update') w.action = 'create'
-  }
-}
+const onProducerChange = (w) => recheckWine(w)
 
 const togglePairing = (w, p) => {
   const i = w.food_pairings.indexOf(p)
