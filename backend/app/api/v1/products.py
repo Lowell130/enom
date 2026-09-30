@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, UploadFile, File
+from pydantic import BaseModel
 from app.db.mongodb import get_database
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 from app.api.v1.auth import get_current_user
