@@ -35,6 +35,18 @@ class ContactsSchema(BaseModel):
     instagram: Optional[str] = ""
     facebook: Optional[str] = ""
 
+PRODUCER_STATUSES = {"APPROVED", "PENDING_APPROVAL", "SUSPENDED"}
+
+
+def _validate_producer_status(v):
+    if v is None:
+        return v
+    v = str(v).strip().upper()
+    if v not in PRODUCER_STATUSES:
+        raise ValueError(f"Stato non valido: usa uno tra {sorted(PRODUCER_STATUSES)}")
+    return v
+
+
 class ProducerBase(BaseModel):
     company_name: str
     slug: Optional[str] = None
@@ -46,7 +58,10 @@ class ProducerBase(BaseModel):
     status: str = "APPROVED" # "APPROVED", "PENDING_APPROVAL", "SUSPENDED"
 
 class ProducerCreate(ProducerBase):
-    pass
+    @field_validator("status", mode="before")
+    @classmethod
+    def check_status(cls, v):
+        return _validate_producer_status(v) or "APPROVED"
 
 class ProducerUpdate(BaseModel):
     company_name: Optional[str] = None
@@ -55,7 +70,12 @@ class ProducerUpdate(BaseModel):
     description: Optional[str] = None
     address: Optional[AddressSchema] = None
     contacts: Optional[ContactsSchema] = None
-    status: Optional[str] = None
+    status: Optional[str] = None  # modificabile solo dall'amministratore
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def check_status(cls, v):
+        return _validate_producer_status(v)
 
 class ProducerResponse(ProducerBase):
     id: str

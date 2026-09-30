@@ -8,7 +8,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     pwd_bytes = plain_password.encode('utf-8')
     if len(pwd_bytes) > 72:
         pwd_bytes = pwd_bytes[:72]
-    return bcrypt.checkpw(pwd_bytes, hashed_password.encode('utf-8'))
+    try:
+        return bcrypt.checkpw(pwd_bytes, (hashed_password or "").encode('utf-8'))
+    except ValueError:
+        # hash mancante o malformato
+        return False
 
 def get_password_hash(password: str) -> str:
     pwd_bytes = password.encode('utf-8')

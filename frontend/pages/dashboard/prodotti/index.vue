@@ -60,10 +60,10 @@
           v-if="isAdmin"
           @click="showPdfModal = true" 
           class="inline-flex items-center space-x-1.5 px-4 py-3 bg-wine-50 hover:bg-wine-100 text-wine-950 font-semibold text-xs rounded-xl border border-wine-200/80 transition-all shadow-2xs"
-          title="Estrazione ed importazione automatica batch da schede PDF con IA"
+          title="Importa i vini da schede tecniche in PDF o immagine con l'IA"
         >
           <Sparkles class="w-4 h-4 text-amber-600" />
-          <span>⚡ Importa PDF (AI)</span>
+          <span>⚡ Importa schede (AI)</span>
         </button>
 
         <NuxtLink to="/dashboard/prodotti/nuovo" class="inline-flex items-center space-x-2 px-6 py-3 bg-wine-800 hover:bg-wine-900 text-white font-semibold text-sm rounded-xl shadow-xs transition-all">
@@ -287,177 +287,13 @@
       </div>
     </div>
 
-    <!-- Modal Importazione PDF con IA -->
-    <div v-if="showPdfModal" class="fixed inset-0 z-50 bg-stone-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl relative border border-stone-100 max-h-[90vh] flex flex-col">
-        <div class="flex items-center justify-between mb-4 border-b border-stone-100 pb-4">
-          <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-900 flex items-center justify-center font-bold">
-              <Sparkles class="w-5 h-5 text-amber-700" />
-            </div>
-            <div>
-              <h3 class="font-sans text-xl font-bold text-stone-900">Importazione Automatica Batch da PDF (AI)</h3>
-              <p class="text-xs text-stone-500">L'IA estrarrà e normalizzerà automaticamente i vini dalle schede tecniche in PDF</p>
-            </div>
-          </div>
-          <button @click="showPdfModal = false" class="text-stone-400 hover:text-stone-600 p-1">
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <div class="overflow-y-auto flex-1 space-y-6 pr-1">
-          <!-- Step 1: Selection of Winery and PDF files -->
-          <div v-if="!parsedPdfWines || !parsedPdfWines.length" class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">1. Seleziona Cantina Produttrice *</label>
-              <select 
-                v-model="selectedPdfProducerId" 
-                class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none bg-white font-medium"
-              >
-                <option value="" disabled>-- Scegli la Cantina per i vini da importare --</option>
-                <option v-for="p in producers" :key="p.id" :value="p.id">
-                  {{ p.company_name }}
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">2. Seleziona Schede Tecniche PDF (singole o multiple)</label>
-              <div 
-                class="border-2 border-dashed border-amber-300 hover:border-amber-500 rounded-2xl p-8 text-center cursor-pointer transition-colors bg-amber-50/30"
-                @click="triggerPdfFileInput"
-              >
-                <input 
-                  type="file" 
-                  ref="pdfFileInputRef" 
-                  accept=".pdf" 
-                  multiple
-                  class="hidden" 
-                  @change="onPdfFilesSelected" 
-                />
-                <div v-if="selectedPdfFiles && selectedPdfFiles.length" class="space-y-2">
-                  <div class="flex flex-wrap justify-center gap-1.5 max-h-32 overflow-y-auto">
-                    <span v-for="(f, idx) in selectedPdfFiles" :key="idx" class="px-3 py-1 bg-amber-200 text-amber-950 font-mono text-xs font-bold rounded-lg border border-amber-300">
-                      📄 {{ f.name }}
-                    </span>
-                  </div>
-                  <p class="text-xs text-amber-900 font-semibold pt-1">Clicca per cambiare o aggiungere altri file PDF</p>
-                </div>
-                <div v-else class="space-y-2">
-                  <Sparkles class="w-10 h-10 text-amber-600 mx-auto" />
-                  <p class="text-sm font-bold text-stone-800">Trascina o seleziona uno o più file PDF dal tuo computer</p>
-                  <p class="text-xs text-stone-500 max-w-md mx-auto">
-                    L'IA analizzerà il contenuto di qualsiasi scheda tecnica PDF ed estrarrà nome, categoria, gradazione, vitigni, abbinamenti e note tecniche.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 2: Interactive Table Review Modal -->
-          <div v-else class="space-y-4">
-            <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-4 rounded-2xl">
-              <div class="flex items-center space-x-2 text-xs font-bold text-emerald-900">
-                <CheckCircle2 class="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>Analisi completata! Revisiona i {{ parsedPdfWines.length }} vini estratti prima di confermare l'importazione.</span>
-              </div>
-              <button @click="parsedPdfWines = []" class="text-xs text-emerald-800 hover:underline font-semibold">Rianalizza File</button>
-            </div>
-
-            <div class="overflow-x-auto border border-stone-200 rounded-2xl shadow-2xs">
-              <table class="w-full text-left text-xs text-stone-700">
-                <thead class="bg-stone-50 uppercase font-bold text-stone-500 border-b border-stone-200">
-                  <tr>
-                    <th class="py-3 px-4">File Origine</th>
-                    <th class="py-3 px-4">Nome Vino Estratto</th>
-                    <th class="py-3 px-4">Tipologia</th>
-                    <th class="py-3 px-4">Denominazione</th>
-                    <th class="py-3 px-4">Alcol</th>
-                    <th class="py-3 px-4">Vitigni Singoli</th>
-                    <th class="py-3 px-4">Abbinamenti</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-stone-100 bg-white">
-                  <tr v-for="(w, idx) in parsedPdfWines" :key="idx" class="hover:bg-stone-50/50">
-                    <td class="py-3 px-4 font-mono text-[11px] text-stone-500 font-semibold">{{ w.source_file }}</td>
-                    <td class="py-3 px-4 font-bold text-stone-900 min-w-[160px]">
-                      <input v-model="w.name" type="text" class="w-full border border-stone-200 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-wine-800 font-bold" />
-                    </td>
-                    <td class="py-3 px-4 min-w-[120px]">
-                      <select v-model="w.category" class="w-full border border-stone-200 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-wine-800">
-                        <option value="VINO_ROSSO">Vino Rosso</option>
-                        <option value="VINO_BIANCO">Vino Bianco</option>
-                        <option value="ROSATO">Rosato</option>
-                        <option value="SPUMANTE">Spumante</option>
-                        <option value="PASSITO">Passito</option>
-                      </select>
-                    </td>
-                    <td class="py-3 px-4 min-w-[90px]">
-                      <select v-model="w.denominazione" class="w-full border border-stone-200 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-wine-800">
-                        <option value="DOC">DOC</option>
-                        <option value="DOCG">DOCG</option>
-                        <option value="IGT">IGT</option>
-                        <option value="DOP">DOP</option>
-                      </select>
-                    </td>
-                    <td class="py-3 px-4 w-20">
-                      <input v-model.number="w.alcohol_degrees" type="number" step="0.1" class="w-full border border-stone-200 rounded-lg px-2 py-1 text-xs text-center font-mono" />
-                    </td>
-                    <td class="py-3 px-4 max-w-xs">
-                      <div class="flex flex-wrap gap-1">
-                        <span v-for="g in w.grape_varieties" :key="g" class="px-2 py-0.5 bg-amber-100 text-amber-900 rounded font-semibold text-[10px]">
-                          {{ g }}
-                        </span>
-                      </div>
-                    </td>
-                    <td class="py-3 px-4 max-w-xs">
-                      <div class="flex flex-wrap gap-1">
-                        <span v-for="p in w.food_pairings" :key="p" class="px-2 py-0.5 bg-emerald-100 text-emerald-900 rounded font-semibold text-[10px]">
-                          {{ p }}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Action Footer -->
-        <div class="pt-4 mt-4 flex justify-between items-center border-t border-stone-100">
-          <button type="button" @click="showPdfModal = false" class="px-4 py-2.5 text-xs text-stone-600 font-semibold hover:bg-stone-50 rounded-xl">Chiudi</button>
-
-          <!-- Button Step 1: Parse PDFs with AI -->
-          <button 
-            v-if="!parsedPdfWines || !parsedPdfWines.length"
-            type="button" 
-            @click="handleParsePdfs" 
-            :disabled="!selectedPdfFiles || !selectedPdfFiles.length || !selectedPdfProducerId || parsingPdf" 
-            class="px-6 py-3 bg-wine-800 hover:bg-wine-900 text-white rounded-xl text-xs font-bold shadow-xs disabled:opacity-50 inline-flex items-center space-x-2 transition-all"
-          >
-            <RefreshCw v-if="parsingPdf" class="w-4 h-4 animate-spin text-amber-200" />
-            <Sparkles v-else class="w-4 h-4 text-amber-300" />
-            <span>{{ parsingPdf ? 'Analisi IA in corso...' : 'Analisi Schede PDF con IA' }}</span>
-          </button>
-
-          <!-- Button Step 2: Confirm Batch Import -->
-          <button 
-            v-else
-            type="button" 
-            @click="handleConfirmPdfBatch" 
-            :disabled="importingPdfBatch" 
-            class="px-7 py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md disabled:opacity-50 inline-flex items-center space-x-2 transition-all"
-          >
-            <RefreshCw v-if="importingPdfBatch" class="w-4 h-4 animate-spin" />
-            <CheckCircle2 v-else class="w-4 h-4" />
-            <span>{{ importingPdfBatch ? 'Importazione in corso...' : `Conferma & Importa ${parsedPdfWines.length} Vini` }}</span>
-          </button>
-        </div>
-
-      </div>
-    </div>
+    <!-- Importazione vini da PDF con IA (solo admin) -->
+    <PdfImportModal
+      v-if="showPdfModal && isAdmin"
+      :producers="producers"
+      @close="showPdfModal = false"
+      @imported="refresh()"
+    />
 
   </div>
 </template>
@@ -480,73 +316,6 @@ const fileInputRef = ref(null)
 
 // State for PDF AI Batch Importer
 const showPdfModal = ref(false)
-const selectedPdfProducerId = ref('')
-const selectedPdfFiles = ref([])
-const pdfFileInputRef = ref(null)
-const parsingPdf = ref(false)
-const parsedPdfWines = ref([])
-const importingPdfBatch = ref(false)
-
-const triggerPdfFileInput = () => {
-  if (pdfFileInputRef.value) pdfFileInputRef.value.click()
-}
-
-const onPdfFilesSelected = (e) => {
-  const files = Array.from(e.target.files || [])
-  if (files.length) {
-    selectedPdfFiles.value = files
-  }
-}
-
-const handleParsePdfs = async () => {
-  if (!selectedPdfFiles.value.length || !selectedPdfProducerId.value) return
-  
-  parsingPdf.value = true
-  parsedPdfWines.value = []
-  
-  const formData = new FormData()
-  selectedPdfFiles.value.forEach(file => {
-    formData.append('files', file)
-  })
-
-  try {
-    const res = await fetchWithAuth('/products/import/parse-pdfs', {
-      method: 'POST',
-      body: formData
-    })
-    parsedPdfWines.value = res.wines || []
-    toast.success(`Estratti con successo ${parsedPdfWines.value.length} vini con l'IA! Revisiona i dati e conferma.`)
-  } catch (err) {
-    toast.error('Errore durante l\'analisi dei file PDF con l\'IA.')
-  } finally {
-    parsingPdf.value = false
-  }
-}
-
-const handleConfirmPdfBatch = async () => {
-  if (!parsedPdfWines.value.length || !selectedPdfProducerId.value) return
-  
-  importingPdfBatch.value = true
-  try {
-    const res = await fetchWithAuth('/products/import/confirm-batch', {
-      method: 'POST',
-      body: {
-        producer_id: selectedPdfProducerId.value,
-        wines: parsedPdfWines.value
-      }
-    })
-    toast.success(res.message || 'Vini importati con successo nel catalogo!')
-    showPdfModal.value = false
-    parsedPdfWines.value = []
-    selectedPdfFiles.value = []
-    await refresh()
-  } catch (err) {
-    toast.error('Errore durante il salvataggio dei vini nel database.')
-  } finally {
-    importingPdfBatch.value = false
-  }
-}
-
 const triggerFileInput = () => {
   if (fileInputRef.value) {
     fileInputRef.value.click()
@@ -563,7 +332,7 @@ const onFileSelected = (e) => {
 
 const { data: producers } = await useAsyncData('admin_producers_list', async () => {
   if (!isAdmin.value) return []
-  const res = await fetchWithAuth('/producers')
+  const res = await fetchWithAuth('/producers?include_all=true')
   return res || []
 }, { default: () => [] })
 

@@ -1,6 +1,12 @@
 export const useAuth = () => {
   const { fetchWithAuth } = useApi()
-  const tokenCookie = useCookie<string | null>('auth_token', { maxAge: 60 * 60 * 24 * 7 })
+  // Durata allineata alla scadenza del token JWT (ACCESS_TOKEN_EXPIRE_MINUTES = 3 giorni)
+  const tokenCookie = useCookie<string | null>('auth_token', {
+    maxAge: 60 * 60 * 24 * 3,
+    sameSite: 'lax',
+    secure: !import.meta.dev,
+    path: '/'
+  })
   const user = useState<any>('auth_user', () => null)
   const loading = useState<boolean>('auth_loading', () => false)
 

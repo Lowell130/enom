@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 from app.db.mongodb import get_database
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import re
 import asyncio
 
@@ -23,9 +23,10 @@ async def get_report_summary(
         db.attributes.find().to_list(1000)
     )
 
-    # If no published wines, fallback to all products
-    if not raw_products:
-        raw_products = await db.products.find().to_list(1000)
+    # Solo vini pubblicati di cantine approvate (niente bozze nel report pubblico)
+    approved_ids = {str(pr["_id"]) for pr in producers if pr.get("status", "APPROVED") == "APPROVED"}
+    raw_products = [p for p in raw_products if str(p.get("producer_id")) in approved_ids]
+    producers = [pr for pr in producers if str(pr["_id"]) in approved_ids]
 
     # Lookup maps for producer address
     producer_province_map: Dict[str, str] = {}

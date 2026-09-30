@@ -1,4 +1,48 @@
-const API_BASE = 'http://localhost:8000/api/v1';
+const DEFAULT_API_BASE = 'http://localhost:8000/api/v1';
+let API_BASE = DEFAULT_API_BASE;
+let authToken = null;
+let currentUser = null;
+
+// Il token viene salvato in chrome.storage.session (cancellato alla chiusura del browser).
+const tokenStore = (chrome.storage && chrome.storage.session) ? chrome.storage.session : chrome.storage.local;
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function loadSettings() {
+  const { apiBase } = await chrome.storage.local.get('apiBase');
+  API_BASE = (apiBase || DEFAULT_API_BASE).replace(/\/+$/, '');
+  const { authToken: stored } = await tokenStore.get('authToken');
+  authToken = stored || null;
+}
+
+async function saveToken(token) {
+  authToken = token;
+  if (token) await tokenStore.set({ authToken: token });
+  else await tokenStore.remove('authToken');
+}
+
+class AuthError extends Error {}
+
+// fetch verso l'API con il token dell'utente autenticato
+async function apiFetch(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (res.status === 401) {
+    await saveToken(null);
+    currentUser = null;
+    document.dispatchEvent(new CustomEvent('enom-auth-expired'));
+    throw new AuthError('Sessione scaduta: accedi di nuovo.');
+  }
+  return res;
+}
 
 let activePickButton = null;
 let customAttrCount = 0;
@@ -413,7 +457,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Fetch Master Attributes from Database
   async function loadMasterAttributes() {
     try {
-      const res = await fetch(`${API_BASE}/attributes`);
+      const res = await apiFetch('/attributes');
       if (!res.ok) return;
       const attrs = await res.json();
 
@@ -446,7 +490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Populate Grapes Datalist & Quick Pills
       try {
-        const grapesRes = await fetch(`${API_BASE}/grapes`);
+        const grapesRes = await apiFetch('/grapes');
         if (grapesRes.ok) {
           const rawGrapes = await grapesRes.json();
           const cleanGrapes = sanitizeGrapeList(rawGrapes);
@@ -467,7 +511,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Populate Pairings Datalist & Quick Pills
       try {
-        const pairingsRes = await fetch(`${API_BASE}/pairings`);
+        const pairingsRes = await apiFetch('/pairings');
         if (pairingsRes.ok) {
           const rawPairings = await pairingsRes.json();
           const cleanPairings = sanitizePairingsList(rawPairings);
@@ -721,9 +765,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 2. Fetch Producers & Producer Wines
   async function loadProducers() {
     try {
-      const res = await fetch(`${API_BASE}/producers`);
-      if (!res.ok) throw new Error('API non raggiungibile');
-      const producers = await res.json();
+      let producers;
+      if (currentUser && currentUser.role === 'ADMIN') {
+        const res = await apiFetch('/producers?include_all=true');
+        if (!res.ok) throw new Error('API non raggiungibile');
+        producers = await res.json();
+      } else {
+        // Un produttore puo' lavorare solo sulla propria cantina
+        producers = currentUser && currentUser.producer ? [{ ...currentUser.producer, id: currentUser.producer_id }] : [];
+      }
       
       producerSelect.innerHTML = '<option value="" disabled selected>-- Seleziona Cantina Produttrice --</option>';
       producers.forEach(p => {
@@ -739,12 +789,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Load DB Master Attributes & Denominazione Pills
       await loadMasterAttributes();
       initDenominazioneQuickPills();
+      if (producers.length === 1 && currentUser && currentUser.role !== 'ADMIN') {
+        producerSelect.value = producers[0].id;
+        producerSelect.disabled = true;
+        loadProducerProducts(producers[0].id, 'NEW');
+      }
     } catch (err) {
+      if (err instanceof AuthError) return;
       producerSelect.innerHTML = '<option value="" disabled selected>⚠️ API Offline (Avvia Backend)</option>';
       apiStatus.textContent = 'API Offline';
       apiStatus.style.background = '#fef2f2';
       apiStatus.style.color = '#991b1b';
-      showAlert('Assicurati che il backend FastAPI sia in esecuzione su http://localhost:8000', false);
+      showAlert(`Assicurati che il backend FastAPI sia in esecuzione su ${API_BASE}`, false);
     }
   }
 
@@ -753,7 +809,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!producerId) return;
 
     try {
-      const res = await fetch(`${API_BASE}/products?producer_id=${producerId}&status=ALL`);
+      const res = await apiFetch(`/products?producer_id=${encodeURIComponent(producerId)}&status=ALL`);
       if (!res.ok) return;
       loadedProducerProducts = await res.json();
 
@@ -946,11 +1002,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     row.className = 'attr-row';
     row.innerHTML = `
       <div class="attr-row-fields">
-        <input type="text" id="${nameInputId}" list="master-attributes-datalist" class="attr-name" placeholder="Nome Caratteristica (es. Affinamento)" value="${normalizedName}" style="flex: 1; font-size: 11px; padding: 5px;" />
+        <input type="text" id="${nameInputId}" list="master-attributes-datalist" class="attr-name" placeholder="Nome Caratteristica (es. Affinamento)" value="${escapeHtml(normalizedName)}" style="flex: 1; font-size: 11px; padding: 5px;" />
         <button type="button" class="btn-pick btn-pick-custom" data-field="${nameInputId}" title="Clicca nel sito per inserire il Nome Caratteristica">🎯</button>
       </div>
       <div class="attr-row-fields">
-        <input type="text" id="${valInputId}" list="${valDatalistId}" class="attr-value" placeholder="Valore (es. 12 Mesi in Barrique)" value="${normalizedVal}" style="flex: 1; font-size: 11px; padding: 5px;" />
+        <input type="text" id="${valInputId}" list="${valDatalistId}" class="attr-value" placeholder="Valore (es. 12 Mesi in Barrique)" value="${escapeHtml(normalizedVal)}" style="flex: 1; font-size: 11px; padding: 5px;" />
         <button type="button" class="btn-pick btn-pick-custom" data-field="${valInputId}" title="Clicca nel sito per inserire il Valore">🎯</button>
         <button type="button" class="btn-remove-attr" title="Rimuovi riga">✕</button>
       </div>
@@ -1123,42 +1179,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     try {
-      // Authenticate with JSON body
-      const authRes = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@enotecamolise.it',
-          password: 'AdminPass2026!'
-        })
-      });
-
-      if (!authRes.ok) {
-        const errJson = await authRes.json().catch(() => ({}));
-        throw new Error(errJson.detail || 'Autenticazione Admin fallita');
+      if (!authToken) {
+        throw new Error('Devi accedere prima di importare un vino');
       }
-
-      const authData = await authRes.json();
-      const token = authData.access_token;
 
       let prodRes;
       if (isUpdate) {
         // PUT /products/{targetMode}
-        prodRes = await fetch(`${API_BASE}/products/${targetMode}`, {
+        prodRes = await apiFetch(`/products/${encodeURIComponent(targetMode)}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(payload)
         });
       } else {
         // POST /products
-        prodRes = await fetch(`${API_BASE}/products`, {
+        prodRes = await apiFetch('/products', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(payload)
         });
@@ -1186,6 +1226,97 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // -------------------------------------------------------------
+  // AUTENTICAZIONE UTENTE
+  // -------------------------------------------------------------
+  const loginCard = document.getElementById('login-card');
+  const loginForm = document.getElementById('login-form');
+  const loginEmail = document.getElementById('login-email');
+  const loginPassword = document.getElementById('login-password');
+  const loginApiBase = document.getElementById('login-api-base');
+  const btnLogin = document.getElementById('btn-login');
+  const userBar = document.getElementById('user-bar');
+  const userLabel = document.getElementById('user-label');
+  const btnLogout = document.getElementById('btn-logout');
+  const appContent = document.getElementById('app-content');
+
+  function showLoggedOut(message) {
+    currentUser = null;
+    appContent.classList.add('hidden');
+    userBar.classList.add('hidden');
+    loginCard.classList.remove('hidden');
+    loginApiBase.value = API_BASE;
+    apiStatus.textContent = 'Non autenticato';
+    apiStatus.style.background = '#fff7ed';
+    apiStatus.style.color = '#9a3412';
+    if (message) showAlert(message, false);
+  }
+
+  async function showLoggedIn() {
+    loginCard.classList.add('hidden');
+    appContent.classList.remove('hidden');
+    userBar.classList.remove('hidden');
+    const roleLabel = currentUser.role === 'ADMIN' ? 'Amministratore' : (currentUser.producer?.company_name || 'Produttore');
+    userLabel.textContent = `👤 ${currentUser.email} · ${roleLabel}`;
+    producerSelect.disabled = false;
+    await loadProducers();
+  }
+
+  async function fetchMe() {
+    const res = await apiFetch('/auth/me');
+    if (!res.ok) throw new AuthError('Sessione non valida');
+    currentUser = await res.json();
+    return currentUser;
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    btnLogin.disabled = true;
+    try {
+      const newBase = (loginApiBase.value || DEFAULT_API_BASE).trim().replace(/\/+$/, '');
+      if (!/^https?:\/\//.test(newBase)) throw new Error('Indirizzo API non valido');
+      API_BASE = newBase;
+      await chrome.storage.local.set({ apiBase: API_BASE });
+
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail.value.trim(), password: loginPassword.value })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Accesso non riuscito');
+      await saveToken(data.access_token);
+      loginPassword.value = '';
+      await fetchMe();
+      await showLoggedIn();
+      showAlert('Accesso effettuato', true);
+    } catch (err) {
+      showAlert(`❌ ${err.message}`, false);
+    } finally {
+      btnLogin.disabled = false;
+    }
+  });
+
+  btnLogout.addEventListener('click', async () => {
+    await saveToken(null);
+    showLoggedOut();
+  });
+
+  document.addEventListener('enom-auth-expired', () => showLoggedOut('Sessione scaduta: accedi di nuovo.'));
+
   // Initial Load
-  await loadProducers();
+  await loadSettings();
+  if (!authToken) {
+    showLoggedOut();
+    return;
+  }
+  try {
+    await fetchMe();
+    await showLoggedIn();
+  } catch (err) {
+    if (!(err instanceof AuthError)) {
+      showAlert(`Impossibile contattare l'API su ${API_BASE}`, false);
+    }
+    showLoggedOut();
+  }
 });

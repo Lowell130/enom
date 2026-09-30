@@ -71,3 +71,10 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# File caricati dagli utenti (dati, non codice)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Il progetto usa yarn: niente lockfile npm
+frontend/package-lock.json

@@ -231,7 +231,7 @@ const loadProfile = async () => {
     // If Admin, load producers list so they can switch
     if (me?.role === 'ADMIN') {
       if (!producersList.value.length) {
-        const list = await fetchWithAuth('/producers')
+        const list = await fetchWithAuth('/producers?include_all=true')
         producersList.value = list || []
       }
       if (route.query.producer_id) {

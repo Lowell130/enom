@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.db.mongodb import get_database
 from app.schemas.inquiry import InquiryCreate, InquiryResponse
 from app.api.v1.auth import get_current_user
+from app.core.config import settings
+from app.core.utils import rate_limiter, client_ip
 from bson import ObjectId
 from datetime import datetime
 from typing import List
@@ -9,18 +11,26 @@ from typing import List
 router = APIRouter()
 
 @router.post("", response_model=InquiryResponse)
-async def submit_inquiry(inquiry_in: InquiryCreate, db=Depends(get_database)):
+async def submit_inquiry(inquiry_in: InquiryCreate, request: Request, db=Depends(get_database)):
+    rate_limiter.check_and_hit(
+        f"inquiry:{client_ip(request)}",
+        settings.INQUIRY_MAX_PER_WINDOW,
+        settings.INQUIRY_WINDOW_SECONDS,
+        "Hai inviato troppi messaggi in poco tempo. Riprova tra qualche minuto."
+    )
     if not ObjectId.is_valid(inquiry_in.producer_id):
         raise HTTPException(status_code=400, detail="ID cantina non valido")
-        
+
     producer = await db.producers.find_one({"_id": ObjectId(inquiry_in.producer_id)})
-    if not producer:
+    if not producer or producer.get("status", "APPROVED") != "APPROVED":
         raise HTTPException(status_code=404, detail="Cantina non trovata")
-        
+
     doc = inquiry_in.model_dump()
     doc["producer_id"] = ObjectId(inquiry_in.producer_id)
     
-    if inquiry_in.product_id and ObjectId.is_valid(inquiry_in.product_id):
+    if inquiry_in.product_id and ObjectId.is_valid(inquiry_in.product_id) and await db.products.find_one(
+        {"_id": ObjectId(inquiry_in.product_id), "producer_id": doc["producer_id"]}, {"_id": 1}
+    ):
         doc["product_id"] = ObjectId(inquiry_in.product_id)
     else:
         doc["product_id"] = None

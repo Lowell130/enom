@@ -16,6 +16,17 @@ L'estensione Chrome **EnotecaMolise Wine Importer Side Panel 2.0** permette di *
 
 ---
 
+## 🔐 Accesso
+
+Dalla versione 2.1 l'estensione **non contiene più credenziali**: all'apertura del pannello ogni utente accede con il **proprio account** EnotecaMolise (email e password).
+
+- **Amministratore**: può scegliere qualsiasi cantina, incluse quelle in attesa di approvazione.
+- **Produttore**: lavora solo sulla propria cantina (selezionata automaticamente).
+- Il token di sessione è salvato in `chrome.storage.session` e viene cancellato alla chiusura del browser; il pulsante **Esci** lo rimuove subito.
+- Nel riquadro di accesso puoi indicare l'**Indirizzo API** (predefinito `http://localhost:8000/api/v1`).
+
+---
+
 ## ⚡ Come installare o aggiornare l'estensione su Google Chrome
 
 1. Apri **Google Chrome** e naviga su `chrome://extensions`.

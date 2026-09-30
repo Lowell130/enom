@@ -1,0 +1,43 @@
+{
+  "producer": {"name": "Cantine Catabbo", "city": "San Martino in Pensilis", "website": "catabbo.it"},
+  "wines": [{
+    "name": "Colle del Limone – Falanghina del Molise DOP",
+    "category": "VINO_BIANCO",
+    "denominazione": "DOP",
+    "vintage_year": null,
+    "is_riserva": false,
+    "alcohol_degrees": null,
+    "grape_varieties": [{"name": "Falanghina", "percentage": 100}],
+    "food_pairings": ["Pesce & Frutti di Mare", "Formaggi Freschi", "Formaggi Stagionati", "Risotti & Tartufo"],
+    "food_pairings_text": "Ideale con arrosti di pesce, crostacei, carni bianche, formaggi freschi e stagionati, risotti.",
+    "serving_temperature": "10-12°C",
+    "indicative_price": "15,00 €",
+    "description": "E' a Colle del Limone, nel cuore della Tenuta di Contrada Petriera, che raccogliamo le uve destinate alla nostra Falanghina \"Colle del Limone\". Un vino fresco, fragrante e di grande eleganza. Al naso si apre con profumi intensi di frutta esotica matura, ananas, melone giallo con una nota floreale spiccata di profumata camomilla ed una finale vicino allo zucchero filato. L'ingresso al palato è seducente, conferma totalmente i sentori di frutta esotica e la freschezza è il bilanciamento perfetto della sua anima alcolica.",
+    "tasting_notes": {
+      "visual": null,
+      "olfactory": "Profumi intensi di frutta esotica matura, ananas, melone giallo con una nota floreale spiccata di profumata camomilla ed un finale vicino allo zucchero filato.",
+      "taste": "Ingresso seducente, conferma i sentori di frutta esotica; la freschezza bilancia perfettamente l'anima alcolica."
+    },
+    "attributes": [
+      {"name": "Denominazione", "value": "Falanghina del Molise DOP"},
+      {"name": "Prima annata di produzione", "value": "2004"},
+      {"name": "Numero di bottiglie prodotte", "value": "6.500"},
+      {"name": "Comune di produzione", "value": "San Martino in Pensilis"},
+      {"name": "Uve", "value": "Falanghina 100%"},
+      {"name": "Altitudine", "value": "300 m s.l.m."},
+      {"name": "Tipologia del terreno", "value": "Medio impasto argilloso"},
+      {"name": "Resa per ettaro", "value": "Uva 70-80 q/ha"},
+      {"name": "Sistema di allevamento", "value": "Cordone speronato basso"},
+      {"name": "Densità di impianto", "value": "4.400 ceppi per ha"},
+      {"name": "Epoca di vendemmia", "value": "Seconda decade di settembre"},
+      {"name": "Raccolta", "value": "a mano"},
+      {"name": "Fermentazione", "value": "Acciaio"},
+      {"name": "Temperatura di fermentazione", "value": "16 °C"},
+      {"name": "Durata della fermentazione", "value": "20 gg"},
+      {"name": "Maturazione", "value": "Per 6 mesi matura in acciaio"},
+      {"name": "Affinamento", "value": "2 mesi in bottiglia"},
+      {"name": "Temperatura di servizio", "value": "10-12°C"}
+    ],
+    "notes": null
+  }]
+}

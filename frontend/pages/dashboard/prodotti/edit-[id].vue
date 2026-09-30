@@ -615,7 +615,7 @@ const { data: masterGrapes } = await useAsyncData('master_grapes_product_edit', 
 
 const { data: producers } = await useAsyncData('admin_producers_edit_product', async () => {
   if (!isAdmin.value) return null
-  return await fetchWithAuth('/producers')
+  return await fetchWithAuth('/producers?include_all=true')
 })
 
 const selectedGrapesList = ref([])

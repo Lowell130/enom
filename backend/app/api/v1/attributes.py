@@ -111,7 +111,7 @@ async def create_attribute(
 async def update_attribute(
     attr_id: str,
     attr_in: AttributeUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_admin: dict = Depends(get_current_admin),
     db=Depends(get_database)
 ):
     if not ObjectId.is_valid(attr_id):

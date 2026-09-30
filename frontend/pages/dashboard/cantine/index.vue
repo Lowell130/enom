@@ -51,6 +51,9 @@
                   <div>
                     <span class="font-sans font-bold text-sm text-stone-900 group-hover:text-wine-800 leading-snug block transition-colors">{{ p.company_name }}</span>
                     <span class="text-xs text-stone-500 font-medium block mt-0.5">slug: {{ p.slug }}</span>
+                    <span v-if="p.status && p.status !== 'APPROVED'" :class="['inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide', p.status === 'SUSPENDED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800']">
+                      {{ p.status === 'SUSPENDED' ? 'Sospesa' : 'In attesa di approvazione' }}
+                    </span>
                   </div>
                 </NuxtLink>
               </td>
@@ -248,6 +251,15 @@
             <input v-model="editProducer.company_name" type="text" required class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
           </div>
 
+          <div>
+            <label class="block text-xs font-semibold text-stone-700 mb-1">Stato pubblicazione</label>
+            <select v-model="editProducer.status" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm bg-white">
+              <option value="APPROVED">Approvata (visibile al pubblico)</option>
+              <option value="PENDING_APPROVAL">In attesa di approvazione</option>
+              <option value="SUSPENDED">Sospesa</option>
+            </select>
+          </div>
+
           <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-semibold text-stone-700 mb-1">Città *</label>
@@ -340,7 +352,7 @@ const showAddModal = ref(false)
 const showEditModal = ref(false)
 
 const { data: producers, pending, refresh } = await useAsyncData('admin_producers_manage', async () => {
-  const res = await fetchWithAuth('/producers')
+  const res = await fetchWithAuth('/producers?include_all=true')
   return res || []
 }, { default: () => [] })
 
@@ -364,6 +376,7 @@ const newProducer = reactive({
 const editProducer = reactive({
   id: '',
   company_name: '',
+  status: 'APPROVED',
   city: '',
   province: '',
   zip_code: '',
@@ -390,6 +403,7 @@ const openEditModal = (p) => {
   const pGeo = p.address?.geo_coordinates || {}
   editProducer.id = p.id
   editProducer.company_name = p.company_name
+  editProducer.status = p.status || 'APPROVED'
   editProducer.city = p.address?.city || ''
   editProducer.province = p.address?.province || ''
   editProducer.zip_code = p.address?.zip_code || ''
@@ -490,6 +504,7 @@ const handleUpdateProducer = async () => {
       method: 'PUT',
       body: {
         company_name: editProducer.company_name,
+        status: editProducer.status,
         description: editProducer.description,
         logo_url: editProducer.logo_url,
         cover_image_url: editProducer.cover_image_url,

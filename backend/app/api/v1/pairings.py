@@ -73,7 +73,7 @@ async def create_pairing(
 async def update_pairing(
     pairing_id: str,
     pairing_in: PairingUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_admin: dict = Depends(get_current_admin),
     db=Depends(get_database)
 ):
     if not ObjectId.is_valid(pairing_id):

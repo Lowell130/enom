@@ -1,0 +1,93 @@
+"""Sincronizzazione delle tassonomie condivise (attributi, vitigni, abbinamenti)
+con i valori inseriti nelle schede dei vini."""
+import re
+from datetime import datetime
+
+
+async def sync_custom_attributes_with_master(custom_attributes: list, db, attr_cache: dict = None):
+    if not custom_attributes:
+        return
+    for attr in custom_attributes:
+        name = attr.get("name", "").strip() if isinstance(attr, dict) else (getattr(attr, "name", "") or "").strip()
+        val = attr.get("value", "").strip() if isinstance(attr, dict) else (getattr(attr, "value", "") or "").strip()
+        if not name or not val:
+            continue
+        name_lower = name.lower()
+        existing = None
+        if attr_cache is not None:
+            existing = attr_cache.get(name_lower)
+        else:
+            existing = await db.attributes.find_one({"name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}})
+        
+        if existing:
+            current_suggs = existing.get("suggested_values", [])
+            if not any(s.strip().lower() == val.strip().lower() for s in current_suggs):
+                current_suggs.append(val.strip())
+                existing["suggested_values"] = current_suggs
+                await db.attributes.update_one(
+                    {"_id": existing["_id"]},
+                    {"$addToSet": {"suggested_values": val.strip()}}
+                )
+        else:
+            new_doc = {
+                "name": name,
+                "unit_or_hint": "",
+                "suggested_values": [val.strip()],
+                "created_at": datetime.utcnow()
+            }
+            res = await db.attributes.insert_one(new_doc)
+            new_doc["_id"] = res.inserted_id
+            if attr_cache is not None:
+                attr_cache[name_lower] = new_doc
+
+async def sync_grapes_with_master(grape_varieties: list, db, grapes_cache: dict = None):
+    if not grape_varieties:
+        return
+    for item in grape_varieties:
+        if not item or not isinstance(item, str):
+            continue
+        clean_name = re.sub(r'\d+\s*%?', '', item).strip()
+        if not clean_name:
+            continue
+        clean_lower = clean_name.lower()
+        existing = None
+        if grapes_cache is not None:
+            existing = grapes_cache.get(clean_lower)
+        else:
+            existing = await db.grapes.find_one({"name": {"$regex": f"^{re.escape(clean_name)}$", "$options": "i"}})
+        if not existing:
+            new_doc = {
+                "name": clean_name,
+                "category": "AUTOCTONO",
+                "created_at": datetime.utcnow()
+            }
+            res = await db.grapes.insert_one(new_doc)
+            new_doc["_id"] = res.inserted_id
+            if grapes_cache is not None:
+                grapes_cache[clean_lower] = new_doc
+
+async def sync_pairings_with_master(food_pairings: list, db, pairings_cache: dict = None):
+    if not food_pairings:
+        return
+    for item in food_pairings:
+        if not item or not isinstance(item, str):
+            continue
+        clean_name = item.strip()
+        if not clean_name:
+            continue
+        clean_lower = clean_name.lower()
+        existing = None
+        if pairings_cache is not None:
+            existing = pairings_cache.get(clean_lower)
+        else:
+            existing = await db.pairings.find_one({"name": {"$regex": f"^{re.escape(clean_name)}$", "$options": "i"}})
+        if not existing:
+            new_doc = {
+                "name": clean_name,
+                "category": "GENERALE",
+                "created_at": datetime.utcnow()
+            }
+            res = await db.pairings.insert_one(new_doc)
+            new_doc["_id"] = res.inserted_id
+            if pairings_cache is not None:
+                pairings_cache[clean_lower] = new_doc

@@ -32,6 +32,12 @@
       </div>
     </div>
 
+    <!-- Avviso cantina non ancora approvata -->
+    <div v-if="!isAdmin && user?.producer?.status && user.producer.status !== 'APPROVED'" class="mb-8 p-4 rounded-2xl border text-sm font-medium bg-amber-50 border-amber-200 text-amber-900">
+      <span v-if="user.producer.status === 'SUSPENDED'">La tua cantina è stata sospesa dall'amministratore: il profilo e i vini non sono visibili al pubblico.</span>
+      <span v-else>La tua cantina è in attesa di approvazione: puoi già inserire i vini, che diventeranno pubblici dopo la verifica dell'amministratore.</span>
+    </div>
+
     <!-- Quick Navigation Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-10">
       
@@ -191,11 +197,6 @@ import { Wine, Building2, Mail, Sliders, Grape, Plus, ArrowRight, ShieldCheck, B
 const { user, isAdmin, isProducer, isAuthenticated } = useAuth()
 const { fetchWithAuth } = useApi()
 
-onMounted(() => {
-  if (!isAuthenticated.value) {
-    navigateTo('/login')
-  }
-})
 
 const { data: stats } = await useAsyncData('admin_stats', async () => {
   if (!isAdmin.value) return {}

@@ -126,34 +126,6 @@
         </button>
       </form>
 
-      <!-- Quick Demo Login Helpers -->
-      <div v-if="mode === 'login'" class="mt-8 pt-6 border-t border-stone-100 text-center">
-        <span class="text-[11px] text-stone-400 font-medium block mb-3 uppercase tracking-widest">Credenziali Demo</span>
-        
-        <div class="space-y-2">
-          <button 
-            @click="fillAdmin" 
-            class="w-full py-2.5 px-3 bg-stone-100/80 hover:bg-stone-100 text-stone-800 rounded-xl text-xs font-semibold transition-colors flex items-center justify-between border border-stone-200/50"
-          >
-            <span class="inline-flex items-center space-x-1.5">
-              <ShieldCheck class="w-4 h-4 text-wine-800" />
-              <span>Accedi come Admin</span>
-            </span>
-            <span class="text-[10px] text-stone-500 font-normal">(Super Utente)</span>
-          </button>
-          
-          <button 
-            @click="fillProducer" 
-            class="w-full py-2.5 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 rounded-xl text-xs font-semibold transition-colors flex items-center justify-between border border-amber-500/20"
-          >
-            <span class="inline-flex items-center space-x-1.5">
-              <Building2 class="w-4 h-4 text-amber-800" />
-              <span>Accedi come Cantina</span>
-            </span>
-            <span class="text-[10px] text-amber-700 font-normal">(Valbiferno)</span>
-          </button>
-        </div>
-      </div>
 
     </div>
 
@@ -161,7 +133,7 @@
 </template>
 
 <script setup>
-import { Wine, Mail, Lock, ShieldCheck, Building2 } from 'lucide-vue-next'
+import { Wine, Mail, Lock, Building2 } from 'lucide-vue-next'
 
 const mode = ref('login')
 const email = ref('')
@@ -171,26 +143,20 @@ const error = ref('')
 const loading = ref(false)
 
 const { login, registerProducer } = useAuth()
+const route = useRoute()
 const toast = useToast()
-
-const fillAdmin = () => {
-  email.value = 'admin@enotecamolise.it'
-  password.value = 'AdminPass2026!'
-}
-
-const fillProducer = () => {
-  email.value = 'cantina@valbiferno.it'
-  password.value = 'CantinaPass2026!'
-}
 
 const handleLogin = async () => {
   loading.value = true
   error.value = ''
   try {
     await login({ email: email.value, password: password.value })
-    navigateTo('/dashboard')
+    const redirect = route.query.redirect
+    navigateTo(typeof redirect === 'string' && redirect.startsWith('/dashboard') ? redirect : '/dashboard')
   } catch (err) {
-    error.value = 'Credenziali errate o account non trovato'
+    error.value = err?.status === 429
+      ? (err.data?.detail || 'Troppi tentativi di accesso. Riprova tra qualche minuto.')
+      : 'Credenziali errate o account non trovato'
   } finally {
     loading.value = false
   }
@@ -201,6 +167,10 @@ const handleRegister = async () => {
     error.value = 'Inserisci il nome della tua cantina'
     return
   }
+  if (password.value.length < 8) {
+    error.value = 'La password deve contenere almeno 8 caratteri'
+    return
+  }
   loading.value = true
   error.value = ''
   try {
@@ -209,10 +179,11 @@ const handleRegister = async () => {
       password: password.value,
       company_name: companyName.value
     })
-    toast.success('Profilo cantina creato con successo!')
+    toast.success('Profilo cantina creato! Sarà visibile al pubblico dopo l\'approvazione dell\'amministratore.')
     navigateTo('/dashboard')
   } catch (err) {
-    error.value = err.data?.detail || 'Errore durante la creazione della cantina'
+    const detail = err.data?.detail
+    error.value = (typeof detail === 'string' && detail) || 'Errore durante la creazione della cantina'
   } finally {
     loading.value = false
   }

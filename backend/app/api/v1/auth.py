@@ -1,62 +1,74 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from app.db.mongodb import get_database
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token
-from app.schemas.producer import ProducerCreate
+from app.core.config import settings
 from app.core.security import get_password_hash, verify_password, create_access_token, decode_token
+from app.core.utils import slugify, unique_slug, rate_limiter, client_ip
 from bson import ObjectId
 from datetime import datetime
 from typing import Optional
-import re
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
-def slugify(text: str) -> str:
-    text = text.lower().strip()
-    text = re.sub(r'[^\w\s-]', '', text)
-    text = re.sub(r'[\s_-]+', '-', text)
-    return text
+
+def _extract_token(token_bearer: Optional[str], authorization: Optional[str]) -> Optional[str]:
+    token = token_bearer
+    if not token and authorization:
+        token = authorization.split(" ", 1)[1] if authorization.startswith("Bearer ") else authorization
+    return token or None
+
+
+async def _load_user_from_token(token: str, db) -> Optional[dict]:
+    payload = decode_token(token)
+    if not payload:
+        return None
+    user_id = payload.get("sub")
+    if not user_id or not ObjectId.is_valid(user_id):
+        return None
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user or not user.get("is_active", True):
+        return None
+    user["id"] = str(user["_id"])
+    if user.get("producer_id"):
+        user["producer_id"] = str(user["producer_id"])
+    return user
+
 
 async def get_current_user(
     token_bearer: Optional[str] = Depends(oauth2_scheme),
     authorization: Optional[str] = Header(None),
     db=Depends(get_database)
 ):
-    token = token_bearer
-    if not token and authorization:
-        if authorization.startswith("Bearer "):
-            token = authorization.split(" ")[1]
-        else:
-            token = authorization
-            
+    token = _extract_token(token_bearer, authorization)
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Header di autenticazione mancante (Bearer Token)",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        
-    payload = decode_token(token)
-    if not payload:
+    user = await _load_user_from_token(token, db)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token non valido o scaduto",
+            detail="Token non valido, scaduto o utente disattivato",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        
-    user_id = payload.get("sub")
-    if not user_id or not ObjectId.is_valid(user_id):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token payload non valido")
-    
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utente non trovato")
-    
-    user["id"] = str(user["_id"])
-    if user.get("producer_id"):
-        user["producer_id"] = str(user["producer_id"])
     return user
+
+
+async def get_optional_user(
+    token_bearer: Optional[str] = Depends(oauth2_scheme),
+    authorization: Optional[str] = Header(None),
+    db=Depends(get_database)
+) -> Optional[dict]:
+    """Come get_current_user ma restituisce None per i visitatori anonimi."""
+    token = _extract_token(token_bearer, authorization)
+    if not token:
+        return None
+    return await _load_user_from_token(token, db)
+
 
 async def get_current_admin(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "ADMIN":
@@ -66,75 +78,95 @@ async def get_current_admin(current_user: dict = Depends(get_current_user)):
         )
     return current_user
 
+
+def is_admin(user: Optional[dict]) -> bool:
+    return bool(user) and user.get("role") == "ADMIN"
+
+
+def owns_producer(user: Optional[dict], producer_id) -> bool:
+    return bool(user) and user.get("producer_id") is not None and str(user.get("producer_id")) == str(producer_id)
+
+
 @router.post("/register", response_model=UserResponse)
-async def register(user_data: UserCreate, db=Depends(get_database)):
-    existing = await db.users.find_one({"email": user_data.email})
+async def register(user_data: UserCreate, request: Request, db=Depends(get_database)):
+    rate_limiter.check_and_hit(
+        f"register:{client_ip(request)}", 5, 3600,
+        "Troppe registrazioni da questo indirizzo. Riprova più tardi."
+    )
+    email = user_data.email.lower()
+    existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="Email già registrata")
-    
+
     hashed_pwd = get_password_hash(user_data.password)
-    
-    producer_id = None
-    if user_data.role == "PRODUCER":
-        company_name = user_data.company_name or f"Cantine {user_data.email.split('@')[0].capitalize()}"
-        slug = slugify(company_name)
-        
-        slug_count = await db.producers.count_documents({"slug": slug})
-        if slug_count > 0:
-            slug = f"{slug}-{slug_count + 1}"
-            
-        producer_doc = {
-            "company_name": company_name,
-            "slug": slug,
-            "logo_url": "",
-            "cover_image_url": "",
-            "description": f"Benvenuti a {company_name}.",
-            "address": {"street": "", "city": "Campobasso", "province": "CB", "zip_code": ""},
-            "contacts": {"email_contact": user_data.email, "phone": "", "whatsapp_number": ""},
-            "status": "APPROVED",
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        }
-        res_prod = await db.producers.insert_one(producer_doc)
-        producer_id = res_prod.inserted_id
+
+    # La registrazione pubblica crea SEMPRE un account PRODUCER: il ruolo non e' scelto dal client.
+    company_name = (user_data.company_name or "").strip() or f"Cantine {email.split('@')[0].capitalize()}"
+    slug = await unique_slug(db.producers, slugify(company_name) or "cantina")
+
+    now = datetime.utcnow()
+    producer_doc = {
+        "company_name": company_name,
+        "slug": slug,
+        "logo_url": "",
+        "cover_image_url": "",
+        "description": f"Benvenuti a {company_name}.",
+        "address": {"street": "", "city": "Campobasso", "province": "CB", "zip_code": ""},
+        "contacts": {"email_contact": email, "phone": "", "whatsapp_number": ""},
+        "status": "APPROVED" if settings.AUTO_APPROVE_PRODUCERS else "PENDING_APPROVAL",
+        "created_at": now,
+        "updated_at": now
+    }
+    res_prod = await db.producers.insert_one(producer_doc)
+    producer_id = res_prod.inserted_id
 
     user_doc = {
-        "email": user_data.email,
+        "email": email,
         "password_hash": hashed_pwd,
-        "role": user_data.role,
+        "role": "PRODUCER",
         "producer_id": producer_id,
         "is_active": True,
-        "created_at": datetime.utcnow()
+        "created_at": now
     }
-    
     res = await db.users.insert_one(user_doc)
     user_doc["id"] = str(res.inserted_id)
-    if producer_id:
-        user_doc["producer_id"] = str(producer_id)
-        
+    user_doc["producer_id"] = str(producer_id)
     return user_doc
 
+
 @router.post("/login", response_model=Token)
-async def login(login_data: UserLogin, db=Depends(get_database)):
-    user = await db.users.find_one({"email": login_data.email})
+async def login(login_data: UserLogin, request: Request, db=Depends(get_database)):
+    email = login_data.email.lower()
+    key = f"login:{client_ip(request)}:{email}"
+    if rate_limiter.is_limited(key, settings.LOGIN_MAX_ATTEMPTS, settings.LOGIN_WINDOW_SECONDS):
+        raise HTTPException(status_code=429, detail="Troppi tentativi di accesso. Riprova tra qualche minuto.")
+
+    user = await db.users.find_one({"email": email})
+    if not user and email != login_data.email:
+        user = await db.users.find_one({"email": login_data.email})
     if not user or not verify_password(login_data.password, user["password_hash"]):
+        rate_limiter.hit(key, settings.LOGIN_WINDOW_SECONDS)
         raise HTTPException(status_code=400, detail="Credenziali non valide")
-    
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Account disattivato")
+
+    rate_limiter.reset(key)
     producer_id_str = str(user.get("producer_id")) if user.get("producer_id") else None
     token = create_access_token(
         subject=str(user["_id"]),
         role=user.get("role", "PRODUCER"),
         producer_id=producer_id_str
     )
-    
+
     user["id"] = str(user["_id"])
     user["producer_id"] = producer_id_str
-    
+
     return {
         "access_token": token,
         "token_type": "bearer",
         "user": user
     }
+
 
 @router.get("/me")
 async def read_current_user(current_user: dict = Depends(get_current_user), db=Depends(get_database)):
@@ -145,7 +177,7 @@ async def read_current_user(current_user: dict = Depends(get_current_user), db=D
         "producer_id": current_user.get("producer_id"),
         "is_active": current_user.get("is_active", True)
     }
-    if current_user.get("producer_id"):
+    if current_user.get("producer_id") and ObjectId.is_valid(current_user["producer_id"]):
         producer = await db.producers.find_one({"_id": ObjectId(current_user["producer_id"])})
         if producer:
             producer["id"] = str(producer["_id"])

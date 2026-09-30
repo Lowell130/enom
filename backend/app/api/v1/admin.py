@@ -1,7 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from app.db.mongodb import get_database
 from app.api.v1.auth import get_current_admin
-from bson import ObjectId
 
 router = APIRouter()
 

@@ -1,5 +1,16 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict
+
+PRODUCT_STATUSES = {"PUBLISHED", "DRAFT"}
+
+
+def _validate_status(v):
+    if v is None:
+        return v
+    v = str(v).strip().upper()
+    if v not in PRODUCT_STATUSES:
+        raise ValueError(f"Stato non valido: usa uno tra {sorted(PRODUCT_STATUSES)}")
+    return v
 from datetime import datetime
 
 class TastingNotesSchema(BaseModel):
@@ -51,6 +62,10 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     producer_id: Optional[str] = None
 
+    @field_validator('status', mode='before')
+    def check_status(cls, v):
+        return _validate_status(v) or "PUBLISHED"
+
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
     producer_id: Optional[str] = None
@@ -69,6 +84,10 @@ class ProductUpdate(BaseModel):
     technical_sheet_pdf: Optional[str] = None
     custom_attributes: Optional[List[CustomAttributeSchema]] = None
     status: Optional[str] = None
+
+    @field_validator('status', mode='before')
+    def check_status(cls, v):
+        return _validate_status(v)
 
     @field_validator('vintage_year', mode='before')
     def clean_vintage_year(cls, v):

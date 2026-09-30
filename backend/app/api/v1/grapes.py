@@ -82,7 +82,7 @@ async def create_grape(
 async def update_grape(
     grape_id: str,
     grape_in: GrapeUpdate,
-    current_user: dict = Depends(get_current_user),
+    current_admin: dict = Depends(get_current_admin),
     db=Depends(get_database)
 ):
     if not ObjectId.is_valid(grape_id):

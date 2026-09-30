@@ -1,12 +1,33 @@
+"""Importazione delle schede vino da PDF.
+
+Flusso:
+  1. estrazione con IA multimodale (app/services/ai_extractor.py) se e' configurata una chiave;
+     altrimenti parser testuale "Etichetta: valore" (solo PDF con testo, nessun dato inventato);
+  2. normalizzazione deterministica verso il modello dati del catalogo: nomi degli attributi
+     allineati a quelli esistenti, vitigni e abbinamenti ricondotti alle tassonomie del sito,
+     campi nativi (gradazione, temperatura, prezzo...) spostati fuori dagli attributi.
+"""
 import io
+import logging
 import os
 import re
-import json
-import pypdf
-from typing import List, Dict, Any, Optional
+import unicodedata
 from datetime import datetime
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-# Whitelist of Valid Single Grapes for EnotecaMolise Taxonomy
+import pypdf
+
+from app.services.ai_extractor import (
+    CATEGORIES,
+    AIExtractionError,
+    active_provider,
+    extract_with_ai,
+)
+from app.services.catalog import clean_wine_title, parse_denominazione_acronym
+
+logger = logging.getLogger("enotecamolise.pdf")
+
+# Vitigni sempre riconosciuti (uniti a quelli presenti nel DB)
 VALID_SINGLE_GRAPES = [
     "Aglianico", "Bombino Bianco", "Cabernet Sauvignon", "Cerasuolo", "Chardonnay",
     "Falanghina", "Garganega", "Garganica", "Greco", "Malvasia", "Merlot",
@@ -15,265 +36,572 @@ VALID_SINGLE_GRAPES = [
     "Trebbiano", "Trebbiano del Molise"
 ]
 
-# Canonical Food Pairing Rules
-PAIRING_RULES = [
-    (r'cacciagione|selvaggina', "Cacciagione & Selvaggina"),
-    (r'antipast|aperitiv|finger food', "Antipasti & Aperitivi"),
-    (r'carne rossa|carni rosse|griglia|grigliat', "Carni Rosse & Grigliate"),
-    (r'arrost|tagliat', "Arrosti & Tagliate"),
-    (r'pampanella', "Pampanella Molisana"),
-    (r'formagg.*fresch|spalmabil', "Formaggi Freschi"),
-    (r'formagg.*stagionat|pasta filata|erborinat|media stagionatura', "Formaggi Stagionati"),
-    (r'salumi|affettat', "Salumi & Affettati"),
-    (r'primi|sugo|ragù|ragu|zupp.*legum', "Primi Piatti & Ragù"),
-    (r'risott|tartufo|porcini', "Risotti & Tartufo"),
-    (r'pesce|frutti di mare|brodetto', "Pesce & Frutti di Mare"),
-    (r'vegetarian', "Piatti Vegetariani"),
-    (r'pizz|lievitat', "Pizze & Lievitati"),
-    (r'dolc|pasticceri', "Pasticceria & Dolci"),
-    (r'paté|pate|piatti freddi', "Paté & Piatti Freddi")
+WHITE_GRAPES = {"falanghina", "trebbiano", "trebbiano del molise", "malvasia", "greco", "bombino bianco",
+                "chardonnay", "moscato", "moscato bianco", "pinot grigio", "riesling", "sauvignon blanc",
+                "garganega", "garganica", "fiano", "vermentino"}
+
+CANONICAL_PAIRINGS = [
+    "Antipasti & Aperitivi", "Arrosti & Tagliate", "Cacciagione & Selvaggina", "Carni Rosse & Grigliate",
+    "Pampanella Molisana", "Formaggi Freschi", "Formaggi Stagionati", "Salumi & Affettati",
+    "Primi Piatti & Ragù", "Risotti & Tartufo", "Pesce & Frutti di Mare", "Piatti Vegetariani",
+    "Pizze & Lievitati", "Pasticceria & Dolci", "Paté & Piatti Freddi",
 ]
 
+# Regole per ricondurre il testo libero degli abbinamenti alle categorie canoniche
+PAIRING_RULES = [
+    (r'cacciagione|selvaggina|cinghiale|lepre|capriolo', "Cacciagione & Selvaggina"),
+    (r'antipast|aperitiv|finger food|stuzzich', "Antipasti & Aperitivi"),
+    (r'carn[ei] ross|griglia|grigliat|brace|bistecc', "Carni Rosse & Grigliate"),
+    (r'arrost|tagliat|bollit|stufat|brasat', "Arrosti & Tagliate"),
+    (r'pampanella', "Pampanella Molisana"),
+    (r'formagg\w*\s+(?:\w+\s+)?fresch|latticin|mozzarell|ricott|spalmabil|formaggi freschi', "Formaggi Freschi"),
+    (r'stagionat|pasta filata|erborinat|caciocavall|pecorin', "Formaggi Stagionati"),
+    (r'salum|affettat|insaccat|prosciutt|soppressat', "Salumi & Affettati"),
+    (r'primi|pasta|sugo|ragù|ragu|zupp|minestr|lasagn', "Primi Piatti & Ragù"),
+    (r'risott|tartuf|porcini|funghi', "Risotti & Tartufo"),
+    (r'pesce|frutti di mare|crostace|mollusc|brodetto|baccal|crudi|sushi|ostric', "Pesce & Frutti di Mare"),
+    (r'vegetarian|verdur|ortagg|legum', "Piatti Vegetariani"),
+    (r'pizz|lievitat|focacc', "Pizze & Lievitati"),
+    (r'dolc|pasticceri|dessert|biscott|crostat|cioccolat', "Pasticceria & Dolci"),
+    (r'paté|pate|piatti freddi|terrin', "Paté & Piatti Freddi"),
+]
+# Se nella stessa voce compare il pesce, "arrosti/grigliate" si riferiscono al pesce
+PAIRING_OVERRIDES = {"Pesce & Frutti di Mare": {"Arrosti & Tagliate", "Carni Rosse & Grigliate"}}
+
+# Nome canonico -> sinonimi (confrontati su testo minuscolo senza accenti)
+ATTRIBUTE_SYNONYMS: List[Tuple[str, List[str]]] = [
+    ("Uvaggio", ["uvaggio", "uve", "uva", "vitigni", "vitigno", "varieta", "varieta di uve", "composizione uvaggio", "blend"]),
+    ("Zona di Produzione", ["zona di produzione", "comune di produzione", "zona", "area di produzione", "provenienza",
+                            "localita", "territorio", "comune", "luogo di produzione", "origine", "vigneti"]),
+    ("Altitudine Vigneto", ["altitudine", "altitudine vigneto", "altitudine vigneti", "altimetria", "quota", "altitudine media"]),
+    ("Allevamento", ["allevamento", "sistema di allevamento", "forma di allevamento", "sistema d allevamento"]),
+    ("Vendemmia", ["vendemmia", "epoca di vendemmia", "periodo di vendemmia", "epoca vendemmia", "raccolta", "tipo di raccolta"]),
+    ("Vinificazione", ["vinificazione", "fermentazione", "tecnica di vinificazione"]),
+    ("Affinamento", ["affinamento", "maturazione", "invecchiamento", "elevazione", "affinamento in bottiglia"]),
+    ("Formato", ["formato", "formato bottiglia", "formati", "capacita", "bottiglia"]),
+    ("Allergeni", ["allergeni", "contiene"]),
+    ("Tipologia del Terreno", ["terreno", "tipologia del terreno", "tipo di terreno", "suolo", "composizione del terreno", "natura del terreno"]),
+    ("Resa per Ettaro", ["resa", "resa per ettaro", "resa uva", "resa ettaro", "produzione per ettaro"]),
+    ("Densità di Impianto", ["densita", "densita di impianto", "densita d impianto", "ceppi per ettaro", "piante per ettaro"]),
+    ("Esposizione", ["esposizione", "esposizione vigneto"]),
+    ("Bottiglie Prodotte", ["numero di bottiglie prodotte", "numero di bottiglie", "bottiglie prodotte", "produzione annua", "tiratura"]),
+    ("Prima Annata di Produzione", ["prima annata di produzione", "prima annata", "prima produzione"]),
+    ("Età delle Viti", ["eta delle viti", "eta media delle viti", "eta del vigneto", "eta vigneto"]),
+    ("Superficie Vigneto", ["superficie", "superficie vigneto", "estensione vigneto", "ettari vitati"]),
+]
+
+# Voci che hanno un campo dedicato: vengono spostate nel campo e rimosse dagli attributi
+NATIVE_FIELDS: List[Tuple[str, List[str]]] = [
+    ("denominazione", ["denominazione", "classificazione", "denominazione di origine"]),
+    ("alcohol_degrees", ["grado alcolico", "gradazione alcolica", "gradazione", "alcol", "titolo alcolometrico",
+                         "titolo alcolometrico volumico", "alcool", "tenore alcolico"]),
+    ("serving_temperature", ["temperatura di servizio", "temperatura servizio", "servire a", "temperatura"]),
+    ("food_pairings_text", ["abbinamenti", "abbinamento", "abbinamenti gastronomici", "abbinamenti consigliati",
+                            "abbinamento gastronomico", "a tavola", "in cucina"]),
+    ("indicative_price", ["prezzo", "prezzo indicativo", "prezzo al pubblico"]),
+    ("vintage_year", ["annata", "anno di vendemmia", "anno"]),
+    ("tasting_visual", ["colore", "esame visivo", "aspetto", "vista", "alla vista"]),
+    ("tasting_olfactory", ["profumo", "profumi", "esame olfattivo", "olfatto", "naso", "bouquet", "al naso"]),
+    ("tasting_taste", ["gusto", "sapore", "esame gustativo", "palato", "al palato", "in bocca", "bocca"]),
+    ("description", ["descrizione", "presentazione", "note"]),
+]
+
+LABEL_LINE_RE = re.compile(r"^\s*([A-Za-zÀ-ÿ'’ .()/]{3,45}?)\s*[:：]\s*(.+)$")
+
+
+# ---------------------------------------------------------------------------
+# Utilita'
+# ---------------------------------------------------------------------------
+
+def _key(text: str) -> str:
+    text = unicodedata.normalize("NFKD", str(text or "")).encode("ascii", "ignore").decode()
+    text = re.sub(r"[^a-z0-9%]+", " ", text.lower())
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _clean(value: Any, limit: int = 2000) -> str:
+    if value is None:
+        return ""
+    text = re.sub(r"[ \t]+", " ", str(value)).strip()
+    text = re.sub(r"\s*\n\s*", "\n", text)
+    return text[:limit]
+
+
+def _cap(text: str) -> str:
+    text = text.strip()
+    return text[:1].upper() + text[1:] if text else text
+
+
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
-    """Extract plain text from PDF bytes using pypdf."""
     try:
         reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-        extracted_text = []
-        for page in reader.pages:
-            t = page.extract_text()
-            if t:
-                extracted_text.append(t)
-        return "\n".join(extracted_text)
+        return "\n".join(t for t in (page.extract_text() or "" for page in reader.pages) if t)
     except Exception as e:
-        print(f"Error extracting text from PDF: {e}")
+        logger.warning("Estrazione testo PDF fallita: %s", e)
         return ""
 
-def clean_wine_name(name: str) -> str:
+
+def _synonym_lookup(table: List[Tuple[str, List[str]]]) -> Dict[str, str]:
+    lookup = {}
+    for canonical, syns in table:
+        lookup[_key(canonical)] = canonical
+        for s in syns:
+            lookup[_key(s)] = canonical
+    return lookup
+
+
+_ATTR_LOOKUP = _synonym_lookup(ATTRIBUTE_SYNONYMS)
+_NATIVE_LOOKUP = _synonym_lookup(NATIVE_FIELDS)
+
+
+# ---------------------------------------------------------------------------
+# Normalizzazione dei singoli campi
+# ---------------------------------------------------------------------------
+
+def parse_alcohol(value: Any) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        num = float(value)
+    else:
+        m = re.search(r"(\d{1,2}(?:[.,]\d{1,2})?)", str(value))
+        if not m:
+            return None
+        num = float(m.group(1).replace(",", "."))
+    return round(num, 1) if 4 <= num <= 25 else None
+
+
+def parse_vintage(value: Any) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    m = re.search(r"\b(19[5-9]\d|20\d{2})\b", str(value))
+    if not m:
+        return None
+    year = int(m.group(1))
+    return year if year <= datetime.utcnow().year + 1 else None
+
+
+def normalize_temperature(value: Any) -> str:
+    text = _clean(value, 60)
+    if not text:
+        return ""
+    nums = re.findall(r"\d{1,2}", text)
+    if len(nums) >= 2 and re.search(r"\d\s*°?\s*(?:-|–|a|/)\s*\d", text):
+        return f"{nums[0]}-{nums[1]}°C"
+    if len(nums) == 1:
+        return f"{nums[0]}°C"
+    return text
+
+
+def match_grape(raw_name: str, master_grapes: List[str]) -> str:
+    name = re.sub(r"\d+(?:[.,]\d+)?\s*%?", "", raw_name or "").strip(" -,.;")
     if not name:
         return ""
-    # Remove DOC, DOCG, IGT, DOP, 4-digit years
-    cleaned = re.sub(r'(?i)\b(?:d[\s.]*o[\s.]*c[\s.]*g|d[\s.]*o[\s.]*c|d[\s.]*o[\s.]*p|i[\s.]*g[\s.]*p|i[\s.]*g[\s.]*t)\b\.?', '', name)
-    cleaned = re.sub(r'\b(19\d{2}|20\d{2})\b', '', cleaned)
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip(' -.,')
-    return cleaned if cleaned else name.strip()
+    k = _key(name)
+    by_key = {_key(g): g for g in master_grapes}
+    if k in by_key:
+        return by_key[k]
+    # nome del catalogo contenuto nel testo (es. "Falanghina del Sannio" -> "Falanghina"): vince il piu' lungo
+    candidates = [g for gk, g in by_key.items() if re.search(rf"\b{re.escape(gk)}\b", k)]
+    if candidates:
+        return max(candidates, key=len)
+    return " ".join(w if w.lower() in ("di", "del", "della", "d") else w.capitalize() for w in name.split())
 
-def normalize_grapes_list(raw_grapes: Any) -> List[str]:
-    """Map raw grape text into list of valid single grapes."""
-    if not raw_grapes:
-        return []
-    
-    grapes_str = ""
-    if isinstance(raw_grapes, list):
-        grapes_str = " ".join(str(g) for g in raw_grapes)
-    else:
-        grapes_str = str(raw_grapes)
 
-    matched_grapes = set()
-    for vg in VALID_SINGLE_GRAPES:
-        pattern = r'\b' + re.escape(vg) + r'\b'
-        if re.search(pattern, grapes_str, re.IGNORECASE):
-            matched_grapes.add(vg)
+def normalize_grapes(raw: Any, master_grapes: List[str]) -> Tuple[List[str], str]:
+    """Restituisce (vitigni canonici, testo uvaggio con percentuali)."""
+    items: List[Tuple[str, Optional[float]]] = []
+    if isinstance(raw, list):
+        for g in raw:
+            if isinstance(g, dict):
+                items.append((str(g.get("name") or ""), g.get("percentage")))
+            elif isinstance(g, str):
+                items.append((g, None))
+    elif isinstance(raw, str):
+        for part in re.split(r"[,;/+]|\be\b", raw):
+            pct = re.search(r"(\d+(?:[.,]\d+)?)\s*%", part)
+            items.append((part, float(pct.group(1).replace(",", ".")) if pct else None))
 
-    # Fallback if no whitelist match
-    if not matched_grapes and grapes_str:
-        cleaned_parts = [g.strip() for g in re.split(r'[,;\-\/]', grapes_str) if g.strip()]
-        for part in cleaned_parts:
-            no_pct = re.sub(r'\d+\s*%', '', part).strip()
-            if no_pct:
-                matched_grapes.add(no_pct.capitalize())
+    grapes, uvaggio = [], []
+    for name, pct in items:
+        canonical = match_grape(name, master_grapes)
+        if not canonical or canonical in grapes:
+            continue
+        grapes.append(canonical)
+        if pct not in (None, ""):
+            try:
+                p = float(pct)
+                uvaggio.append(f"{canonical} {int(p) if p.is_integer() else p}%")
+            except (TypeError, ValueError):
+                uvaggio.append(canonical)
+        else:
+            uvaggio.append(canonical)
+    uvaggio_text = ", ".join(uvaggio) if any("%" in u for u in uvaggio) else ""
+    return grapes, uvaggio_text
 
-    return sorted(list(matched_grapes))
 
-def normalize_food_pairings(raw_pairings: Any) -> List[str]:
-    """Map raw pairings into canonical taxonomy list."""
-    if not raw_pairings:
-        return []
-    
-    pairings_list = []
-    if isinstance(raw_pairings, list):
-        pairings_list = [str(p).strip() for p in raw_pairings if str(p).strip()]
-    elif isinstance(raw_pairings, str):
-        pairings_list = [p.strip() for p in raw_pairings.split(',') if p.strip()]
+def pairings_from_text(text: str) -> Tuple[List[str], bool]:
+    """Categorie canoniche ricavate dal testo e flag 'ci sono voci non riconducibili'."""
+    found: List[str] = []
+    has_unmatched = False
+    parts = [p.strip() for p in re.split(r",|;|\n|\s+e\s+|\s+o\s+", text or "") if p.strip()]
+    for part in parts:
+        low = part.lower()
+        matched = [canonical for pattern, canonical in PAIRING_RULES if re.search(pattern, low)]
+        for winner, losers in PAIRING_OVERRIDES.items():
+            if winner in matched:
+                matched = [m for m in matched if m not in losers]
+        if not matched and len(_key(part)) > 3 and not re.fullmatch(r"(ideale|ottimo|perfetto)( con| per)?", _key(part)):
+            has_unmatched = True
+        for m in matched:
+            if m not in found:
+                found.append(m)
+    return found, has_unmatched
 
-    canonical_set = set()
-    for item in pairings_list:
-        matched = False
-        for pattern, canonical in PAIRING_RULES:
-            if re.search(pattern, item, re.IGNORECASE):
-                canonical_set.add(canonical)
-                matched = True
-                break
-        if not matched and len(item) > 2:
-            canonical_set.add(item.capitalize())
 
-    return sorted(list(canonical_set))
+def canonical_attribute_name(name: str, master_attributes: List[str]) -> str:
+    k = _key(name)
+    master_by_key = {_key(a): a for a in master_attributes}
+    if k in master_by_key:
+        return master_by_key[k]
+    canonical = _ATTR_LOOKUP.get(k)
+    if canonical:
+        return master_by_key.get(_key(canonical), canonical)
+    cleaned = re.sub(r"\s+", " ", name).strip(" :-.")
+    small = {"di", "del", "della", "dei", "degli", "delle", "da", "in", "per", "e", "a", "al", "alla", "con", "su", "d", "l"}
+    words = cleaned.split(" ")
+    titled = [w if (i > 0 and w.lower() in small) or w.isupper() else w[:1].upper() + w[1:] for i, w in enumerate(words)]
+    return " ".join(titled)[:60]
 
-def parse_with_gemini_ai(text_content: str, filename: str) -> Optional[Dict[str, Any]]:
-    """Use Gemini AI API if GEMINI_API_KEY environment variable is present."""
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return None
 
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+# ---------------------------------------------------------------------------
+# Normalizzazione di un vino
+# ---------------------------------------------------------------------------
 
-        prompt = f"""
-Sei un esperto sommelier e data-extractor per EnotecaMolise.
-Analizza il seguente testo estratto dalla scheda tecnica PDF di un vino (Nome file: {filename}).
+def _guess_category(text: str, grapes: List[str]) -> str:
+    low = (text or "").lower()
+    if re.search(r"spumante|metodo classico|charmat|brut|bollicin|frizzant", low):
+        return "SPUMANTE"
+    if re.search(r"passito|vendemmia tardiva|muffato", low):
+        return "PASSITO"
+    if re.search(r"grappa|liquore|amaro|distillat", low):
+        return "LIQUORE"
+    if re.search(r"rosato|rosé|cerasuolo", low):
+        return "ROSATO"
+    if re.search(r"\bbianco\b", low) or (grapes and all(g.lower() in WHITE_GRAPES for g in grapes)):
+        return "VINO_BIANCO"
+    return "VINO_ROSSO"
 
-TESTO SCHEDA TECNICA:
----
-{text_content}
----
 
-Estrai le informazioni in formato JSON RIGIDO con i seguenti campi esattamente denominati:
-- "name": Nome commerciale del vino (stringa senza annata e senza DOC/IGT, es. "Tintilia del Molise Riserva")
-- "category": Una tra ["VINO_ROSSO", "VINO_BIANCO", "ROSATO", "SPUMANTE", "PASSITO", "LIQUORE"]
-- "denominazione": Una tra ["DOC", "DOCG", "IGT", "IGP", "DOP"]
-- "vintage_year": Anno vendemmia (numero intero o null se non specificata / Senza Annata)
-- "is_riserva": boolean (true se menzione Riserva, false altrimenti)
-- "alcohol_degrees": numero float (es. 14.5 o 13.0)
-- "grape_varieties": array di stringhe dei vitigni (es. ["Tintilia"] o ["Montepulciano", "Aglianico"])
-- "food_pairings": array di stringhe degli abbinamenti consigliati
-- "serving_temperature": stringa (es. "16° - 18° C")
-- "description": descrizione o presentazione del vino
-- "tasting_notes": oggetto con keys "visual", "olfactory", "taste"
-- "custom_attributes": array di oggetti {{"name": "...", "value": "..."}} per dettagli come Vinificazione, Affinamento, Allevamento, Formato Bottiglia, Allergeni.
-
-Restituisci SOLO il JSON valido senza marcatori markdown.
-"""
-        response = model.generate_content(prompt)
-        raw_resp = response.text.strip()
-        raw_resp = re.sub(r'^```json\s*', '', raw_resp, flags=re.MULTILINE)
-        raw_resp = re.sub(r'```$', '', raw_resp, flags=re.MULTILINE).strip()
-        data = json.loads(raw_resp)
-        return data
-    except Exception as e:
-        print(f"Gemini AI parsing fallback: {e}")
-        return None
-
-def parse_with_sommelier_nlp(text_content: str, filename: str) -> Dict[str, Any]:
-    """NLP & Regex Sommelier Heuristic Parser for offline/fallback PDF extraction."""
-    lines = [l.strip() for l in text_content.splitlines() if l.strip()]
-    full_text = " ".join(lines)
-    lower_text = full_text.lower()
-
-    # 1. Determine Title / Name
-    raw_title = ""
-    # Try finding title from first line or filename
-    clean_fn = os.path.splitext(filename)[0].replace('_', ' ').replace('-', ' ')
-    if lines:
-        for line in lines[:5]:
-            if len(line) > 3 and not re.search(r'scheda|tecnica|pagina|telefono|email|www\.', line, re.I):
-                raw_title = line
-                break
-    if not raw_title:
-        raw_title = clean_fn
-
-    name = clean_wine_name(raw_title)
-
-    # 2. Category
-    category = "VINO_ROSSO"
-    if re.search(r'spumante|brut|bollicin', lower_text):
-        category = "SPUMANTE"
-    elif re.search(r'rosato|rosé', lower_text):
-        category = "ROSATO"
-    elif re.search(r'bianco|falanghina|trebbiano|malvasia|chardonnay|greco', lower_text):
-        category = "VINO_BIANCO"
-    elif re.search(r'passito|moscato reale', lower_text):
-        category = "PASSITO"
-
-    # 3. Denomination
-    denominazione = "DOC"
-    if re.search(r'docg|d\.o\.c\.g\.', lower_text):
-        denominazione = "DOCG"
-    elif re.search(r'igt|i\.g\.t\.', lower_text):
-        denominazione = "IGT"
-    elif re.search(r'dop|d\.o\.p\.', lower_text):
-        denominazione = "DOP"
-
-    # 4. Alcohol Degrees
-    alc_match = re.search(r'(\d{2}(?:[.,]\d)?)\s*%\s*(?:vol)?', lower_text)
-    alcohol_degrees = float(alc_match.group(1).replace(',', '.')) if alc_match else 13.5
-
-    # 5. Vintage Year & Riserva
-    year_match = re.search(r'\b(20[0-2]\d)\b', full_text)
-    vintage_year = int(year_match.group(1)) if year_match else None
-    is_riserva = bool(re.search(r'riserva', lower_text))
-
-    # 6. Serving Temperature
-    temp_match = re.search(r'(\d{1,2}\s*[-–°]\s*\d{1,2}\s*°?\s*C)', full_text, re.I)
-    serving_temperature = temp_match.group(1).strip() if temp_match else "16° - 18° C"
-
-    # 7. Grapes
-    grapes = normalize_grapes_list(full_text)
-
-    # 8. Food Pairings
-    pairings = normalize_food_pairings(full_text)
-
-    # 9. Custom Attributes
-    custom_attributes = []
-    
-    # Vinificazione
-    vin_match = re.search(r'(?:vinificazione|lavorazione|fermentazione)[:\s]+([^.\n]+)', full_text, re.I)
-    if vin_match:
-        custom_attributes.append({"name": "Vinificazione", "value": vin_match.group(1).strip()})
-
-    # Affinamento
-    aff_match = re.search(r'(?:affinamento|maturazione|invecchiamento)[:\s]+([^.\n]+)', full_text, re.I)
-    if aff_match:
-        custom_attributes.append({"name": "Affinamento", "value": aff_match.group(1).strip()})
-
-    # Allevamento
-    all_match = re.search(r'(?:allevamento|potatura|sistema)[:\s]+([^.\n]+)', full_text, re.I)
-    if all_match:
-        custom_attributes.append({"name": "Allevamento", "value": all_match.group(1).strip()})
-
-    # Formato Bottiglia
-    fmt_match = re.search(r'(75\s*cl|1\.5\s*L|37\.5\s*cl|3\.0\s*L|magnum)', full_text, re.I)
-    bottle_format = fmt_match.group(1).strip() if fmt_match else "75 cl (Standard)"
-    custom_attributes.append({"name": "Formato Bottiglia", "value": bottle_format})
-
-    # Allergeni
-    custom_attributes.append({"name": "Allergeni", "value": "Contiene Solfiti"})
-
-    # Description & Tasting Notes
-    desc = full_text[:400] + "..." if len(full_text) > 400 else full_text
-
-    return {
-        "name": name,
-        "category": category,
-        "denominazione": denominazione,
-        "vintage_year": vintage_year,
-        "is_riserva": is_riserva,
-        "alcohol_degrees": alcohol_degrees,
-        "grape_varieties": grapes,
-        "food_pairings": pairings,
-        "serving_temperature": serving_temperature,
-        "description": desc,
+def normalize_wine(raw: Dict[str, Any], master_attributes: List[str], master_grapes: List[str],
+                   canonical_pairings: List[str]) -> Dict[str, Any]:
+    tasting = raw.get("tasting_notes") if isinstance(raw.get("tasting_notes"), dict) else {}
+    wine: Dict[str, Any] = {
+        "name": clean_wine_title(_clean(raw.get("name"), 200)),
+        "category": raw.get("category") if raw.get("category") in CATEGORIES else "",
+        "denominazione": parse_denominazione_acronym(raw["denominazione"]) if raw.get("denominazione") else "",
+        "vintage_year": parse_vintage(raw.get("vintage_year")),
+        "is_riserva": bool(raw.get("is_riserva")),
+        "alcohol_degrees": parse_alcohol(raw.get("alcohol_degrees")),
+        "serving_temperature": normalize_temperature(raw.get("serving_temperature")),
+        "indicative_price": _clean(raw.get("indicative_price"), 50),
+        "description": _clean(raw.get("description"), 5000),
         "tasting_notes": {
-            "visual": "Rosso rubino vivido" if category == "VINO_ROSSO" else "Giallo paglierino brillante",
-            "olfactory": "Profumi intensi e complessi",
-            "taste": "Gusto equilibrato e persistente"
+            "visual": _clean(tasting.get("visual")),
+            "olfactory": _clean(tasting.get("olfactory")),
+            "taste": _clean(tasting.get("taste")),
         },
-        "custom_attributes": custom_attributes
+    }
+    pairings_text = _clean(raw.get("food_pairings_text"), 1000)
+
+    # --- attributi: spostamento dei campi nativi, nomi canonici, unione dei duplicati
+    attributes: Dict[str, str] = {}
+    order: List[str] = []
+    for attr in raw.get("attributes") or []:
+        if not isinstance(attr, dict):
+            continue
+        a_name, a_value = _clean(attr.get("name"), 80), _clean(attr.get("value"), 1000)
+        if not a_name or not a_value:
+            continue
+        native = _NATIVE_LOOKUP.get(_key(a_name))
+        if native:
+            if native == "denominazione" and not wine["denominazione"]:
+                if re.search(r"\b(docg|doc|dop|igt|igp)\b|d\.o\.", a_value, re.I):
+                    wine["denominazione"] = parse_denominazione_acronym(a_value)
+            elif native == "alcohol_degrees" and wine["alcohol_degrees"] is None:
+                wine["alcohol_degrees"] = parse_alcohol(a_value)
+            elif native == "serving_temperature" and not wine["serving_temperature"]:
+                wine["serving_temperature"] = normalize_temperature(a_value)
+            elif native == "food_pairings_text":
+                pairings_text = pairings_text or a_value
+            elif native == "indicative_price" and not wine["indicative_price"]:
+                wine["indicative_price"] = a_value[:50]
+            elif native == "vintage_year" and wine["vintage_year"] is None:
+                wine["vintage_year"] = parse_vintage(a_value)
+            elif native.startswith("tasting_"):
+                key = native.split("_", 1)[1]
+                if not wine["tasting_notes"][key]:
+                    wine["tasting_notes"][key] = a_value
+            elif native == "description" and not wine["description"]:
+                wine["description"] = a_value
+            continue
+        canonical = canonical_attribute_name(a_name, master_attributes)
+        value = _cap(a_value)
+        if canonical in attributes:
+            if _key(value) not in _key(attributes[canonical]):
+                attributes[canonical] = f"{attributes[canonical]}; {value}"
+        else:
+            attributes[canonical] = value
+            order.append(canonical)
+
+    # --- vitigni
+    grapes, uvaggio_text = normalize_grapes(raw.get("grape_varieties"), master_grapes)
+    if not grapes and "Uvaggio" in attributes:
+        grapes, uvaggio_text = normalize_grapes(attributes["Uvaggio"], master_grapes)
+    wine["grape_varieties"] = grapes
+    uvaggio_name = canonical_attribute_name("Uvaggio", master_attributes)
+    if uvaggio_text and uvaggio_name not in attributes:
+        attributes[uvaggio_name] = uvaggio_text
+        order.insert(0, uvaggio_name)
+
+    # --- abbinamenti: categorie scelte dall'IA, altrimenti regole sul testo
+    canonical_by_key = {_key(p): p for p in canonical_pairings}
+    ai_pairings = [canonical_by_key[_key(p)] for p in raw.get("food_pairings") or []
+                   if isinstance(p, str) and _key(p) in canonical_by_key]
+    rule_pairings, has_unmatched = pairings_from_text(pairings_text)
+    rule_pairings = [canonical_by_key.get(_key(p), p) for p in rule_pairings if _key(p) in canonical_by_key]
+    pairings = list(dict.fromkeys(ai_pairings or rule_pairings))
+    wine["food_pairings"] = pairings
+    # le voci non riconducibili alle categorie non vanno perse: testo originale come attributo
+    if pairings_text and (has_unmatched or not pairings):
+        name = canonical_attribute_name("Abbinamenti Consigliati", master_attributes)
+        attributes[name] = _cap(re.sub(r"^(ideale|ottimo|perfetto)\s+(con|per)\s+", "", pairings_text, flags=re.I))
+        order.append(name)
+
+    wine["custom_attributes"] = [{"name": n, "value": attributes[n]} for n in dict.fromkeys(order) if n in attributes]
+
+    # --- categoria
+    if not wine["category"]:
+        context = " ".join([wine["name"], wine["description"], " ".join(grapes)])
+        wine["category"] = _guess_category(context, grapes)
+    if not wine["is_riserva"] and re.search(r"\briserva\b", wine["name"], re.I):
+        wine["is_riserva"] = True
+
+    # --- avvisi per la revisione
+    missing = []
+    if not wine["name"]:
+        missing.append("nome")
+    if wine["alcohol_degrees"] is None:
+        missing.append("gradazione alcolica")
+    if not grapes:
+        missing.append("vitigni")
+    if not wine["denominazione"]:
+        missing.append("denominazione")
+    if not wine["serving_temperature"]:
+        missing.append("temperatura di servizio")
+    wine["missing_fields"] = missing
+    notes = _clean(raw.get("notes"), 500)
+    wine["warnings"] = [notes] if notes else []
+    return wine
+
+
+# ---------------------------------------------------------------------------
+# Parser testuale di riserva (senza IA)
+# ---------------------------------------------------------------------------
+
+def parse_text_fallback(text: str, filename: str) -> Dict[str, Any]:
+    """Estrae le coppie "Etichetta: valore" da un PDF testuale. Non inventa valori mancanti."""
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    attributes, free_lines, name = [], [], ""
+    for line in lines:
+        m = LABEL_LINE_RE.match(line)
+        if m and len(m.group(1).split()) <= 6:
+            attributes.append({"name": m.group(1).strip(), "value": m.group(2).strip()})
+        else:
+            free_lines.append(line)
+
+    for line in free_lines[:8]:
+        if 3 < len(line) <= 90 and not re.search(r"scheda|tecnica|pagina|tel\.?|telefono|e-?mail|www\.|http|€", line, re.I):
+            name = line
+            break
+    if not name:
+        name = os.path.splitext(filename)[0].replace("_", " ").replace("-", " ")
+
+    description = " ".join(l for l in free_lines if len(l) > 60)[:5000]
+    denom = re.search(r"\b(DOCG|DOC|DOP|IGT|IGP)\b", text)
+    return {
+        "producer": {"name": None, "city": None, "website": None},
+        "wines": [{
+            "name": name,
+            "category": None,
+            "denominazione": denom.group(1) if denom else None,
+            "vintage_year": None,
+            "is_riserva": bool(re.search(r"\briserva\b", name, re.I)),
+            "alcohol_degrees": None,
+            "grape_varieties": [],
+            "food_pairings": [],
+            "food_pairings_text": None,
+            "serving_temperature": None,
+            "indicative_price": None,
+            "description": description,
+            "tasting_notes": {"visual": None, "olfactory": None, "taste": None},
+            "attributes": attributes,
+            "notes": "Estratto senza IA: verifica attentamente i dati.",
+        }],
     }
 
-def process_pdf_wine_file(pdf_bytes: bytes, filename: str) -> Dict[str, Any]:
-    """Master entry point to extract structured wine product from PDF."""
-    text_content = extract_text_from_pdf(pdf_bytes)
-    
-    # Attempt AI Gemini parsing first
-    ai_data = parse_with_gemini_ai(text_content, filename)
-    if ai_data and isinstance(ai_data, dict) and ai_data.get("name"):
-        # Post-process & normalize AI output
-        ai_data["name"] = clean_wine_name(ai_data.get("name", ""))
-        ai_data["grape_varieties"] = normalize_grapes_list(ai_data.get("grape_varieties"))
-        ai_data["food_pairings"] = normalize_food_pairings(ai_data.get("food_pairings"))
-        return ai_data
 
-    # Fallback to Sommelier NLP parser
-    nlp_data = parse_with_sommelier_nlp(text_content, filename)
-    return nlp_data
+# ---------------------------------------------------------------------------
+# Riconoscimento della cantina
+# ---------------------------------------------------------------------------
+
+_PRODUCER_STOPWORDS = {
+    "cantina", "cantine", "azienda", "aziende", "agricola", "agraria", "vitivinicola", "vinicola", "tenuta", "tenute",
+    "vini", "vino", "srl", "s", "r", "l", "sas", "snc", "spa", "societa", "soc", "cooperativa", "coop", "agr", "az",
+    "di", "del", "della", "dei", "degli", "de", "la", "le", "il", "lo", "i", "e", "the", "winery", "wines", "estate",
+    "fattoria", "masseria", "casa", "vinicola", "www", "it", "com", "http", "https",
+}
+
+
+def _producer_tokens(text: str) -> set:
+    return {t for t in _key(text).split() if t not in _PRODUCER_STOPWORDS and len(t) > 1}
+
+
+def match_producer(hint: Dict[str, Any], producers: Iterable[Dict[str, Any]]) -> Tuple[Optional[Any], float]:
+    """Trova la cantina del catalogo piu' simile a quella indicata nel documento."""
+    if not isinstance(hint, dict):
+        return None, 0.0
+    hint_tokens = _producer_tokens(hint.get("name") or "")
+    website = (hint.get("website") or "").lower()
+    domain = re.sub(r"^(https?://)?(www\.)?", "", website).split("/")[0]
+    domain_tokens = _producer_tokens(domain.rsplit(".", 1)[0].replace("-", " ")) if domain else set()
+
+    best, best_score = None, 0.0
+    for p in producers:
+        p_tokens = _producer_tokens(f"{p.get('company_name', '')} {p.get('slug', '').replace('-', ' ')}")
+        if not p_tokens:
+            continue
+        score = 0.0
+        if hint_tokens:
+            score = len(hint_tokens & p_tokens) / len(hint_tokens)
+        p_site = ((p.get("contacts") or {}).get("website") or "").lower()
+        if domain and domain in p_site:
+            score = max(score, 1.0)
+        elif domain_tokens and domain_tokens & p_tokens:
+            score = max(score, 0.8)
+        if score > best_score:
+            best, best_score = p, score
+    return (best["_id"], best_score) if best is not None and best_score >= 0.5 else (None, best_score)
+
+
+# ---------------------------------------------------------------------------
+# Tipi di file accettati
+# ---------------------------------------------------------------------------
+
+SUPPORTED_EXTENSIONS = (".pdf", ".jpg", ".jpeg", ".png", ".webp")
+MAX_IMAGE_SIDE = 3000          # px: oltre si ridimensiona (il testo resta leggibile)
+MAX_IMAGE_BYTES = 4 * 1024 * 1024
+
+
+def detect_mime_type(data: bytes) -> Optional[str]:
+    """Riconosce il tipo reale del file dai primi byte (non dall'estensione)."""
+    if data.startswith(b"%PDF-"):
+        return "application/pdf"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def prepare_image(data: bytes, mime_type: str) -> Tuple[bytes, str]:
+    """Ridimensiona le immagini troppo grandi e le converte in JPEG; lascia invariate le altre."""
+    from PIL import Image, ImageOps
+
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception:
+        raise AIExtractionError("L'immagine non è leggibile o è danneggiata")
+    if max(img.size) <= MAX_IMAGE_SIDE and len(data) <= MAX_IMAGE_BYTES:
+        return data, mime_type
+    img = ImageOps.exif_transpose(img)
+    img.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
+    if img.mode not in ("RGB", "L"):
+        background = Image.new("RGB", img.size, "white")
+        background.paste(img, mask=img.convert("RGBA").split()[-1])
+        img = background
+    quality = 88
+    while True:
+        out = io.BytesIO()
+        img.save(out, "JPEG", quality=quality, optimize=True)
+        if out.tell() <= MAX_IMAGE_BYTES or quality <= 60:
+            return out.getvalue(), "image/jpeg"
+        quality -= 10
+
+
+# ---------------------------------------------------------------------------
+# Punto di ingresso
+# ---------------------------------------------------------------------------
+
+def process_document(file_bytes: bytes, filename: str, master_attributes: List[str], master_grapes: List[str],
+                     canonical_pairings: List[str]) -> Dict[str, Any]:
+    """Analizza un PDF o un'immagine (JPG, PNG, WebP) e restituisce {method, producer, wines, warnings}.
+    Solleva AIExtractionError con un messaggio leggibile se il file non e' elaborabile."""
+    grapes = list(dict.fromkeys(list(master_grapes) + VALID_SINGLE_GRAPES))
+    pairings = canonical_pairings or CANONICAL_PAIRINGS
+
+    mime_type = detect_mime_type(file_bytes)
+    if not mime_type:
+        raise AIExtractionError("Formato non supportato: carica un PDF oppure un'immagine JPG, PNG o WebP")
+
+    provider = active_provider()
+    if mime_type != "application/pdf":
+        if not provider:
+            raise AIExtractionError(
+                "Per leggere le schede in formato immagine serve l'IA: configura GEMINI_API_KEY "
+                "o ANTHROPIC_API_KEY nel file .env del backend."
+            )
+        file_bytes, mime_type = prepare_image(file_bytes, mime_type)
+
+    if provider:
+        raw = extract_with_ai(file_bytes, filename, master_attributes, grapes, pairings, mime_type=mime_type)
+        method = f"ai:{provider}"
+        model_used = raw.pop("_model_used", None)
+    else:
+        pdf_bytes = file_bytes
+        text = extract_text_from_pdf(pdf_bytes)
+        if len(text.strip()) < 40:
+            raise AIExtractionError(
+                "Il PDF non contiene testo (è uno screenshot o una scansione): per leggerlo serve l'IA. "
+                "Configura GEMINI_API_KEY o ANTHROPIC_API_KEY nel file .env del backend."
+            )
+        raw = parse_text_fallback(text, filename)
+        method = "text"
+        model_used = None
+
+    wines = []
+    for w in raw.get("wines") or []:
+        if isinstance(w, dict):
+            normalized = normalize_wine(w, master_attributes, grapes, pairings)
+            if normalized["name"]:
+                wines.append(normalized)
+
+    warnings = []
+    if not wines:
+        warnings.append("Nessun vino riconosciuto nel documento.")
+    producer = raw.get("producer") if isinstance(raw.get("producer"), dict) else {}
+    return {
+        "file_type": "pdf" if mime_type == "application/pdf" else "image",
+        "method": method,
+        "model": model_used,
+        "producer": {k: _clean(producer.get(k), 200) for k in ("name", "city", "website")},
+        "wines": wines,
+        "warnings": warnings,
+    }
+
+
+# Nome storico, usato da script esterni
+process_pdf = process_document

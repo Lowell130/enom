@@ -9,11 +9,11 @@ class UserBase(BaseModel):
     is_active: bool = True
 
 class UserCreate(BaseModel):
+    """Registrazione pubblica: crea sempre un account PRODUCER.
+    Eventuali campi extra inviati dal client (es. "role") vengono ignorati."""
     email: EmailStr
-    password: str
-    role: str = "PRODUCER"
-    producer_id: Optional[str] = None
-    company_name: Optional[str] = None # Quick setup for producer profile
+    password: str = Field(min_length=8, max_length=128)
+    company_name: Optional[str] = Field(default=None, max_length=150)
 
 class UserLogin(BaseModel):
     email: EmailStr

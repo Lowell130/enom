@@ -701,7 +701,7 @@ const { data: masterGrapes } = await useAsyncData('master_grapes_product_new', a
 
 const { data: producers } = await useAsyncData('admin_producers_new_product', async () => {
   if (!isAdmin.value) return []
-  const res = await fetchWithAuth('/producers')
+  const res = await fetchWithAuth('/producers?include_all=true')
   return res || []
 }, { default: () => [] })
 
