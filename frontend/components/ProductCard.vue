@@ -1,8 +1,13 @@
 <template>
   <div class="bg-white rounded-xl border border-stone-200/80 shadow-2xs hover:shadow-lg transition-all duration-300 flex flex-col overflow-hidden group">
     
-    <!-- Product Image Header (Pure White Container) -->
-    <div class="relative h-72 bg-white border-b border-stone-100 overflow-hidden flex items-center justify-center p-6">
+    <!-- Product Image Header (Pure White Container): cliccabile verso la scheda del vino -->
+    <NuxtLink
+      :to="detailUrl"
+      tabindex="-1"
+      aria-hidden="true"
+      class="relative h-72 bg-white border-b border-stone-100 overflow-hidden flex items-center justify-center p-6 cursor-pointer"
+    >
       <img 
         :src="productImage" 
         :alt="product.name" 
@@ -29,7 +34,7 @@
           {{ formatCategory(product.category) }}
         </span>
       </div>
-    </div>
+    </NuxtLink>
 
     <!-- Product Body -->
     <div class="p-6 flex-1 flex flex-col justify-between space-y-4">
@@ -44,9 +49,11 @@
           <span>{{ product.producer_name }}</span>
         </NuxtLink>
 
-        <!-- Wine Name -->
+        <!-- Wine Name: cliccabile verso la scheda del vino -->
         <h3 class="font-serif text-xl font-bold text-stone-900 line-clamp-1 group-hover:text-wine-800 transition-colors mt-0.5">
-          {{ product.name }}
+          <NuxtLink :to="detailUrl" class="hover:underline decoration-wine-800/40 underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-wine-800 rounded-sm">
+            {{ product.name }}
+          </NuxtLink>
         </h3>
 
         <!-- Description -->
@@ -75,7 +82,7 @@
         </div>
 
         <NuxtLink 
-          :to="`/vini/${product.slug}`" 
+          :to="detailUrl" 
           class="inline-flex items-center space-x-1 text-sm font-bold text-wine-800 hover:text-wine-900 group-hover:translate-x-0.5 transition-transform"
         >
           <span>Scheda Vino</span>
@@ -98,6 +105,8 @@ const props = defineProps({
 })
 
 const { mediaBase } = useApi()
+
+const detailUrl = computed(() => `/vini/${props.product.slug}`)
 const { isOrganicProduct } = useOrganic()
 
 const productImage = computed(() => {
