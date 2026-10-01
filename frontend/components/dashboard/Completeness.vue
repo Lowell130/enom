@@ -16,11 +16,11 @@
         <ul class="m-0 p-0 list-none flex flex-col gap-2.5">
           <li v-for="f in data.fields" :key="f.field" class="flex flex-col gap-1" :title="`${f.label}: presente in ${f.filled} schede su ${data.wines}`">
             <span class="flex justify-between gap-3 text-sm">
-              <span class="font-semibold">{{ f.label }}</span>
+              <span class="font-semibold">{{ f.label }} <span v-if="f.optional" class="font-normal text-ink-mute">· facoltativa, non conta</span></span>
               <span class="text-ink-soft">{{ f.filled }} su {{ data.wines }}</span>
             </span>
             <span class="h-1.5 rounded-full bg-line-soft overflow-hidden" aria-hidden="true">
-              <span class="block h-full rounded-full" :class="f.percentage >= 80 ? 'bg-bio' : 'bg-wine-800'" :style="{ width: `${f.percentage}%` }"></span>
+              <span class="block h-full rounded-full" :class="f.optional ? 'bg-[#B9A894]' : f.percentage >= 80 ? 'bg-bio' : 'bg-wine-800'" :style="{ width: `${f.percentage}%` }"></span>
             </span>
           </li>
         </ul>

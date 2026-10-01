@@ -559,14 +559,20 @@ def _has(product: dict, field: str) -> bool:
     return True
 
 
+# Campi mostrati ma non conteggiati: molti vini non hanno un'annata (spumanti, grappe, vini senza annata)
+OPTIONAL_FIELDS = {"vintage_year"}
+
+
 def completeness_report(products: List[dict], worst: int = 15) -> Dict[str, Any]:
     total = len(products)
-    fields = [{"field": f, "label": lbl, "filled": sum(1 for p in products if _has(p, f)),
+    fields = [{"field": f, "label": lbl, "optional": f in OPTIONAL_FIELDS,
+               "filled": sum(1 for p in products if _has(p, f)),
                "percentage": _pct(sum(1 for p in products if _has(p, f)), total)} for f, lbl in COMPLETENESS_FIELDS]
+    counted = [(f, lbl) for f, lbl in COMPLETENESS_FIELDS if f not in OPTIONAL_FIELDS]
     rows = []
     for p in products:
-        missing = [lbl for f, lbl in COMPLETENESS_FIELDS if not _has(p, f)]
-        score = round((len(COMPLETENESS_FIELDS) - len(missing)) * 100 / len(COMPLETENESS_FIELDS))
+        missing = [lbl for f, lbl in counted if not _has(p, f)]
+        score = round((len(counted) - len(missing)) * 100 / len(counted))
         rows.append({"id": str(p.get("_id") or p.get("id")), "score": score, "missing": missing, **wine_ref(p),
                      "status": p.get("status")})
     rows.sort(key=lambda r: (r["score"], r["name"] or ""))
@@ -574,7 +580,7 @@ def completeness_report(products: List[dict], worst: int = 15) -> Dict[str, Any]
         "wines": total,
         "average_score": round(statistics.mean(r["score"] for r in rows)) if rows else 0,
         "complete": sum(1 for r in rows if r["score"] == 100),
-        "fields": sorted(fields, key=lambda f: f["percentage"]),
+        "fields": sorted(fields, key=lambda f: (f["optional"], f["percentage"])),
         "to_improve": [r for r in rows if r["score"] < 100][:worst],
     }
 

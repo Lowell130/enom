@@ -109,6 +109,9 @@ class AggregateTests(unittest.TestCase):
         self.assertEqual(rep["wines"], 3)
         self.assertEqual(rep["complete"], 0)
         self.assertTrue(all("Foto" in r["missing"] for r in rep["to_improve"]))
+        # l'annata e' mostrata ma non conta per la completezza
+        self.assertTrue(all("Annata" not in r["missing"] for r in rep["to_improve"]))
+        self.assertTrue(next(f for f in rep["fields"] if f["field"] == "vintage_year")["optional"])
 
 
 class InsightsApiTests(BaseTest):
