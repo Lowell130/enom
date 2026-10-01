@@ -173,3 +173,26 @@ class InsightsApiTests(BaseTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AdminCountsTests(BaseTest):
+    def test_stats_match_public_catalog_and_flag_orphans(self):
+        from bson import ObjectId
+        # vino collegato (come testo) a una cantina esistente e vino di una cantina che non esiste piu'
+        self._product("Vino Collegato Come Testo", "vino-testo", str(self.p1))
+        self._product("Vino Orfano", "vino-orfano", ObjectId())
+        r = self.client.get(f"{API}/admin/stats", headers=self.auth(self.admin_token))
+        self.assertEqual(r.status_code, 200, r.text)
+        stats = r.json()
+        self.assertEqual(stats["orphan_products"], 1)
+        # pubblicati come nel catalogo: niente bozze, niente cantine in attesa, niente orfani
+        public = self.client.get(f"{API}/products").json()
+        self.assertEqual(stats["published_products"], len(public))
+        self.assertIn("vino-testo", [w["slug"] for w in public])
+        self.assertEqual(stats["total_products"], 5)
+
+    def test_deleting_winery_removes_wines_linked_as_text(self):
+        self._product("Vino Collegato Come Testo", "vino-testo", str(self.p2))
+        r = self.client.delete(f"{API}/producers/{self.p2}", headers=self.auth(self.admin_token))
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(run(self.db.products.count_documents({"producer_id": {"$in": [self.p2, str(self.p2)]}})), 0)

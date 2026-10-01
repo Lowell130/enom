@@ -70,7 +70,8 @@ async def get_products(
     if is_riserva is not None:
         query["is_riserva"] = is_riserva
     if producer_id and ObjectId.is_valid(producer_id):
-        query["producer_id"] = ObjectId(producer_id)
+        # il collegamento puo' essere salvato come ObjectId o come testo
+        query["producer_id"] = {"$in": [ObjectId(producer_id), producer_id]}
     if search:
         escaped_search = re.escape(search.strip())
         matching_producers = await db.producers.find({
@@ -91,7 +92,7 @@ async def get_products(
             {"custom_attributes.name": {"$regex": escaped_search, "$options": "i"}}
         ]
         if matching_prod_ids:
-            search_or_conditions.append({"producer_id": {"$in": matching_prod_ids}})
+            search_or_conditions.append({"producer_id": {"$in": matching_prod_ids + [str(i) for i in matching_prod_ids]}})
         query["$or"] = search_or_conditions
 
     # Mappa cantine (una sola query, niente N+1)
@@ -102,10 +103,10 @@ async def get_products(
     if not private_view:
         approved_ids = [p["_id"] for p in producers if p.get("status", "APPROVED") == "APPROVED"]
         if "producer_id" in query:
-            if query["producer_id"] not in approved_ids:
+            if ObjectId(producer_id) not in approved_ids:
                 return []
         else:
-            query["producer_id"] = {"$in": approved_ids}
+            query["producer_id"] = {"$in": approved_ids + [str(i) for i in approved_ids]}
 
     cursor = db.products.find(query).sort("created_at", -1).skip(skip).limit(limit)
     raw_products = await cursor.to_list(limit)

@@ -9,18 +9,28 @@ async def get_admin_stats(
     current_admin: dict = Depends(get_current_admin),
     db=Depends(get_database)
 ):
-    total_producers = await db.producers.count_documents({})
-    approved_producers = await db.producers.count_documents({"status": "APPROVED"})
-    total_products = await db.products.count_documents({})
-    published_products = await db.products.count_documents({"status": "PUBLISHED"})
+    producers = await db.producers.find({}, {"_id": 1, "status": 1}).to_list(5000)
+    all_ids = [p["_id"] for p in producers]
+    approved_ids = [p["_id"] for p in producers if p.get("status", "APPROVED") == "APPROVED"]
+
+    def belongs_to(ids):
+        # il collegamento alla cantina puo' essere salvato come ObjectId o come testo
+        return {"producer_id": {"$in": ids + [str(i) for i in ids]}}
+
+    total_products = await db.products.count_documents(belongs_to(all_ids))
+    # come nel catalogo e nell'Osservatorio: vini pubblicati di cantine approvate
+    published_products = await db.products.count_documents({"status": "PUBLISHED", **belongs_to(approved_ids)})
+    # vini rimasti senza cantina (cantina eliminata o collegamento sbagliato): da sistemare
+    orphan_products = await db.products.count_documents({"producer_id": {"$nin": all_ids + [str(i) for i in all_ids]}})
     total_inquiries = await db.inquiries.count_documents({})
     unread_inquiries = await db.inquiries.count_documents({"is_read": False})
-    
+
     return {
-        "total_producers": total_producers,
-        "approved_producers": approved_producers,
+        "total_producers": len(producers),
+        "approved_producers": len(approved_ids),
         "total_products": total_products,
         "published_products": published_products,
+        "orphan_products": orphan_products,
         "total_inquiries": total_inquiries,
         "unread_inquiries": unread_inquiries
     }

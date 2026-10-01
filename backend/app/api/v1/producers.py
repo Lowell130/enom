@@ -140,7 +140,8 @@ async def delete_producer(
         raise HTTPException(status_code=404, detail="Cantina non trovata")
 
     # Elimina i vini associati e scollega/disattiva gli account della cantina
-    await db.products.delete_many({"producer_id": oid})
+    # anche i vini con il collegamento salvato come testo (es. importati da file)
+    await db.products.delete_many({"producer_id": {"$in": [oid, str(oid)]}})
     await db.users.update_many(
         {"producer_id": oid, "role": {"$ne": "ADMIN"}},
         {"$set": {"producer_id": None, "is_active": False}}

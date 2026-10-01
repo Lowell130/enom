@@ -22,7 +22,7 @@ export const useProducer = () => {
 
   const initials = (name?: string) => {
     const words = (text: string) => text
-      .split(/[\s'’]+/)
+      .split(/[\s'’-]+/)
       .filter((w, i) => w && !ARTICLES.has(w.toLowerCase()) && !(i > 0 && PREPOSITIONS.has(w.toLowerCase())))
     const full = String(name || '').trim()
     let list = words(full.replace(/^(cantina|cantine|azienda agricola)\s+/i, ''))

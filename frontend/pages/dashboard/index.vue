@@ -24,6 +24,10 @@
       <template v-else>La tua cantina è in attesa di approvazione: puoi già inserire i vini, che diventeranno pubblici dopo la verifica dell'amministratore.</template>
     </p>
 
+    <p v-if="isAdmin && stats?.orphan_products" role="alert" class="p-4 rounded-xl border border-wine-200 bg-wine-50 text-wine-900 text-sm font-medium">
+      {{ stats.orphan_products === 1 ? 'C\'è 1 vino collegato' : `Ci sono ${stats.orphan_products} vini collegati` }} a una cantina che non esiste più: non compaiono nel sito. Ricollegali a una cantina o eliminali.
+    </p>
+
     <dl v-if="kpis.length" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div v-for="kpi in kpis" :key="kpi.label" class="px-[18px] py-4 rounded-[14px] border border-line bg-white">
         <dt class="text-[13px] text-ink-soft">{{ kpi.label }}</dt>
