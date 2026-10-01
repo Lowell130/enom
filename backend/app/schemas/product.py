@@ -13,7 +13,7 @@ def _validate_status(v):
     return v
 from datetime import datetime
 
-from app.services.insights import normalize_price_text
+from app.services.insights import normalize_price_text, split_grape_list
 
 class TastingNotesSchema(BaseModel):
     visual: Optional[str] = ""
@@ -65,6 +65,11 @@ class ProductBase(BaseModel):
     def clean_indicative_price(cls, v):
         # stesso formato per tutto il catalogo: "17,00 €", "35,00 – 55,00 €"
         return normalize_price_text(v) if v is not None else v
+
+    @field_validator('grape_varieties', mode='before')
+    def split_grape_varieties(cls, v):
+        # "Montepulciano 55% Sangiovese 45%" in una sola voce -> due vitigni
+        return split_grape_list(v)
 
 class ProductCreate(ProductBase):
     producer_id: Optional[str] = None
@@ -118,6 +123,11 @@ class ProductUpdate(BaseModel):
     def clean_indicative_price(cls, v):
         # stesso formato per tutto il catalogo: "17,00 €", "35,00 – 55,00 €"
         return normalize_price_text(v) if v is not None else v
+
+    @field_validator('grape_varieties', mode='before')
+    def split_grape_varieties(cls, v):
+        # "Montepulciano 55% Sangiovese 45%" in una sola voce -> due vitigni
+        return split_grape_list(v)
 
 class ProductResponse(ProductBase):
     id: str

@@ -240,16 +240,22 @@ def match_grape(raw_name: str, master_grapes: List[str]) -> str:
 def normalize_grapes(raw: Any, master_grapes: List[str]) -> Tuple[List[str], str]:
     """Restituisce (vitigni canonici, testo uvaggio con percentuali)."""
     items: List[Tuple[str, Optional[float]]] = []
+
+    def add_text(text: str) -> None:
+        # "Montepulciano 55% Sangiovese 45%", "Falanghina e Greco", "Montepulciano 85%, Aglianico 15%"
+        text = re.sub(r"(\d+(?:[.,]\d+)?\s*%)\s*[-–]?\s*(?=[A-Za-zÀ-ÿ])", r"\1,", text)
+        for part in re.split(r"[,;/+]|\be\b", text):
+            pct = re.search(r"(\d+(?:[.,]\d+)?)\s*%", part)
+            items.append((part, float(pct.group(1).replace(",", ".")) if pct else None))
+
     if isinstance(raw, list):
         for g in raw:
             if isinstance(g, dict):
                 items.append((str(g.get("name") or ""), g.get("percentage")))
             elif isinstance(g, str):
-                items.append((g, None))
+                add_text(g)
     elif isinstance(raw, str):
-        for part in re.split(r"[,;/+]|\be\b", raw):
-            pct = re.search(r"(\d+(?:[.,]\d+)?)\s*%", part)
-            items.append((part, float(pct.group(1).replace(",", ".")) if pct else None))
+        add_text(raw)
 
     grapes, uvaggio = [], []
     for name, pct in items:

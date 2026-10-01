@@ -40,6 +40,28 @@ def attr_value(product: dict, *patterns: str) -> Optional[str]:
     return None
 
 
+_PCT_THEN_NAME = re.compile(r"(\d+(?:[.,]\d+)?\s*%)\s*[-–]?\s*(?=[A-Za-zÀ-ÿ])")
+
+
+def split_grape_entry(text: str) -> List[str]:
+    """Divide una voce con piu' vitigni: 'Montepulciano 55% Sangiovese 45%' -> ['Montepulciano 55%', 'Sangiovese 45%'].
+    Solo quando le percentuali sono almeno due: 'Tintilia 100%' o 'Coda di Volpe' restano come sono."""
+    t = str(text or "").strip()
+    if len(re.findall(r"\d+(?:[.,]\d+)?\s*%", t)) < 2:
+        return [t] if t else []
+    t = _PCT_THEN_NAME.sub(r"\1,", t)
+    return [part.strip(" -;/") for part in re.split(r"[,;/+]", t) if part.strip(" -;/")]
+
+
+def split_grape_list(values: Any) -> Any:
+    if not isinstance(values, list):
+        return values
+    out: List[Any] = []
+    for v in values:
+        out.extend(split_grape_entry(v) if isinstance(v, str) else [v])
+    return out
+
+
 def clean_grape(name: str) -> str:
     g = re.sub(r"\s*\d+([.,]\d+)?\s*%", "", str(name or "")).strip(" -,;")
     return g[:1].upper() + g[1:] if g else ""

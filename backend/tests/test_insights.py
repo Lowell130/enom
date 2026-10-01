@@ -47,6 +47,22 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(ins.normalize_price_text("15 € in cantina"), "15 € in cantina")
         self.assertEqual(ins.normalize_price_text(""), "")
 
+    def test_multi_grape_entry_split(self):
+        self.assertEqual(ins.split_grape_entry("Montepulciano 55% Sangiovese 45%"), ["Montepulciano 55%", "Sangiovese 45%"])
+        self.assertEqual(ins.split_grape_entry("Montepulciano 85% - Aglianico 15%"), ["Montepulciano 85%", "Aglianico 15%"])
+        self.assertEqual(ins.split_grape_entry("Tintilia 100%"), ["Tintilia 100%"])
+        self.assertEqual(ins.split_grape_entry("Coda di Volpe"), ["Coda di Volpe"])
+        from app.schemas.product import ProductCreate, ProductUpdate
+        self.assertEqual(ProductCreate(name="X", grape_varieties=["Montepulciano 55% Sangiovese 45%"]).grape_varieties,
+                         ["Montepulciano 55%", "Sangiovese 45%"])
+        self.assertIsNone(ProductUpdate().grape_varieties)
+
+    def test_import_keeps_every_grape(self):
+        from app.services.pdf_importer import normalize_grapes
+        master = ["Montepulciano", "Sangiovese", "Falanghina", "Greco"]
+        self.assertEqual(normalize_grapes(["Montepulciano 55% Sangiovese 45%"], master)[0], ["Montepulciano", "Sangiovese"])
+        self.assertEqual(normalize_grapes(["Falanghina e Greco"], master)[0], ["Falanghina", "Greco"])
+
     def test_price_normalized_when_saving(self):
         from app.schemas.product import ProductCreate, ProductUpdate
         self.assertEqual(ProductCreate(name="X", indicative_price="€ 8,5").indicative_price, "8,50 €")
