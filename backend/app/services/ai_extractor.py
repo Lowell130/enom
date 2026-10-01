@@ -112,8 +112,13 @@ REGOLE FONDAMENTALI
     Non ripetere negli attributi denominazione, gradazione alcolica, temperatura di servizio, prezzo e abbinamenti,
     che hanno già un campo dedicato. Correggi le righe spezzate dall'impaginazione
     (es. "Temperatura di fermentazione: 16° C" e "Durata della fermentazione: 20 gg" sono due voci distinte).
-12. "producer": il nome dell'azienda/cantina produttrice, il comune e il sito web se presenti.
-13. "notes": eventuali avvisi utili alla revisione (es. dati illeggibili o ambigui), altrimenti null.
+12. "is_organic": true se il documento indica che il vino è biologico o da agricoltura biologica: parole come
+    "biologico/biologica", "bio", "da uve biologiche", "agricoltura biologica", "organic", "certificazione biologica",
+    il logo europeo del biologico (foglia di stelle) o enti certificatori del biologico (es. ICEA, CCPB, Bioagricert,
+    Suolo e Salute, Valoritalia Bio). Se il vino è solo "in conversione al biologico" o non c'è alcun riferimento, false.
+    Riporta l'eventuale certificazione anche negli attributi (es. "Certificazione": "Biologico ICEA").
+13. "producer": il nome dell'azienda/cantina produttrice, il comune e il sito web se presenti.
+14. "notes": eventuali avvisi utili alla revisione (es. dati illeggibili o ambigui), altrimenti null.
 """
 
 
@@ -126,6 +131,7 @@ def _wine_properties(canonical_pairings: List[str]) -> Dict[str, Any]:
         "denominazione": {"type": ["string", "null"], "enum": DENOMINATIONS + [None]},
         "vintage_year": {"type": ["integer", "null"]},
         "is_riserva": {"type": "boolean"},
+        "is_organic": {"type": "boolean"},
         "alcohol_degrees": {"type": ["number", "null"]},
         "grape_varieties": {
             "type": "array",

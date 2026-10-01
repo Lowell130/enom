@@ -106,6 +106,16 @@ NATIVE_FIELDS: List[Tuple[str, List[str]]] = [
     ("description", ["descrizione", "presentazione", "note"]),
 ]
 
+# Riferimenti all'agricoltura biologica (testo gia' normalizzato in minuscolo)
+ORGANIC_RE = re.compile(
+    r"\bbiologic(?:[oai]|he)\b|\bbio\b|\bagricoltura biologica\b|\borganic\b|\borganico\b"
+    r"|\bbioagricert\b|\bccpb\b|\bicea\b|\bsuolo e salute\b|\bvaloritalia bio\b"
+    r"|\bit[- ]bio[- ]\d{3}\b"
+)
+# "in conversione al biologico" non e' ancora un vino biologico certificato
+NOT_ORGANIC_RE = re.compile(r"\bin conversione\b|\bnon (?:e |è )?biologic|\bnon bio\b")
+ORGANIC_TYPE_VALUE = "Vino Biologico"
+
 LABEL_LINE_RE = re.compile(r"^\s*([A-Za-zÀ-ÿ'’ .()/]{3,45}?)\s*[:：]\s*(.+)$")
 
 
@@ -278,6 +288,30 @@ def canonical_attribute_name(name: str, master_attributes: List[str]) -> str:
 # Normalizzazione di un vino
 # ---------------------------------------------------------------------------
 
+def mentions_organic(*texts: Any) -> bool:
+    """True se i testi contengono riferimenti al biologico (esclusa la sola conversione)."""
+    found = False
+    for text in texts:
+        low = str(text or "").lower()
+        if not low:
+            continue
+        if NOT_ORGANIC_RE.search(low):
+            return False
+        if ORGANIC_RE.search(low):
+            found = True
+    return found
+
+
+def apply_organic_type(attributes: Dict[str, str], order: List[str], master_attributes: List[str]) -> None:
+    """Aggiunge "Vino Biologico" all'attributo Tipo (senza perdere un eventuale valore gia' presente)."""
+    tipo = canonical_attribute_name("Tipo", master_attributes)
+    current = attributes.get(tipo, "")
+    if re.search(r"biologic", current, re.I):
+        return
+    attributes[tipo] = f"{current}; {ORGANIC_TYPE_VALUE}" if current else ORGANIC_TYPE_VALUE
+    if tipo not in order:
+        order.insert(0, tipo)
+
 def _guess_category(text: str, grapes: List[str]) -> str:
     low = (text or "").lower()
     if re.search(r"spumante|metodo classico|charmat|brut|bollicin|frizzant", low):
@@ -377,6 +411,14 @@ def normalize_wine(raw: Dict[str, Any], master_attributes: List[str], master_gra
         name = canonical_attribute_name("Abbinamenti Consigliati", master_attributes)
         attributes[name] = _cap(re.sub(r"^(ideale|ottimo|perfetto)\s+(con|per)\s+", "", pairings_text, flags=re.I))
         order.append(name)
+
+    # --- biologico: segnalato dall'IA oppure citato nel testo della scheda
+    organic_texts = [wine["name"], wine["description"], pairings_text, _clean(raw.get("notes"))]
+    organic_texts += [f"{k}: {v}" for k, v in attributes.items()]
+    organic_texts += list(wine["tasting_notes"].values())
+    wine["is_organic"] = bool(raw.get("is_organic")) or mentions_organic(*organic_texts)
+    if wine["is_organic"]:
+        apply_organic_type(attributes, order, master_attributes)
 
     wine["custom_attributes"] = [{"name": n, "value": attributes[n]} for n in dict.fromkeys(order) if n in attributes]
 

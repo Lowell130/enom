@@ -373,3 +373,59 @@ class ConfirmImportTests(AIConfigMixin, BaseTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OrganicTests(unittest.TestCase):
+    """Vini biologici: attributo Tipo = "Vino Biologico" (usato dal badge "Biologico" del sito)."""
+
+    def norm(self, **over):
+        raw = copy.deepcopy(CATABBO_AI["wines"][0])
+        raw.update(over)
+        return normalize_wine(raw, ["Tipo", "Uvaggio"], VALID_SINGLE_GRAPES, CANONICAL_PAIRINGS)
+
+    @staticmethod
+    def tipo(w):
+        return {a["name"]: a["value"] for a in w["custom_attributes"]}.get("Tipo")
+
+    def test_non_organic_wine_has_no_tipo(self):
+        w = self.norm()
+        self.assertFalse(w["is_organic"])
+        self.assertIsNone(self.tipo(w))
+
+    def test_ai_flag_adds_tipo(self):
+        w = self.norm(is_organic=True)
+        self.assertTrue(w["is_organic"])
+        self.assertEqual(self.tipo(w), "Vino Biologico")
+        self.assertEqual(w["custom_attributes"][0]["name"], "Tipo")
+
+    def test_detected_from_text_even_without_ai_flag(self):
+        for desc in ("Ottenuto da uve biologiche di Tintilia.", "Prodotto BIO certificato.",
+                     "Vino da agricoltura biologica", "Organic wine from Molise"):
+            with self.subTest(desc=desc):
+                self.assertEqual(self.tipo(self.norm(description=desc)), "Vino Biologico")
+
+    def test_detected_from_certification_attribute(self):
+        attrs = CATABBO_AI["wines"][0]["attributes"] + [{"name": "Certificazione", "value": "ICEA - IT-BIO-006"}]
+        w = self.norm(attributes=attrs)
+        self.assertEqual(self.tipo(w), "Vino Biologico")
+        self.assertIn("Certificazione", {a["name"] for a in w["custom_attributes"]})
+
+    def test_false_positives(self):
+        for desc in ("Grande biodiversità del vigneto.", "Studi di biologia del suolo.", "Vigneti in conversione al biologico.",
+                     "Il biotipo locale di Tintilia."):
+            with self.subTest(desc=desc):
+                self.assertIsNone(self.tipo(self.norm(description=desc)))
+
+    def test_existing_tipo_value_is_kept(self):
+        attrs = CATABBO_AI["wines"][0]["attributes"] + [{"name": "Tipo", "value": "Vino fermo"}]
+        self.assertEqual(self.tipo(self.norm(attributes=attrs, is_organic=True)), "Vino fermo; Vino Biologico")
+        attrs = CATABBO_AI["wines"][0]["attributes"] + [{"name": "Tipo", "value": "Biologico"}]
+        self.assertEqual(self.tipo(self.norm(attributes=attrs, is_organic=True)), "Biologico")
+
+    def test_schema_and_prompt_include_organic(self):
+        schema = ai_extractor.build_json_schema(CANONICAL_PAIRINGS)
+        self.assertIn("is_organic", schema["properties"]["wines"]["items"]["properties"])
+        self.assertIn("is_organic", schema["properties"]["wines"]["items"]["required"])
+        gemini = ai_extractor._to_gemini_schema(schema)
+        self.assertEqual(gemini["properties"]["wines"]["items"]["properties"]["is_organic"]["type"], "BOOLEAN")
+        self.assertIn("is_organic", ai_extractor.build_prompt("x.pdf", [], [], CANONICAL_PAIRINGS))
