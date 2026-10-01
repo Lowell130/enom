@@ -2,6 +2,9 @@
 const cityCoordinates: Record<string, [number, number]> = {
   // Campobasso Province
   'campobasso': [41.5603, 14.6626],
+  'san felice del molise': [41.8892, 14.7025],
+  'acquaviva collecroce': [41.8667, 14.7478],
+  'san biase': [41.7139, 14.5917],
   'castropignano': [41.6748, 14.5768],
   'termoli': [41.9961, 14.9922],
   'larino': [41.8014, 14.9108],
@@ -146,4 +149,15 @@ export const getProducerCoordinatesSync = (producer: any, index = 0): [number, n
   const offsetLat = ((index % 5) - 2) * 0.012
   const offsetLng = (Math.floor(index / 5) % 5 - 2) * 0.015
   return [41.62 + offsetLat, 14.60 + offsetLng]
+}
+
+// Coordinate di un comune (nome come "San Martino In Pensilis"), se presente nell'elenco
+export const getTownCoordinates = (name: string): [number, number] | null => {
+  const key = String(name || '').toLowerCase().replace(/\s+/g, ' ').trim()
+  if (!key) return null
+  if (cityCoordinates[key]) return cityCoordinates[key]
+  for (const [k, v] of Object.entries(cityCoordinates)) {
+    if (key.includes(k) || k.includes(key)) return v
+  }
+  return null
 }

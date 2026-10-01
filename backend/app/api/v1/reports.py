@@ -1,18 +1,48 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from app.db.mongodb import get_database
+from app.api.v1.auth import get_current_user, is_admin
+from app.services import insights
 from typing import Dict, Any, Optional
 import re
 import asyncio
 
 router = APIRouter()
 
-@router.get("/summary")
-async def get_report_summary(
-    province: Optional[str] = Query(None, description="Filtro per provincia (CB, IS)"),
-    denominazione: Optional[str] = Query(None, description="Filtro per denominazione"),
-    is_organic: Optional[bool] = Query(None, description="Filtro per regime biologico")
-) -> Dict[str, Any]:
-    db = await get_database()
+
+# Stessa regola del composable useOrganic.ts
+def check_is_organic(p: dict) -> bool:
+    if not p:
+        return False
+
+    if p.get("is_organic") is True or p.get("organic") is True:
+        return True
+
+    custom_attributes = p.get("custom_attributes", []) or []
+    for attr in custom_attributes:
+        if not attr or not attr.get("name") or not attr.get("value"):
+            continue
+        name = str(attr.get("name")).lower().strip()
+        value = str(attr.get("value")).lower().strip()
+
+        # 1. Attribute name is 'tipo' or 'tipo vino'
+        if (name in ['tipo', 'tipo vino'] or ('tipo' in name and name != 'biotipo')) and 'biolog' not in name:
+            if re.search(r'biologic', value) or re.search(r'\bbio\b', value):
+                return True
+
+        # 2. Attribute name contains 'biolog', 'certificazione', 'coltivazione', 'agricoltura'
+        if 'biolog' in name or name in ['certificazione', 'coltivazione', 'agricoltura']:
+            if re.search(r'biologic', value) or re.search(r'\bbio\b', value) or value in ['sì', 'si', 'yes', 'presente']:
+                return True
+
+        # 3. Attribute value matches exact organic terms
+        if re.search(r'^vino biologico$', value) or re.search(r'^biologico$', value) or re.search(r'^biologica$', value) or re.search(r'^\s*bio\s*$', value):
+            return True
+
+    return False
+
+
+async def load_report_data(db, province: Optional[str], denominazione: Optional[str], is_organic: Optional[bool]) -> Dict[str, Any]:
+    """Vini pubblicati di cantine approvate, filtrati come nell'Osservatorio, con le mappe delle cantine."""
 
     # 1. Fetch raw data in parallel
     raw_products, producers, master_grapes, master_pairings, master_attributes = await asyncio.gather(
@@ -27,6 +57,12 @@ async def get_report_summary(
     approved_ids = {str(pr["_id"]) for pr in producers if pr.get("status", "APPROVED") == "APPROVED"}
     raw_products = [p for p in raw_products if str(p.get("producer_id")) in approved_ids]
     producers = [pr for pr in producers if str(pr["_id"]) in approved_ids]
+
+    # il nome della cantina non e' salvato nella scheda: serve agli esempi e ai link dell'Osservatorio
+    producer_names = {str(pr["_id"]): pr.get("company_name") for pr in producers}
+    for p in raw_products:
+        if not p.get("producer_name"):
+            p["producer_name"] = producer_names.get(str(p.get("producer_id")))
 
     # Lookup maps for producer address
     producer_province_map: Dict[str, str] = {}
@@ -50,37 +86,6 @@ async def get_report_summary(
         for p in raw_products if str(p.get("producer_id")) in producer_province_map
     }))
 
-    # Helper function to check if product is organic (matches useOrganic.ts composable)
-    def check_is_organic(p: dict) -> bool:
-        if not p:
-            return False
-
-        if p.get("is_organic") is True or p.get("organic") is True:
-            return True
-
-        custom_attributes = p.get("custom_attributes", []) or []
-        for attr in custom_attributes:
-            if not attr or not attr.get("name") or not attr.get("value"):
-                continue
-            name = str(attr.get("name")).lower().strip()
-            value = str(attr.get("value")).lower().strip()
-
-            # 1. Attribute name is 'tipo' or 'tipo vino'
-            if (name in ['tipo', 'tipo vino'] or ('tipo' in name and name != 'biotipo')) and 'biolog' not in name:
-                if re.search(r'biologic', value) or re.search(r'\bbio\b', value):
-                    return True
-
-            # 2. Attribute name contains 'biolog', 'certificazione', 'coltivazione', 'agricoltura'
-            if 'biolog' in name or name in ['certificazione', 'coltivazione', 'agricoltura']:
-                if re.search(r'biologic', value) or re.search(r'\bbio\b', value) or value in ['sì', 'si', 'yes', 'presente']:
-                    return True
-
-            # 3. Attribute value matches exact organic terms
-            if re.search(r'^vino biologico$', value) or re.search(r'^biologico$', value) or re.search(r'^biologica$', value) or re.search(r'^\s*bio\s*$', value):
-                return True
-
-        return False
-
     # Apply filters
     filtered_products = []
     for p in raw_products:
@@ -97,7 +102,33 @@ async def get_report_summary(
 
         filtered_products.append(p)
 
-    products = filtered_products
+    return {
+        "products": filtered_products,
+        "producers": producers,
+        "master_grapes": master_grapes,
+        "master_pairings": master_pairings,
+        "producer_province_map": producer_province_map,
+        "producer_city_map": producer_city_map,
+        "available_denominations": available_denominations,
+        "available_provinces": available_provinces,
+    }
+
+
+@router.get("/summary")
+async def get_report_summary(
+    province: Optional[str] = Query(None, description="Filtro per provincia (CB, IS)"),
+    denominazione: Optional[str] = Query(None, description="Filtro per denominazione"),
+    is_organic: Optional[bool] = Query(None, description="Filtro per regime biologico")
+) -> Dict[str, Any]:
+    db = await get_database()
+    data = await load_report_data(db, province, denominazione, is_organic)
+    products = data["products"]
+    producers = data["producers"]
+    master_grapes = data["master_grapes"]
+    master_pairings = data["master_pairings"]
+    producer_city_map = data["producer_city_map"]
+    available_denominations = data["available_denominations"]
+    available_provinces = data["available_provinces"]
 
     # 2. Executive KPIs
     total_products = len(products)
@@ -267,4 +298,80 @@ async def get_report_summary(
             "wood_percentage": wood_pct,
             "steel_percentage": steel_pct
         }
+    }
+
+
+def _producer_card(pr: dict) -> Dict[str, Any]:
+    """Dati minimi di una cantina per la mappa dell'Osservatorio."""
+    addr = pr.get("address") or {}
+    return {
+        "id": str(pr["_id"]),
+        "company_name": pr.get("company_name"),
+        "slug": pr.get("slug"),
+        "address": {
+            "city": addr.get("city"),
+            "province": addr.get("province"),
+            "street": addr.get("street"),
+            "geo_coordinates": addr.get("geo_coordinates"),
+        },
+        "geo_coordinates": pr.get("geo_coordinates"),
+        "latitude": pr.get("latitude"),
+        "longitude": pr.get("longitude"),
+    }
+
+
+@router.get("/insights")
+async def get_report_insights(
+    province: Optional[str] = Query(None, description="Filtro per provincia (CB, IS)"),
+    denominazione: Optional[str] = Query(None, description="Filtro per denominazione"),
+    is_organic: Optional[bool] = Query(None, description="Filtro per regime biologico")
+) -> Dict[str, Any]:
+    """Approfondimenti dell'Osservatorio: vendemmia, territorio, servizio, prezzi, vitigni, abbinamenti."""
+    db = await get_database()
+    data = await load_report_data(db, province, denominazione, is_organic)
+    products = data["products"]
+    producer_info = {str(pr["_id"]): _producer_card(pr) for pr in data["producers"]}
+
+    return {
+        "wines": len(products),
+        "harvest": insights.harvest_calendar(products),
+        "towns": insights.towns_breakdown(products, data["producer_city_map"], producer_info),
+        "altitude": insights.altitude_profile(products),
+        "soils": insights.soil_profile(products),
+        "serving": insights.serving_guide(products),
+        "prices": insights.price_profile(products),
+        "heritage": insights.heritage_profile(products, check_is_organic),
+        "pairings": insights.pairing_guide(products),
+    }
+
+
+@router.get("/private")
+async def get_private_insights(user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+    """Area riservata: completezza delle schede e richieste ricevute.
+    L'amministratore vede tutto il catalogo, una cantina solo i propri vini e le proprie richieste."""
+    db = await get_database()
+    products, producers, inquiries = await asyncio.gather(
+        db.products.find().to_list(5000),
+        db.producers.find().to_list(1000),
+        db.inquiries.find().to_list(20000),
+    )
+    if not is_admin(user):
+        own = str(user.get("producer_id") or "")
+        if not own:
+            raise HTTPException(status_code=403, detail="Nessuna cantina associata a questo account")
+        products = [p for p in products if str(p.get("producer_id")) == own]
+        inquiries = [i for i in inquiries if str(i.get("producer_id")) == own]
+        producers = [pr for pr in producers if str(pr["_id"]) == own]
+
+    producer_names = {str(pr["_id"]): pr.get("company_name") for pr in producers}
+    for p in products:
+        p.setdefault("producer_name", producer_names.get(str(p.get("producer_id"))))
+
+    return {
+        "completeness": insights.completeness_report(products),
+        "inquiries": insights.inquiries_report(
+            inquiries,
+            {str(p["_id"]): p for p in products},
+            {str(pr["_id"]): pr for pr in producers},
+        ),
     }

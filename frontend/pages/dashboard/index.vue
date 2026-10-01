@@ -31,6 +31,11 @@
       </div>
     </dl>
 
+    <template v-if="privateInsights">
+      <DashboardInquiries :data="privateInsights.inquiries" :show-producers="isAdmin" />
+      <DashboardCompleteness v-if="privateInsights.completeness?.wines" :data="privateInsights.completeness" :show-producer="isAdmin" />
+    </template>
+
     <section aria-labelledby="scorciatoie" class="flex flex-col gap-3">
       <h2 id="scorciatoie" class="eyebrow-sm tracking-[0.14em]">Cosa vuoi fare</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -65,6 +70,15 @@ const { data: stats } = await useAsyncData('admin_stats', async () => {
   if (!isAdmin.value) return {}
   return (await fetchWithAuth('/admin/stats')) || {}
 }, { default: () => ({}) })
+
+// Richieste ricevute e completezza delle schede (l'admin vede tutto, la cantina solo i propri vini)
+const { data: privateInsights } = await useAsyncData('private_insights', async () => {
+  try {
+    return (await fetchWithAuth('/reports/private')) || null
+  } catch (err) {
+    return null
+  }
+}, { default: () => null })
 
 const kpis = computed(() => {
   const s = stats.value || {}

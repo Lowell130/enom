@@ -17,6 +17,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pypdf
 
+from app.services.insights import normalize_price_text
 from app.services.ai_extractor import (
     CATEGORIES,
     AIExtractionError,
@@ -392,7 +393,7 @@ def normalize_wine(raw: Dict[str, Any], master_attributes: List[str], master_gra
         "is_riserva": bool(raw.get("is_riserva")),
         "alcohol_degrees": parse_alcohol(raw.get("alcohol_degrees")),
         "serving_temperature": normalize_temperature(raw.get("serving_temperature")),
-        "indicative_price": _clean(raw.get("indicative_price"), 50),
+        "indicative_price": normalize_price_text(_clean(raw.get("indicative_price"), 50)),
         "description": _clean(raw.get("description"), 5000),
         "tasting_notes": {
             "visual": _clean(tasting.get("visual")),
@@ -423,7 +424,7 @@ def normalize_wine(raw: Dict[str, Any], master_attributes: List[str], master_gra
             elif native == "food_pairings_text":
                 pairings_text = pairings_text or a_value
             elif native == "indicative_price" and not wine["indicative_price"]:
-                wine["indicative_price"] = a_value[:50]
+                wine["indicative_price"] = normalize_price_text(a_value[:50])
             elif native == "vintage_year" and wine["vintage_year"] is None:
                 wine["vintage_year"] = parse_vintage(a_value)
             elif native.startswith("tasting_"):

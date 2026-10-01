@@ -58,6 +58,12 @@
         </dl>
       </section>
 
+      <nav v-if="insights" aria-label="In questa pagina" class="page-container pt-5 no-print">
+        <ul class="m-0 p-0 list-none flex flex-wrap gap-2">
+          <li v-for="link in pageLinks" :key="link.id"><a :href="`#${link.id}`" class="chip">{{ link.label }}</a></li>
+        </ul>
+      </nav>
+
       <!-- GRAFICI -->
       <section class="page-container pt-5 pb-14 md:pb-[72px] grid grid-cols-1 lg:grid-cols-2 gap-5">
         <article v-for="panel in panels" :key="panel.title" class="card p-6 md:p-[26px] flex flex-col gap-[18px]">
@@ -92,19 +98,20 @@
           </div>
         </article>
 
-        <article v-if="(reportData.top_pairings || []).length" class="card p-6 md:p-[26px] flex flex-col gap-[18px]">
-          <header class="flex flex-col gap-0.5">
-            <h2 class="title-card text-[28px]">Abbinamenti più consigliati</h2>
-            <span class="text-sm text-ink-mute">Clicca per vedere i vini adatti</span>
-          </header>
-          <div class="flex flex-wrap gap-2">
-            <NuxtLink v-for="pairing in reportData.top_pairings" :key="pairing.name" :to="`/vini?search=${encodeURIComponent(pairing.name)}`" class="chip-outline">
-              {{ pairing.name }} <span class="px-[7px] py-px rounded-full bg-sand-100 text-wine-900 text-xs font-bold">{{ pairing.count }}</span>
-            </NuxtLink>
-          </div>
-        </article>
 
       </section>
+
+      <!-- APPROFONDIMENTI -->
+      <div v-if="insights" class="page-container pb-16 md:pb-20 flex flex-col gap-14 md:gap-[72px]">
+        <ReportHarvest v-if="insights.harvest?.grapes?.length" :data="insights.harvest" />
+        <ReportTowns v-if="insights.towns?.length" :towns="insights.towns" />
+        <ReportAltitude v-if="insights.altitude?.wines_with_data" :data="insights.altitude" />
+        <ReportSoils v-if="insights.soils?.soils?.length" :data="insights.soils" />
+        <ReportServing v-if="insights.serving?.length" :rows="insights.serving" />
+        <ReportPrices v-if="insights.prices?.wines_with_price" :data="insights.prices" />
+        <ReportHeritage v-if="insights.heritage" :data="insights.heritage" />
+        <ReportPairings v-if="insights.pairings?.length" :items="insights.pairings" />
+      </div>
 
       <!-- LETTURA DEI DATI -->
       <section class="bg-sand py-12 md:py-16">
@@ -169,6 +176,32 @@ const { data: reportData, pending } = await useAsyncData('reports_summary', asyn
   watch: [selectedProvince, selectedDenomination, isOrganicOnly],
   default: () => null 
 })
+
+const { data: insights } = await useAsyncData('reports_insights', async () => {
+  const queryParams = new URLSearchParams()
+  if (selectedProvince.value) queryParams.append('province', selectedProvince.value)
+  if (selectedDenomination.value) queryParams.append('denominazione', selectedDenomination.value)
+  if (isOrganicOnly.value) queryParams.append('is_organic', 'true')
+  try {
+    return (await fetchWithAuth(`/reports/insights${queryParams.toString() ? `?${queryParams.toString()}` : ''}`)) || null
+  } catch (err) {
+    return null
+  }
+}, {
+  watch: [selectedProvince, selectedDenomination, isOrganicOnly],
+  default: () => null
+})
+
+const pageLinks = [
+  { id: 'vendemmia', label: 'Vendemmia' },
+  { id: 'mappa-vino', label: 'Mappa' },
+  { id: 'altitudine', label: 'Altitudine' },
+  { id: 'terreni', label: 'Terreni' },
+  { id: 'servizio', label: 'Servizio' },
+  { id: 'prezzi', label: 'Prezzi' },
+  { id: 'vitigni-territorio', label: 'Autoctoni e bio' },
+  { id: 'abbinamenti', label: 'Abbinamenti' }
+]
 
 // Print Action (PDF)
 const printReport = () => {
@@ -276,11 +309,6 @@ const panels = computed(() => {
       title: 'Vitigni più diffusi',
       sub: 'Etichette che contengono il vitigno',
       rows: toRows((r.top_grapes || []).slice(0, 8).map((g) => ({ name: g.name, count: g.count, label: g.name })), 'etichette', (g) => `/vini?grape=${encodeURIComponent(g.name)}`)
-    },
-    {
-      title: 'Comuni di produzione',
-      sub: 'Dove nascono le etichette',
-      rows: toRows((r.zone_breakdown || []).slice(0, 8).map((z) => ({ count: z.count, label: z.city })), 'vini', (z) => `/vini?search=${encodeURIComponent(z.label)}`)
     }
   ].filter((p) => p.rows.length)
 })

@@ -13,6 +13,8 @@ def _validate_status(v):
     return v
 from datetime import datetime
 
+from app.services.insights import normalize_price_text
+
 class TastingNotesSchema(BaseModel):
     visual: Optional[str] = ""
     olfactory: Optional[str] = ""
@@ -58,6 +60,11 @@ class ProductBase(BaseModel):
             return float(v)
         except (ValueError, TypeError):
             return None
+
+    @field_validator('indicative_price', mode='before')
+    def clean_indicative_price(cls, v):
+        # stesso formato per tutto il catalogo: "17,00 €", "35,00 – 55,00 €"
+        return normalize_price_text(v) if v is not None else v
 
 class ProductCreate(ProductBase):
     producer_id: Optional[str] = None
@@ -106,6 +113,11 @@ class ProductUpdate(BaseModel):
             return float(v)
         except (ValueError, TypeError):
             return None
+
+    @field_validator('indicative_price', mode='before')
+    def clean_indicative_price(cls, v):
+        # stesso formato per tutto il catalogo: "17,00 €", "35,00 – 55,00 €"
+        return normalize_price_text(v) if v is not None else v
 
 class ProductResponse(ProductBase):
     id: str
