@@ -1,10 +1,9 @@
-"""CRUD dei vini, ricerca pubblica e scraping di pagine web.
+"""CRUD dei vini e ricerca pubblica.
 Import/export: vedi product_io.py. Logica di dominio: app/services/catalog.py."""
 import re
 from datetime import datetime
 from typing import List, Optional
 
-import requests
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -20,7 +19,6 @@ from app.services.catalog import (
     parse_denominazione_acronym,
     run_products_cleanup_migration,
 )
-from app.services.scraper import fetch_public_html, parse_wine_page
 from app.services.taxonomy import (
     sync_custom_attributes_with_master,
     sync_grapes_with_master,
@@ -29,23 +27,6 @@ from app.services.taxonomy import (
 
 router = APIRouter()
 
-
-@router.post("/scrape-url")
-def scrape_url(payload: dict, current_user: dict = Depends(get_current_user)):
-    """Estrae i dati base di un vino da una pagina pubblica (solo utenti autenticati).
-    Funzione sincrona: FastAPI la esegue in un thread senza bloccare il server."""
-    url = str(payload.get("url", "")).strip()
-    if not url or not (url.startswith("http://") or url.startswith("https://")):
-        raise HTTPException(status_code=400, detail="URL non valido")
-    try:
-        html_text = fetch_public_html(url)
-        return parse_wine_page(html_text, clean_wine_title)
-    except HTTPException:
-        raise
-    except requests.RequestException:
-        raise HTTPException(status_code=400, detail="Impossibile raggiungere la pagina indicata")
-    except Exception:
-        raise HTTPException(status_code=400, detail="Errore durante l'analisi dell'URL")
 
 @router.get("", response_model=List[ProductResponse])
 async def get_products(

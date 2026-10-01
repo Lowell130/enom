@@ -16,37 +16,6 @@
 
     <form @submit.prevent="handleSubmit" class="space-y-8 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
       
-      <!-- AUTO-IMPORT DA URL DEL PRODUTTORE -->
-      <div class="bg-gradient-to-r from-wine-900 to-wine-800 p-6 rounded-3xl text-white shadow-md">
-        <div class="flex items-center space-x-2 mb-2">
-          <Sparkles class="w-5 h-5 text-amber-300" />
-          <h3 class="font-sans text-base font-bold text-white">
-            Importazione Rapida da Sito Produttore (URL Pagina Vino)
-          </h3>
-        </div>
-        <p class="text-xs text-wine-100 mb-4">
-          Incolla l'URL del vino dal sito ufficiale del produttore per estrarre ed auto-compilare in 1-Click tutti i dettagli della bottiglia.
-        </p>
-
-        <div class="flex flex-col sm:flex-row gap-3">
-          <input 
-            v-model="scrapeUrlInput" 
-            type="url" 
-            placeholder="https://sito-azienda.it/pagina-vino" 
-            class="flex-1 border border-wine-700/80 rounded-xl px-4 py-2.5 text-sm bg-white/10 text-white placeholder-wine-300 focus:ring-2 focus:ring-amber-300 focus:outline-none"
-          />
-          <button 
-            type="button" 
-            @click="handleScrapeUrl()" 
-            :disabled="scrapingUrl"
-            class="px-6 py-2.5 bg-amber-400 hover:bg-amber-300 text-wine-950 font-bold rounded-xl text-xs shadow-sm transition-all disabled:opacity-50 shrink-0 inline-flex items-center justify-center space-x-1.5 cursor-pointer"
-          >
-            <Sparkles class="w-4 h-4 text-wine-900" />
-            <span>{{ scrapingUrl ? 'Estrazione dati...' : '⚡ Compila Form da URL' }}</span>
-          </button>
-        </div>
-      </div>
-
       <!-- ADMIN PRODUCER ASSIGNMENT SELECTOR -->
       <div v-if="isAdmin" class="bg-amber-50/70 p-5 rounded-2xl border border-amber-200/60">
         <label class="flex items-center gap-1.5 text-xs font-bold text-amber-900 mb-1 uppercase tracking-wider">
@@ -573,7 +542,7 @@
 </template>
 
 <script setup>
-import { ArrowLeft, Shield, Plus, Trash2, Utensils, Sparkles } from 'lucide-vue-next'
+import { ArrowLeft, Shield, Plus, Trash2, Utensils } from 'lucide-vue-next'
 
 const { fetchWithAuth } = useApi()
 const { isAdmin } = useAuth()
@@ -581,42 +550,11 @@ const { isAdmin } = useAuth()
 const submitting = ref(false)
 const error = ref('')
 
-const scrapeUrlInput = ref('')
-const scrapingUrl = ref(false)
-
 const grapeVarietiesInput = ref('')
 const foodPairingsInput = ref('')
 const photoUrlInput = ref('')
 
 const toast = useToast()
-
-const handleScrapeUrl = async () => {
-  if (!scrapeUrlInput.value || !scrapeUrlInput.value.startsWith('http')) {
-    toast.error('Inserisci un URL valido che inizi con http:// o https://')
-    return
-  }
-  scrapingUrl.value = true
-  try {
-    const data = await fetchWithAuth('/products/scrape-url', {
-      method: 'POST',
-      body: { url: scrapeUrlInput.value }
-    })
-    if (data.name) form.name = data.name
-    if (data.category) form.category = data.category
-    if (data.denominazione) form.denominazione = data.denominazione
-    if (data.vintage_year) form.vintage_year = data.vintage_year
-    if (data.is_riserva !== undefined) form.is_riserva = data.is_riserva
-    if (data.alcohol_degrees) form.alcohol_degrees = data.alcohol_degrees
-    if (data.description) form.description = data.description
-    if (data.photo_url) photoUrlInput.value = data.photo_url
-    toast.success('Dati del vino estratti con successo dalla pagina web!')
-  } catch (err) {
-    const msg = err?.data?.detail || err?.statusMessage || err?.message || 'Impossibile estrarre i dati da questo URL.'
-    toast.error(msg)
-  } finally {
-    scrapingUrl.value = false
-  }
-}
 
 const selectedPairingsList = ref([])
 

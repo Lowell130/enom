@@ -128,18 +128,6 @@ class AuthTests(BaseTest):
         self.assertEqual(r.status_code, 401)
 
 
-class ScrapeTests(BaseTest):
-    def test_scrape_requires_auth(self):
-        r = self.client.post(f"{API}/products/scrape-url", json={"url": "https://example.com"})
-        self.assertEqual(r.status_code, 401)
-
-    def test_scrape_blocks_internal_addresses(self):
-        for url in ("http://127.0.0.1:8000/", "http://169.254.169.254/latest/meta-data/",
-                    "http://localhost/", "http://10.0.0.5/", "http://[::1]/", "file:///etc/passwd"):
-            r = self.client.post(f"{API}/products/scrape-url", json={"url": url}, headers=self.auth(self.p1_token))
-            self.assertEqual(r.status_code, 400, url)
-
-
 class ProductVisibilityTests(BaseTest):
     def _names(self, r):
         self.assertEqual(r.status_code, 200, r.text)
