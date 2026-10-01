@@ -104,20 +104,6 @@
           </div>
         </article>
 
-        <article v-if="techGroups.length" class="card p-6 md:p-[26px] flex flex-col gap-[18px] lg:col-span-2">
-          <header class="flex flex-col gap-0.5">
-            <h2 class="title-card text-[28px]">Tecniche di cantina e vigneto</h2>
-            <span class="text-sm text-ink-mute">Le voci più frequenti nelle schede tecniche</span>
-          </header>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            <div v-for="group in techGroups" :key="group.title" class="flex flex-col gap-2">
-              <span class="eyebrow-sm">{{ group.title }}</span>
-              <span v-for="item in group.items" :key="item.name" class="flex justify-between gap-3 text-sm border-b border-line-soft pb-1.5">
-                <span class="text-ink-soft">{{ item.name }}</span><strong class="text-ink">{{ item.count }}</strong>
-              </span>
-            </div>
-          </div>
-        </article>
       </section>
 
       <!-- LETTURA DEI DATI -->
@@ -246,19 +232,6 @@ const getCategoryLabel = (cat) => {
   return labels[cat?.toUpperCase()] || cat
 }
 
-// Unisce voci uguali scritte in modo diverso ("75 cl" e "75 Cl", "Cordone speronato" e "Cordone Speronato")
-const mergeVariants = (list = []) => {
-  const map = new Map()
-  for (const item of list) {
-    const key = String(item.name || '').toLowerCase().replace(/\s+/g, ' ').trim()
-    if (!key) continue
-    const prev = map.get(key)
-    if (prev) prev.count += item.count
-    else map.set(key, { name: item.name, count: item.count })
-  }
-  return [...map.values()].sort((a, b) => b.count - a.count)
-}
-
 const fmtPct = (n) => String(n).replace('.', ',')
 
 const toRows = (list, unit, link) => {
@@ -310,17 +283,6 @@ const panels = computed(() => {
       rows: toRows((r.zone_breakdown || []).slice(0, 8).map((z) => ({ count: z.count, label: z.city })), 'vini', (z) => `/vini?search=${encodeURIComponent(z.label)}`)
     }
   ].filter((p) => p.rows.length)
-})
-
-const techGroups = computed(() => {
-  const t = reportData.value?.technical_analytics || {}
-  return [
-    { title: 'Allevamento', items: mergeVariants(t.allevamento) },
-    { title: 'Vinificazione', items: mergeVariants(t.vinificazione) },
-    { title: 'Affinamento', items: mergeVariants(t.affinamento) },
-    { title: 'Altitudine vigneti', items: mergeVariants(t.altitudine) },
-    { title: 'Formato bottiglia', items: mergeVariants(t.formato) }
-  ].map((g) => ({ ...g, items: g.items.slice(0, 5) })).filter((g) => g.items.length)
 })
 </script>
 
