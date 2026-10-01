@@ -1,12 +1,12 @@
 <template>
-  <div class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <div class="px-4 sm:px-6 lg:px-9 py-7 lg:py-8 max-w-[1240px]">
     
     <div class="mb-8">
       <NuxtLink to="/dashboard/prodotti" class="text-xs font-semibold text-wine-800 hover:text-wine-900 mb-2 inline-flex items-center gap-1">
         <ArrowLeft class="w-3.5 h-3.5" />
         <span>Torna alla lista prodotti</span>
       </NuxtLink>
-      <h1 class="font-sans text-3xl font-bold text-gray-900">
+      <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">
         Modifica Scheda Vino
       </h1>
       <p class="text-xs text-gray-500 mt-1">
@@ -18,7 +18,7 @@
       Caricamento scheda vino...
     </div>
 
-    <form v-else-if="form" @submit.prevent="handleSubmit" class="space-y-8 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm">
+    <form v-else-if="form" @submit.prevent="handleSubmit" class="space-y-8 bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
       
       <!-- ADMIN PRODUCER ASSIGNMENT SELECTOR -->
       <div v-if="isAdmin" class="bg-amber-50/70 p-5 rounded-2xl border border-amber-200/60">
@@ -111,7 +111,7 @@
           </div>
 
           <!-- Row 3: Annata Vendemmia & Menzione Riserva -->
-          <div class="bg-stone-50/70 p-5 rounded-2xl border border-stone-200/60 space-y-3">
+          <div class="bg-stone-50/70 p-5 rounded-2xl border border-line space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label class="block text-xs font-bold text-stone-800 uppercase tracking-wider">
                 Annata Vendemmia & Menzione Riserva
@@ -123,28 +123,28 @@
                 <button 
                   type="button"
                   @click="form.is_riserva = false"
-                  :class="['px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer', !form.is_riserva && form.vintage_year ? 'bg-wine-800 text-white border-wine-800' : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100']"
+                  :class="['px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer', !form.is_riserva && form.vintage_year ? 'bg-wine-800 text-white border-wine-800' : 'bg-white text-ink-soft border-stone-200 hover:bg-stone-100']"
                 >
                   Annata
                 </button>
                 <button 
                   type="button"
                   @click="form.is_riserva = true"
-                  :class="['px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer', form.is_riserva && form.vintage_year ? 'bg-wine-800 text-white border-wine-800' : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100']"
+                  :class="['px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer', form.is_riserva && form.vintage_year ? 'bg-wine-800 text-white border-wine-800' : 'bg-white text-ink-soft border-stone-200 hover:bg-stone-100']"
                 >
                   Annata + Riserva
                 </button>
                 <button 
                   type="button"
                   @click="form.is_riserva = true; form.vintage_year = null"
-                  :class="['px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer', form.is_riserva && !form.vintage_year ? 'bg-wine-800 text-white border-wine-800' : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100']"
+                  :class="['px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer', form.is_riserva && !form.vintage_year ? 'bg-wine-800 text-white border-wine-800' : 'bg-white text-ink-soft border-stone-200 hover:bg-stone-100']"
                 >
                   Solo Riserva
                 </button>
                 <button 
                   type="button"
                   @click="form.is_riserva = false; form.vintage_year = null"
-                  :class="['px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer', !form.is_riserva && !form.vintage_year ? 'bg-wine-800 text-white border-wine-800' : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100']"
+                  :class="['px-2.5 py-1 rounded-lg text-xs font-bold transition-all border cursor-pointer', !form.is_riserva && !form.vintage_year ? 'bg-wine-800 text-white border-wine-800' : 'bg-white text-ink-soft border-stone-200 hover:bg-stone-100']"
                 >
                   Senza Annata (S.A.)
                 </button>
@@ -153,7 +153,7 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
               <div>
-                <label class="block text-[11px] font-semibold text-stone-600 mb-1">Anno Vendemmia (es. 2022 - Opzionale se Riserva)</label>
+                <label class="block text-[11px] font-semibold text-ink-soft mb-1">Anno Vendemmia (es. 2022 - Opzionale se Riserva)</label>
                 <input 
                   v-model.number="form.vintage_year" 
                   type="number" 
@@ -178,13 +178,13 @@
       </div>
 
       <!-- SCHEDA TECNICA DINAMICA -->
-      <div class="bg-stone-50/70 p-6 rounded-2xl border border-stone-200/60">
+      <div class="bg-stone-50/70 p-6 rounded-2xl border border-line">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
           <div class="flex-1">
             <h3 class="font-sans text-lg font-bold text-wine-900">
               Scheda Tecnica Dettagliata (Caratteristiche Extra)
             </h3>
-            <p class="text-xs text-stone-500 mt-0.5">I campi principali (Denominazione, Uvaggio, Annata, Gradazione Alcolica, Temperatura e Prezzo) vengono inclusi automaticamente nella Scheda Tecnica del vino. Qui sotto puoi aggiungere caratteristiche aggiuntive (es. Vinificazione, Affinamento, Allergeni, Altitudine).</p>
+            <p class="text-xs text-ink-mute mt-0.5">I campi principali (Denominazione, Uvaggio, Annata, Gradazione Alcolica, Temperatura e Prezzo) vengono inclusi automaticamente nella Scheda Tecnica del vino. Qui sotto puoi aggiungere caratteristiche aggiuntive (es. Vinificazione, Affinamento, Allergeni, Altitudine).</p>
           </div>
 
           <button 
@@ -199,7 +199,7 @@
 
         <!-- Custom Attributes List -->
         <div v-if="customAttributes.length" class="space-y-4">
-          <div v-for="(attr, idx) in customAttributes" :key="idx" class="p-4 bg-white rounded-2xl border border-stone-200/80 shadow-xs space-y-3">
+          <div v-for="(attr, idx) in customAttributes" :key="idx" class="p-4 bg-white rounded-2xl border border-line shadow-xs space-y-3">
             
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               
@@ -230,7 +230,7 @@
                   <button 
                     type="button" 
                     @click="attr.is_custom_name = false; attr.name = ''" 
-                    class="p-1 text-stone-400 hover:text-stone-700 text-xs font-bold"
+                    class="p-1 text-stone-400 hover:text-ink-soft text-xs font-bold"
                     title="Annulla inserimento manuale"
                   >
                     ✕
@@ -282,7 +282,7 @@
                   'px-2.5 py-0.5 rounded-full text-[11px] font-medium transition-all border',
                   attr.value === preset 
                     ? 'bg-wine-800 text-white border-wine-800 shadow-xs font-bold' 
-                    : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-wine-50 hover:border-wine-300 hover:text-wine-800'
+                    : 'bg-stone-50 text-ink-soft border-stone-200 hover:bg-wine-50 hover:border-wine-300 hover:text-wine-800'
                 ]"
               >
                 {{ preset }}
@@ -304,16 +304,16 @@
         </h3>
 
         <div class="space-y-4">
-          <div class="bg-stone-50/70 p-5 rounded-2xl border border-stone-200/60 space-y-4">
+          <div class="bg-stone-50/70 p-5 rounded-2xl border border-line space-y-4">
             <div class="flex items-center justify-between">
               <label class="block text-xs font-bold text-stone-800 uppercase tracking-wider">
                 Vitigni / Uvaggio (Composizione Ampelografica) *
               </label>
-              <span class="text-[11px] text-stone-500 font-medium">Seleziona vitigni e percentuali</span>
+              <span class="text-[11px] text-ink-mute font-medium">Seleziona vitigni e percentuali</span>
             </div>
 
             <!-- Quick Grape Chips & Percentage Selector -->
-            <div class="space-y-3 bg-white p-4 rounded-2xl border border-stone-200/70 shadow-xs">
+            <div class="space-y-3 bg-white p-4 rounded-2xl border border-line shadow-xs">
               
               <div class="flex flex-wrap items-center gap-1.5">
                 <span class="text-[10px] font-bold text-stone-400 uppercase mr-1">Aggiungi Vitigno:</span>
@@ -331,8 +331,8 @@
               <!-- Selected Grapes List with Percentages -->
               <div v-if="selectedGrapesList.length" class="space-y-2 pt-2 border-t border-stone-100">
                 <span class="text-[10px] font-bold text-stone-400 uppercase block mb-1">Composizione Selezionata:</span>
-                <div v-for="(gItem, idx) in selectedGrapesList" :key="idx" class="flex flex-wrap items-center gap-2 bg-stone-50 p-2.5 rounded-xl border border-stone-200/60">
-                  <span class="font-bold text-xs text-stone-900 w-36 shrink-0">{{ gItem.name }}</span>
+                <div v-for="(gItem, idx) in selectedGrapesList" :key="idx" class="flex flex-wrap items-center gap-2 bg-stone-50 p-2.5 rounded-xl border border-line">
+                  <span class="font-bold text-xs text-ink w-36 shrink-0">{{ gItem.name }}</span>
                   
                   <span class="text-xs text-stone-400 font-medium">%:</span>
                   <input 
@@ -354,7 +354,7 @@
                         'px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all border',
                         gItem.percentage === pct
                           ? 'bg-wine-800 text-white border-wine-800 shadow-2xs'
-                          : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'
+                          : 'bg-white text-ink-soft border-stone-200 hover:bg-stone-100'
                       ]"
                     >
                       {{ pct }}
@@ -383,7 +383,7 @@
                 v-model="grapeVarietiesInput" 
                 type="text" 
                 placeholder="es. Tintilia 100% oppure Montepulciano 80%, Aglianico 20%" 
-                class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-stone-900 focus:ring-2 focus:ring-wine-800 focus:outline-none"
+                class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-ink focus:ring-2 focus:ring-wine-800 focus:outline-none"
               />
             </div>
 
@@ -423,16 +423,16 @@
       </div>
 
       <!-- Abbinamenti Culinari (Smart Interactive Selector & Presets) -->
-      <div class="bg-stone-50/70 p-5 rounded-2xl border border-stone-200/60 space-y-4">
+      <div class="bg-stone-50/70 p-5 rounded-2xl border border-line space-y-4">
         <div class="flex items-center justify-between">
           <label class="block text-xs font-bold text-stone-800 uppercase tracking-wider">
             Abbinamenti Culinari & Gastronomici *
           </label>
-          <span class="text-[11px] text-stone-500 font-medium">Seleziona dai preset rapidi o inserisci custom</span>
+          <span class="text-[11px] text-ink-mute font-medium">Seleziona dai preset rapidi o inserisci custom</span>
         </div>
 
         <!-- Master Pairings Preset Chips -->
-        <div v-if="masterPairings && masterPairings.length" class="space-y-3 bg-white p-4 rounded-2xl border border-stone-200/70 shadow-xs">
+        <div v-if="masterPairings && masterPairings.length" class="space-y-3 bg-white p-4 rounded-2xl border border-line shadow-xs">
           <div class="flex flex-wrap items-center gap-1.5">
             <span class="text-[10px] font-bold text-stone-400 uppercase mr-1">Preset Rapidi Abbinamenti:</span>
             <button 
@@ -474,7 +474,7 @@
             type="text" 
             placeholder="Scrivi un abbinamento custom (es. Risotti ai frutti di mare, Pampa Nella Molisana...)" 
             @keydown.enter.prevent="addCustomPairingFromInput()"
-            class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-stone-900 focus:ring-2 focus:ring-wine-800 focus:outline-none"
+            class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm bg-white font-semibold text-ink focus:ring-2 focus:ring-wine-800 focus:outline-none"
           />
           <button 
             type="button" 

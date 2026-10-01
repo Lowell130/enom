@@ -1,16 +1,12 @@
 <template>
-  <div class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <div class="px-4 sm:px-6 lg:px-9 py-7 lg:py-8 max-w-[1240px]">
     
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
       <div>
-        <NuxtLink to="/dashboard" class="inline-flex items-center space-x-1 text-xs text-wine-800 font-semibold hover:underline mb-1">
-          <ArrowLeft class="w-3.5 h-3.5" />
-          <span>Torna alla Dashboard</span>
-        </NuxtLink>
-        <h1 class="font-sans text-3xl font-extrabold text-stone-900 tracking-tight">
+        <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">
           Gestione Cantine & Produttori (Admin)
         </h1>
-        <p class="text-xs text-stone-500 mt-1">
+        <p class="text-xs text-ink-mute mt-1">
           Aggiungi nuove cantine molisane, modifica i loro dati e contatti o gestisci quelle esistenti.
         </p>
       </div>
@@ -22,15 +18,15 @@
     </div>
 
     <!-- Producers Table -->
-    <div class="bg-white rounded-3xl border border-stone-200/60 shadow-xs overflow-hidden">
+    <div class="bg-white rounded-2xl border border-line shadow-xs overflow-hidden">
       
-      <div v-if="pending" class="p-8 text-center text-sm text-stone-500">
+      <div v-if="pending" class="p-8 text-center text-sm text-ink-mute">
         Caricamento cantine in corso...
       </div>
 
       <div v-else-if="producers && producers.length" class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-stone-700">
-          <thead class="bg-stone-50 text-xs uppercase font-bold text-stone-500 border-b border-stone-100">
+        <table class="w-full text-left text-sm text-ink-soft">
+          <thead class="bg-stone-50 text-xs uppercase font-bold text-ink-mute border-b border-stone-100">
             <tr>
               <th class="py-4 px-6">Cantina</th>
               <th class="py-4 px-6">Città / Prov.</th>
@@ -45,12 +41,12 @@
               <!-- Cantina Name & Logo (Clickable Link to Producer Page) -->
               <td class="py-4 px-6 min-w-[240px]">
                 <NuxtLink :to="`/produttori/${p.slug}`" target="_blank" class="flex items-center space-x-3.5 group cursor-pointer" title="Clicca per visualizzare la pagina della cantina">
-                  <div class="w-12 h-12 shrink-0 bg-white rounded-xl border border-stone-200/70 p-1 flex items-center justify-center group-hover:border-wine-300 transition-colors">
+                  <div class="w-12 h-12 shrink-0 bg-white rounded-xl border border-line p-1 flex items-center justify-center group-hover:border-wine-300 transition-colors">
                     <img :src="getLogo(p)" class="max-h-full max-w-full object-cover rounded-lg group-hover:scale-105 transition-transform" />
                   </div>
                   <div>
-                    <span class="font-sans font-bold text-sm text-stone-900 group-hover:text-wine-800 leading-snug block transition-colors">{{ p.company_name }}</span>
-                    <span class="text-xs text-stone-500 font-medium block mt-0.5">slug: {{ p.slug }}</span>
+                    <span class="font-sans font-bold text-sm text-ink group-hover:text-wine-800 leading-snug block transition-colors">{{ p.company_name }}</span>
+                    <span class="text-xs text-ink-mute font-medium block mt-0.5">slug: {{ p.slug }}</span>
                     <span v-if="p.status && p.status !== 'APPROVED'" :class="['inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide', p.status === 'SUSPENDED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800']">
                       {{ p.status === 'SUSPENDED' ? 'Sospesa' : 'In attesa di approvazione' }}
                     </span>
@@ -60,7 +56,7 @@
 
               <!-- Città / Prov & Coordinate GPS -->
               <td class="py-4 px-6 text-xs whitespace-nowrap">
-                <span class="font-bold text-stone-900 block text-xs">{{ p.address?.city || 'Molise' }} ({{ p.address?.province || 'CB' }})</span>
+                <span class="font-bold text-ink block text-xs">{{ p.address?.city || 'Molise' }} ({{ p.address?.province || 'CB' }})</span>
                 <span v-if="p.address?.geo_coordinates?.lat" class="text-wine-800 font-mono text-[11px] block mt-0.5" title="Coordinate GPS">
                   📍 {{ p.address.geo_coordinates.lat.toFixed(4) }}, {{ p.address.geo_coordinates.lng.toFixed(4) }}
                 </span>
@@ -69,11 +65,11 @@
 
               <!-- Contatti -->
               <td class="py-4 px-6 text-xs whitespace-nowrap">
-                <span v-if="p.contacts?.email_contact" class="font-medium text-stone-700 block text-xs flex items-center space-x-1">
+                <span v-if="p.contacts?.email_contact" class="font-medium text-ink-soft block text-xs flex items-center space-x-1">
                   <Mail class="w-3.5 h-3.5 text-stone-400 shrink-0" />
                   <span>{{ p.contacts.email_contact }}</span>
                 </span>
-                <div class="flex items-center space-x-3 mt-1 text-stone-500 font-medium text-[11px]">
+                <div class="flex items-center space-x-3 mt-1 text-ink-mute font-medium text-[11px]">
                   <span v-if="p.contacts?.phone" class="inline-flex items-center space-x-1">
                     <Phone class="w-3 h-3 text-stone-400" />
                     <span>{{ p.contacts.phone }}</span>
@@ -102,7 +98,7 @@
                     <NuxtLink 
                       :to="`/produttori/${p.slug}`"
                       target="_blank"
-                      class="px-3 py-1.5 bg-stone-100 hover:bg-wine-50 hover:text-wine-900 text-stone-700 rounded-xl text-xs font-semibold transition-all inline-flex items-center space-x-1 border border-stone-200/60"
+                      class="px-3 py-1.5 bg-stone-100 hover:bg-wine-50 hover:text-wine-900 text-ink-soft rounded-xl text-xs font-semibold transition-all inline-flex items-center space-x-1 border border-line"
                       title="Visualizza Pagina Cantina"
                     >
                       <Eye class="w-3.5 h-3.5 text-wine-800" />
@@ -111,9 +107,9 @@
 
                     <button 
                       @click="openEditModal(p)" 
-                      class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-semibold transition-all inline-flex items-center space-x-1 border border-stone-200/60"
+                      class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-semibold transition-all inline-flex items-center space-x-1 border border-line"
                     >
-                      <Pencil class="w-3.5 h-3.5 text-stone-500" />
+                      <Pencil class="w-3.5 h-3.5 text-ink-mute" />
                       <span>Modifica</span>
                     </button>
                   </div>
@@ -142,93 +138,93 @@
 
     <!-- MODAL NUOVA CANTINA -->
     <div v-if="showAddModal" class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto border border-stone-100">
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto border border-stone-100">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="font-sans text-xl font-bold text-stone-900">Aggiungi Nuova Cantina</h3>
-          <button @click="showAddModal = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <h3 class="font-sans text-xl font-bold text-ink">Aggiungi Nuova Cantina</h3>
+          <button @click="showAddModal = false" class="text-stone-400 hover:text-ink-soft p-1">
             <X class="w-5 h-5" />
           </button>
         </div>
 
         <form @submit.prevent="handleAddProducer" class="space-y-4">
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">Nome Cantina *</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">Nome Cantina *</label>
             <input v-model="newProducer.company_name" type="text" required placeholder="es. Cantine del Molise" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
           </div>
 
           <div class="grid grid-cols-3 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Città *</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Città *</label>
               <input v-model="newProducer.city" type="text" required placeholder="Campobasso" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">CAP</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">CAP</label>
               <input v-model="newProducer.zip_code" type="text" placeholder="86010" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Provincia</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Provincia</label>
               <input v-model="newProducer.province" type="text" placeholder="CB" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">Indirizzo (Via/Contrada)</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">Indirizzo (Via/Contrada)</label>
             <input v-model="newProducer.street" type="text" placeholder="Via Matese 10" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
           </div>
 
           <!-- Coordinate GPS Mappa -->
-          <div class="grid grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200/80">
+          <div class="grid grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-line">
             <div>
-              <label class="block text-[11px] font-semibold text-stone-700 mb-1">Latitudine GPS (es. 41,6147818)</label>
+              <label class="block text-[11px] font-semibold text-ink-soft mb-1">Latitudine GPS (es. 41,6147818)</label>
               <input v-model="newProducer.lat" type="text" placeholder="41,6147818" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
             </div>
             <div>
-              <label class="block text-[11px] font-semibold text-stone-700 mb-1">Longitudine GPS (es. 14,5462307)</label>
+              <label class="block text-[11px] font-semibold text-ink-soft mb-1">Longitudine GPS (es. 14,5462307)</label>
               <input v-model="newProducer.lng" type="text" placeholder="14,5462307" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Email Contatto</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Email Contatto</label>
               <input v-model="newProducer.email_contact" type="email" placeholder="info@cantina.it" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Telefono</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Telefono</label>
               <input v-model="newProducer.phone" type="text" placeholder="+39 0874 12345" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Numero WhatsApp (es. 393331234567)</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Numero WhatsApp (es. 393331234567)</label>
               <input v-model="newProducer.whatsapp_number" type="text" placeholder="393331234567" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Sito Web Ufficiale</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Sito Web Ufficiale</label>
               <input v-model="newProducer.website" type="text" placeholder="https://..." class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">URL Logo Cantina</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">URL Logo Cantina</label>
             <input v-model="newProducer.logo_url" type="text" placeholder="https://... o carica" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm mb-1" />
-            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'logo', 'new')" class="text-xs text-stone-500" />
+            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'logo', 'new')" class="text-xs text-ink-mute" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">URL Foto Copertina Cantina</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">URL Foto Copertina Cantina</label>
             <input v-model="newProducer.cover_image_url" type="text" placeholder="https://... o carica" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm mb-1" />
-            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'cover', 'new')" class="text-xs text-stone-500" />
+            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'cover', 'new')" class="text-xs text-ink-mute" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">Descrizione / Storia</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">Descrizione / Storia</label>
             <textarea v-model="newProducer.description" rows="3" placeholder="Breve descrizione della cantina..." class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm"></textarea>
           </div>
 
           <div class="pt-2 flex justify-end space-x-3">
-            <button type="button" @click="showAddModal = false" class="px-4 py-2 text-sm text-stone-600 font-semibold">Annulla</button>
+            <button type="button" @click="showAddModal = false" class="px-4 py-2 text-sm text-ink-soft font-semibold">Annulla</button>
             <button type="submit" class="px-6 py-2.5 bg-wine-800 text-white rounded-xl text-sm font-semibold shadow-xs">Crea Cantina</button>
           </div>
         </form>
@@ -237,22 +233,22 @@
 
     <!-- MODAL MODIFICA CANTINA -->
     <div v-if="showEditModal" class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto border border-stone-100">
+      <div class="bg-white rounded-2xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto border border-stone-100">
         <div class="flex items-center justify-between mb-4 border-b border-stone-100 pb-3">
-          <h3 class="font-sans text-xl font-bold text-stone-900">Modifica Cantina: {{ editProducer.company_name }}</h3>
-          <button @click="showEditModal = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <h3 class="font-sans text-xl font-bold text-ink">Modifica Cantina: {{ editProducer.company_name }}</h3>
+          <button @click="showEditModal = false" class="text-stone-400 hover:text-ink-soft p-1">
             <X class="w-5 h-5" />
           </button>
         </div>
 
         <form @submit.prevent="handleUpdateProducer" class="space-y-4">
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">Nome Cantina / Azienda *</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">Nome Cantina / Azienda *</label>
             <input v-model="editProducer.company_name" type="text" required class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">Stato pubblicazione</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">Stato pubblicazione</label>
             <select v-model="editProducer.status" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm bg-white">
               <option value="APPROVED">Approvata (visibile al pubblico)</option>
               <option value="PENDING_APPROVAL">In attesa di approvazione</option>
@@ -262,77 +258,77 @@
 
           <div class="grid grid-cols-3 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Città *</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Città *</label>
               <input v-model="editProducer.city" type="text" required class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">CAP</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">CAP</label>
               <input v-model="editProducer.zip_code" type="text" placeholder="86010" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Provincia</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Provincia</label>
               <input v-model="editProducer.province" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">Indirizzo (Via/Contrada)</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">Indirizzo (Via/Contrada)</label>
             <input v-model="editProducer.street" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
           </div>
 
           <!-- Coordinate GPS Mappa -->
-          <div class="grid grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-stone-200/80">
+          <div class="grid grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-line">
             <div>
-              <label class="block text-[11px] font-semibold text-stone-700 mb-1">Latitudine GPS (es. 41,6147818)</label>
+              <label class="block text-[11px] font-semibold text-ink-soft mb-1">Latitudine GPS (es. 41,6147818)</label>
               <input v-model="editProducer.lat" type="text" placeholder="41,6147818" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
             </div>
             <div>
-              <label class="block text-[11px] font-semibold text-stone-700 mb-1">Longitudine GPS (es. 14,5462307)</label>
+              <label class="block text-[11px] font-semibold text-ink-soft mb-1">Longitudine GPS (es. 14,5462307)</label>
               <input v-model="editProducer.lng" type="text" placeholder="14,5462307" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Email Contatto</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Email Contatto</label>
               <input v-model="editProducer.email_contact" type="email" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Telefono</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Telefono</label>
               <input v-model="editProducer.phone" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">WhatsApp (es. 393331234567)</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">WhatsApp (es. 393331234567)</label>
               <input v-model="editProducer.whatsapp_number" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
-              <label class="block text-xs font-semibold text-stone-700 mb-1">Sito Web</label>
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Sito Web</label>
               <input v-model="editProducer.website" type="text" placeholder="https://..." class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">URL Logo Cantina</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">URL Logo Cantina</label>
             <input v-model="editProducer.logo_url" type="text" placeholder="https://... o carica" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm mb-1" />
-            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'logo', 'edit')" class="text-xs text-stone-500" />
+            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'logo', 'edit')" class="text-xs text-ink-mute" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">URL Foto Copertina Cantina</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">URL Foto Copertina Cantina</label>
             <input v-model="editProducer.cover_image_url" type="text" placeholder="https://... o carica" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm mb-1" />
-            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'cover', 'edit')" class="text-xs text-stone-500" />
+            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'cover', 'edit')" class="text-xs text-ink-mute" />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-stone-700 mb-1">Descrizione / Storia Cantina</label>
+            <label class="block text-xs font-semibold text-ink-soft mb-1">Descrizione / Storia Cantina</label>
             <textarea v-model="editProducer.description" rows="4" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm"></textarea>
           </div>
 
           <div class="pt-4 flex justify-end space-x-3 border-t border-stone-100">
-            <button type="button" @click="showEditModal = false" class="px-4 py-2.5 text-sm text-stone-600 font-semibold hover:bg-stone-50 rounded-xl">Annulla</button>
+            <button type="button" @click="showEditModal = false" class="px-4 py-2.5 text-sm text-ink-soft font-semibold hover:bg-stone-50 rounded-xl">Annulla</button>
             <button type="submit" class="px-6 py-2.5 bg-wine-800 text-white rounded-xl text-sm font-semibold shadow-xs hover:bg-wine-900">Salva Modifiche</button>
           </div>
         </form>

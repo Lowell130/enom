@@ -1,84 +1,115 @@
 <template>
-  <header class="sticky top-0 z-50 bg-white/85 backdrop-blur-md border-b border-stone-200/60 transition-all duration-300">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center h-20">
-        
-        <!-- Logo -->
-        <NuxtLink to="/">
-          <AppLogo variant="light" />
+  <header class="sticky top-0 z-50 border-b border-line bg-cream/95 backdrop-blur">
+    <div class="page-container flex items-center justify-between gap-6 h-[76px]">
+      <NuxtLink to="/" aria-label="EnotecaMolise, vai alla home">
+        <AppLogo />
+      </NuxtLink>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-semibold" aria-label="Navigazione principale">
+        <NuxtLink
+          v-for="link in links"
+          :key="link.to"
+          :to="link.to"
+          :class="['py-1 border-b-2 transition-colors', isActive(link) ? 'text-wine-800 border-wine-800' : 'text-ink border-transparent hover:text-wine-800']"
+          :aria-current="isActive(link) ? 'page' : undefined"
+        >
+          {{ link.label }}
+        </NuxtLink>
+      </nav>
+
+      <div class="flex items-center gap-2.5">
+        <button
+          type="button"
+          class="hidden lg:flex items-center gap-2.5 h-11 px-3.5 rounded-[10px] border border-line-strong bg-white text-sm text-ink-mute hover:border-ink-mute transition-colors"
+          @click="isSearchOpen = true"
+        >
+          <Search class="w-4 h-4" aria-hidden="true" />
+          <span>Cerca vino o cantina</span>
+          <kbd class="text-[11px] font-sans border border-line-strong rounded-md px-1.5">Ctrl K</kbd>
+        </button>
+        <button
+          type="button"
+          class="lg:hidden flex items-center justify-center w-11 h-11 rounded-[10px] border border-line-strong bg-white text-ink"
+          aria-label="Cerca vino o cantina"
+          @click="isSearchOpen = true"
+        >
+          <Search class="w-[18px] h-[18px]" aria-hidden="true" />
+        </button>
+
+        <template v-if="isAuthenticated">
+          <NuxtLink to="/dashboard" class="btn-primary btn-sm h-11">
+            <LayoutDashboard class="w-4 h-4" aria-hidden="true" />
+            <span class="hidden sm:inline">{{ isAdmin ? 'Area admin' : 'Area cantina' }}</span>
+          </NuxtLink>
+          <button type="button" class="hidden sm:flex items-center justify-center w-11 h-11 rounded-[10px] text-ink-soft hover:text-wine-800" aria-label="Esci" @click="logout">
+            <LogOut class="w-[18px] h-[18px]" aria-hidden="true" />
+          </button>
+        </template>
+        <NuxtLink v-else to="/login" class="hidden sm:inline-flex items-center h-11 px-[18px] rounded-[10px] border border-wine-800 text-wine-800 text-sm font-semibold hover:bg-wine-50 transition-colors">
+          Accedi
         </NuxtLink>
 
-        <!-- Navigation Links -->
-        <nav class="hidden md:flex items-center space-x-6 lg:space-x-8 text-sm font-medium tracking-wide">
-          <NuxtLink to="/" class="text-stone-600 hover:text-wine-800 transition-colors py-1 border-b-2 border-transparent" active-class="text-wine-800 font-semibold border-wine-800">
-            Home
-          </NuxtLink>
-          <NuxtLink to="/vini" class="text-stone-600 hover:text-wine-800 transition-colors py-1 border-b-2 border-transparent" active-class="text-wine-800 font-semibold border-wine-800">
-            Catalogo Vini
-          </NuxtLink>
-          <NuxtLink to="/produttori" class="text-stone-600 hover:text-wine-800 transition-colors py-1 border-b-2 border-transparent" active-class="text-wine-800 font-semibold border-wine-800">
-            Cantine & Produttori
-          </NuxtLink>
-          <NuxtLink to="/report" class="text-stone-600 hover:text-wine-800 transition-colors py-1 border-b-2 border-transparent" active-class="text-wine-800 font-semibold border-wine-800">
-            Osservatorio Vino
-          </NuxtLink>
-        </nav>
-
-        <!-- User Actions & Search -->
-        <div class="flex items-center space-x-3">
-          <!-- Search Trigger Button -->
-          <button 
-            @click="isSearchOpen = true"
-            class="hidden sm:flex items-center space-x-2.5 px-3.5 py-2 bg-stone-100/80 hover:bg-stone-100 text-stone-500 rounded-xl text-xs font-medium border border-stone-200/60 transition-all hover:text-stone-900 group shadow-2xs"
-            title="Cerca vino o cantina (Ctrl+K)"
-          >
-            <Search class="w-3.5 h-3.5 text-stone-400 group-hover:text-wine-800 transition-colors" />
-            <span>Cerca vino o cantina...</span>
-            <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-stone-400 bg-white border border-stone-200 rounded shadow-2xs">⌘K</kbd>
-          </button>
-
-          <button 
-            @click="isSearchOpen = true"
-            class="sm:hidden p-2.5 text-stone-600 hover:text-wine-800 transition-colors rounded-xl bg-stone-100/60 border border-stone-200/50"
-            title="Cerca"
-          >
-            <Search class="w-4 h-4" />
-          </button>
-
-          <template v-if="isAuthenticated">
-            <NuxtLink to="/dashboard" class="inline-flex items-center space-x-2 px-4 py-2.5 text-sm font-semibold rounded-xl text-white bg-wine-800 hover:bg-wine-900 transition-all shadow-xs">
-              <LayoutDashboard class="w-4 h-4 text-amber-200" />
-              <span class="hidden md:inline">{{ isAdmin ? 'Dashboard Admin' : 'Area Produttore' }}</span>
-            </NuxtLink>
-            <button @click="logout" class="p-2 text-stone-500 hover:text-wine-800 transition-colors" title="Esci">
-              <LogOut class="w-4 h-4" />
-            </button>
-          </template>
-          <template v-else>
-            <NuxtLink to="/login" class="inline-flex items-center space-x-2 px-4 py-2 border border-wine-800 text-wine-800 hover:bg-wine-800 hover:text-white transition-all text-sm font-semibold rounded-xl">
-              <LogIn class="w-4 h-4" />
-              <span>Accedi</span>
-            </NuxtLink>
-          </template>
-        </div>
-
+        <button
+          type="button"
+          class="md:hidden flex items-center justify-center w-11 h-11 rounded-[10px] border border-line-strong bg-white text-ink"
+          :aria-expanded="isMenuOpen"
+          aria-controls="menu-mobile"
+          :aria-label="isMenuOpen ? 'Chiudi menu' : 'Apri menu'"
+          @click="isMenuOpen = !isMenuOpen"
+        >
+          <X v-if="isMenuOpen" class="w-5 h-5" aria-hidden="true" />
+          <Menu v-else class="w-5 h-5" aria-hidden="true" />
+        </button>
       </div>
     </div>
 
-    <!-- Global Search Modal -->
+    <!-- Menu mobile -->
+    <nav v-if="isMenuOpen" id="menu-mobile" class="md:hidden border-t border-line bg-cream" aria-label="Menu">
+      <div class="page-container py-3 flex flex-col">
+        <NuxtLink
+          v-for="link in links"
+          :key="link.to"
+          :to="link.to"
+          :class="['flex items-center min-h-[48px] text-base font-semibold border-b border-line-soft', isActive(link) ? 'text-wine-800' : 'text-ink']"
+          @click="isMenuOpen = false"
+        >
+          {{ link.label }}
+        </NuxtLink>
+        <NuxtLink v-if="!isAuthenticated" to="/login" class="btn-outline mt-4" @click="isMenuOpen = false">Accedi</NuxtLink>
+        <button v-else type="button" class="btn-ghost mt-4" @click="logout">Esci</button>
+      </div>
+    </nav>
+
     <GlobalSearchModal :is-open="isSearchOpen" @close="isSearchOpen = false" />
   </header>
 </template>
 
 <script setup>
-import { Wine, LayoutDashboard, LogOut, LogIn, Search } from 'lucide-vue-next'
+import { LayoutDashboard, LogOut, Search, Menu, X } from 'lucide-vue-next'
 
 const { isAuthenticated, isAdmin, logout } = useAuth()
+const route = useRoute()
 const isSearchOpen = ref(false)
+const isMenuOpen = ref(false)
+
+const links = [
+  { label: 'Vini', to: '/vini', match: '/vini' },
+  { label: 'Cantine', to: '/produttori', match: '/produttori' },
+  { label: 'Mappa', to: '/produttori?view=map', match: 'map' },
+  { label: 'Osservatorio', to: '/report', match: '/report' }
+]
+
+const isActive = (link) => {
+  if (link.match === 'map') return route.path === '/produttori' && route.query.view === 'map'
+  if (link.match === '/produttori') return route.path.startsWith('/produttori') && route.query.view !== 'map'
+  return route.path.startsWith(link.match)
+}
+
+watch(() => route.fullPath, () => { isMenuOpen.value = false })
 
 onMounted(() => {
   const handleKeyDown = (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault()
       isSearchOpen.value = true
     }

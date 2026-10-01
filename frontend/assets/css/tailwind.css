@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Nuovo design EnotecaMolise: fondo crema, titoli Cormorant, un solo colore per le azioni (bordeaux). */
+
+@layer base {
+  body {
+    @apply bg-cream text-ink font-sans antialiased;
+  }
+  /* cifre allineate anche con Cormorant (che di default usa i numeri "vecchio stile") */
+  h1, h2, h3, dd, .font-serif {
+    font-variant-numeric: lining-nums;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-wine-800/40 ring-offset-2 ring-offset-cream;
+  }
+}
+
+@layer components {
+  .page-container {
+    @apply max-w-[1240px] mx-auto px-4 sm:px-6;
+  }
+
+  /* Tipografia */
+  .eyebrow {
+    @apply text-xs font-bold uppercase tracking-[0.2em] text-gold-600;
+  }
+  .eyebrow-sm {
+    @apply text-xs font-bold uppercase tracking-[0.1em] text-gold-600;
+  }
+  .title-display {
+    @apply font-serif font-semibold leading-none text-ink text-[42px] md:text-[56px];
+  }
+  .title-section {
+    @apply font-serif font-semibold leading-[1.05] text-ink text-[34px] md:text-[44px];
+  }
+  .title-card {
+    @apply font-serif font-bold leading-[1.1] text-ink;
+  }
+
+  /* Pulsanti: pieno bordeaux solo per l'azione principale */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 h-12 px-6 rounded-xl text-[15px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-wine-800 text-white hover:bg-wine-900;
+  }
+  .btn-outline {
+    @apply btn border border-wine-800 text-wine-800 hover:bg-wine-50;
+  }
+  .btn-ghost {
+    @apply btn border border-line-strong bg-white text-ink font-semibold hover:border-ink-mute;
+  }
+  .btn-sm {
+    @apply h-10 px-4 text-sm rounded-[10px];
+  }
+
+  /* Chip e filtri */
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-sand-100 text-wine-900 text-[13px] font-semibold hover:bg-sand-200 transition-colors;
+  }
+  .chip-outline {
+    @apply inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-line-strong bg-white text-ink text-sm font-semibold hover:border-ink-mute transition-colors;
+  }
+  .pill {
+    @apply inline-flex items-center h-10 px-4 rounded-full border border-line-strong bg-white text-ink-soft text-sm font-semibold transition-colors hover:border-ink-mute;
+  }
+  .pill-active {
+    @apply border-wine-800 bg-wine-800 text-white hover:border-wine-800;
+  }
+  .segmented {
+    @apply flex p-1 rounded-xl bg-sand-200;
+  }
+  .segmented-item {
+    @apply h-10 px-4 rounded-[9px] text-sm font-bold text-ink-soft transition-colors;
+  }
+  .segmented-item-active {
+    @apply bg-white text-wine-900 shadow-sm;
+  }
+
+  /* Badge */
+  .badge-denom {
+    @apply inline-flex items-center px-2 py-[3px] rounded-md bg-wine-800 text-white text-[11px] font-bold tracking-[0.06em];
+  }
+  .badge-bio {
+    @apply inline-flex items-center gap-1 px-2 py-[3px] rounded-md bg-bio text-white text-[11px] font-bold;
+  }
+  .badge-soft {
+    @apply inline-flex items-center px-2 py-[3px] rounded-md bg-sand-100 text-wine-900 text-[11px] font-bold;
+  }
+
+  /* Superfici */
+  .card {
+    @apply bg-white border border-line rounded-2xl;
+  }
+  .placeholder-media {
+    @apply flex items-center justify-center bg-sand text-ink-mute;
+  }
+
+  /* Moduli */
+  .field-label {
+    @apply flex flex-col gap-1.5 text-sm font-semibold text-ink;
+  }
+  .input {
+    @apply h-12 w-full px-3.5 border border-line-input rounded-[10px] bg-white text-[15px] font-normal text-ink placeholder:text-ink-mute/70 focus:outline-none focus:border-wine-800 focus:ring-2 focus:ring-wine-800/20;
+  }
+  .select {
+    @apply input pr-8;
+  }
+}

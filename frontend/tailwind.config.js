@@ -29,7 +29,12 @@ module.exports = {
           500: '#8F7142', // Signature ilcolletinto gold/tan accent tone!
           600: '#755B32',
         },
-        cream: '#FDFBF9' // Signature ilcolletinto warm cream background!
+        cream: '#FDFBF9', // fondo crema
+        // Nuovo design: inchiostro, sabbia, linee e verde biologico
+        ink: { DEFAULT: '#1F1A17', soft: '#4E443D', mute: '#6E625A' },
+        sand: { DEFAULT: '#F6F1EA', 100: '#F3ECE3', 200: '#EDE5DA', 300: '#CDBBA4' },
+        line: { DEFAULT: '#ECE4DA', strong: '#E3D9CC', input: '#D8CEC2', soft: '#F0E9E0' },
+        bio: { 50: '#EEF4EF', DEFAULT: '#2F5D3A', 900: '#1F3D27' }
       },
       fontFamily: {
         serif: ['"Cormorant Garamond"', 'Playfair Display', 'serif'],

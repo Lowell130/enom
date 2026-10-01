@@ -1,22 +1,18 @@
 <template>
-  <div class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <div class="px-4 sm:px-6 lg:px-9 py-7 lg:py-8 max-w-[1240px]">
     
     <div class="mb-8">
-      <NuxtLink to="/dashboard" class="inline-flex items-center space-x-1 text-xs text-wine-800 font-semibold hover:underline mb-1">
-        <ArrowLeft class="w-3.5 h-3.5" />
-        <span>Torna alla Dashboard</span>
-      </NuxtLink>
-      <h1 class="font-sans text-3xl font-extrabold text-stone-900 tracking-tight">
+      <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">
         Richieste di Contatto Utenti
       </h1>
-      <p class="text-xs text-stone-500 mt-1">
+      <p class="text-xs text-ink-mute mt-1">
         Messaggi inviati dagli utenti del portale per informazioni su prezzi, disponibilità e degustazioni.
       </p>
     </div>
 
-    <div class="bg-white rounded-3xl border border-stone-200/60 shadow-xs overflow-hidden">
+    <div class="bg-white rounded-2xl border border-line shadow-xs overflow-hidden">
       
-      <div v-if="pending" class="p-8 text-center text-sm text-stone-500">
+      <div v-if="pending" class="p-8 text-center text-sm text-ink-mute">
         Caricamento messaggi...
       </div>
 
@@ -29,9 +25,9 @@
         >
           <div class="space-y-2">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="font-bold text-stone-900 text-sm">{{ msg.user_name }}</span>
+              <span class="font-bold text-ink text-sm">{{ msg.user_name }}</span>
               <span class="text-xs text-stone-400 font-light">&lt;{{ msg.user_email }}&gt;</span>
-              <span v-if="msg.user_phone" class="inline-flex items-center space-x-1 text-xs text-stone-500 font-medium">
+              <span v-if="msg.user_phone" class="inline-flex items-center space-x-1 text-xs text-ink-mute font-medium">
                 <Phone class="w-3 h-3 text-stone-400" />
                 <span>{{ msg.user_phone }}</span>
               </span>
@@ -41,10 +37,10 @@
             <div class="text-xs font-semibold text-wine-900 flex items-center space-x-1.5">
               <Building2 class="w-3.5 h-3.5 text-wine-800" />
               <span>Cantina: {{ msg.producer_name }}</span>
-              <span v-if="msg.product_name" class="ml-2 text-stone-600 font-normal">| Vino: <strong>{{ msg.product_name }}</strong></span>
+              <span v-if="msg.product_name" class="ml-2 text-ink-soft font-normal">| Vino: <strong>{{ msg.product_name }}</strong></span>
             </div>
 
-            <p class="text-sm text-stone-700 bg-stone-50/80 p-4 rounded-2xl border border-stone-200/50 leading-relaxed max-w-3xl font-light">
+            <p class="text-sm text-ink-soft bg-stone-50/80 p-4 rounded-2xl border border-stone-200/50 leading-relaxed max-w-3xl font-light">
               "{{ msg.message }}"
             </p>
           </div>
@@ -61,16 +57,16 @@
             <button 
               v-if="!msg.is_read" 
               @click="markRead(msg.id)" 
-              class="inline-flex items-center space-x-1 px-3 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold"
+              class="inline-flex items-center space-x-1 px-3 py-2.5 bg-stone-100 hover:bg-stone-200 text-ink-soft rounded-xl text-xs font-semibold"
             >
-              <CheckCircle class="w-3.5 h-3.5 text-stone-500" />
+              <CheckCircle class="w-3.5 h-3.5 text-ink-mute" />
               <span>Segna letto</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div v-else class="p-16 text-center text-stone-500">
+      <div v-else class="p-16 text-center text-ink-mute">
         <MessageSquare class="w-8 h-8 text-stone-400 mx-auto mb-2" />
         <p class="text-sm font-light">Nessuna richiesta di contatto ricevuta.</p>
       </div>

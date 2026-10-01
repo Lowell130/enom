@@ -1,17 +1,13 @@
 <template>
-  <div class="py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <div class="px-4 sm:px-6 lg:px-9 py-7 lg:py-8 max-w-[1240px]">
     
     <!-- Top Header -->
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
       <div>
-        <NuxtLink to="/dashboard" class="inline-flex items-center space-x-1 text-xs text-wine-800 font-semibold hover:underline mb-1">
-          <ArrowLeft class="w-3.5 h-3.5" />
-          <span>Torna alla Dashboard</span>
-        </NuxtLink>
-        <h1 class="font-sans text-3xl font-extrabold text-stone-900 tracking-tight">
-          Gestione Prodotti
+        <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">
+          Vini
         </h1>
-        <p class="text-xs text-stone-500 mt-1">
+        <p class="text-sm text-ink-mute mt-2">
           Visualizza, modifica, elimina, clona, esporta e importa i vini in catalogo.
         </p>
       </div>
@@ -21,22 +17,22 @@
         <div v-if="isAdmin" class="relative group">
           <button 
             type="button"
-            class="inline-flex items-center space-x-1.5 px-4 py-3 bg-amber-50 hover:bg-amber-100 text-amber-900 font-semibold text-xs rounded-xl border border-amber-200/80 transition-all shadow-2xs"
+            class="btn-ghost btn-sm h-11"
           >
-            <Download class="w-4 h-4 text-amber-800" />
-            <span>Esporta Catalogo</span>
+            <Download class="w-4 h-4" aria-hidden="true" />
+            <span>Esporta</span>
           </button>
-          <div class="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-xl border border-stone-200/80 py-1.5 hidden group-hover:block z-30">
+          <div class="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-xl border border-line py-1.5 hidden group-hover:block z-30">
             <button 
               @click="handleExport('excel')" 
-              class="w-full text-left px-4 py-2.5 text-xs font-semibold text-stone-700 hover:bg-amber-50 flex items-center space-x-2 transition-colors"
+              class="w-full text-left px-4 py-2.5 text-xs font-semibold text-ink-soft hover:bg-amber-50 flex items-center space-x-2 transition-colors"
             >
               <FileSpreadsheet class="w-4 h-4 text-emerald-700 shrink-0" />
               <span>Esporta Excel (.xlsx)</span>
             </button>
             <button 
               @click="handleExport('json')" 
-              class="w-full text-left px-4 py-2.5 text-xs font-semibold text-stone-700 hover:bg-amber-50 flex items-center space-x-2 border-t border-stone-100 transition-colors"
+              class="w-full text-left px-4 py-2.5 text-xs font-semibold text-ink-soft hover:bg-amber-50 flex items-center space-x-2 border-t border-stone-100 transition-colors"
             >
               <FileJson class="w-4 h-4 text-wine-800 shrink-0" />
               <span>Esporta JSON (.json)</span>
@@ -48,10 +44,10 @@
         <button 
           v-if="isAdmin"
           @click="showImportModal = true" 
-          class="inline-flex items-center space-x-1.5 px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold text-xs rounded-xl border border-stone-200/80 transition-all shadow-2xs"
+          class="btn-ghost btn-sm h-11"
           title="Importa o aggiorna vini da file Excel o JSON"
         >
-          <Upload class="w-4 h-4 text-wine-800" />
+          <Upload class="w-4 h-4" aria-hidden="true" />
           <span>Importa Excel / JSON</span>
         </button>
 
@@ -59,39 +55,39 @@
         <button 
           v-if="isAdmin"
           @click="showPdfModal = true" 
-          class="inline-flex items-center space-x-1.5 px-4 py-3 bg-wine-50 hover:bg-wine-100 text-wine-950 font-semibold text-xs rounded-xl border border-wine-200/80 transition-all shadow-2xs"
+          class="btn-ghost btn-sm h-11"
           title="Importa i vini da schede tecniche in PDF o immagine con l'IA"
         >
-          <Sparkles class="w-4 h-4 text-amber-600" />
-          <span>⚡ Importa schede (AI)</span>
+          <Sparkles class="w-4 h-4 text-gold-600" aria-hidden="true" />
+          <span>Importa schede (AI)</span>
         </button>
 
-        <NuxtLink to="/dashboard/prodotti/nuovo" class="inline-flex items-center space-x-2 px-6 py-3 bg-wine-800 hover:bg-wine-900 text-white font-semibold text-sm rounded-xl shadow-xs transition-all">
-          <Plus class="w-4 h-4 text-amber-200" />
-          <span>Inserisci Nuovo Vino</span>
+        <NuxtLink to="/dashboard/prodotti/nuovo" class="btn-primary btn-sm h-11">
+          <Plus class="w-4 h-4" aria-hidden="true" />
+          <span>Nuovo vino</span>
         </NuxtLink>
       </div>
     </div>
 
     <!-- Admin Filter by Producer if Admin -->
-    <div v-if="isAdmin && producers" class="bg-white p-4 rounded-2xl border border-stone-200/60 mb-6 flex items-center space-x-4">
-      <span class="text-xs font-bold uppercase tracking-wider text-stone-600">Filtra per Cantina (Admin):</span>
-      <select v-model="selectedProducerId" class="border border-stone-200 rounded-xl px-3.5 py-2 text-xs font-medium focus:ring-2 focus:ring-wine-800 focus:outline-none">
+    <div v-if="isAdmin && producers" class="mb-4 flex flex-wrap items-center gap-3">
+      <label for="filtro-cantina" class="text-sm font-semibold text-ink-soft">Cantina</label>
+      <select id="filtro-cantina" v-model="selectedProducerId" class="select h-10 w-auto min-w-[240px] text-sm">
         <option value="">Tutte le cantine</option>
         <option v-for="p in producers" :key="p.id" :value="p.id">{{ p.company_name }}</option>
       </select>
     </div>
 
     <!-- Products Table -->
-    <div class="bg-white rounded-3xl border border-stone-200/60 shadow-xs overflow-hidden">
+    <div class="card overflow-hidden">
       
-      <div v-if="pending" class="p-8 text-center text-sm text-stone-500">
+      <div v-if="pending" class="p-8 text-center text-sm text-ink-mute">
         Caricamento vini in corso...
       </div>
 
       <div v-else-if="filteredProducts && filteredProducts.length" class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-stone-700">
-          <thead class="bg-stone-50 text-xs uppercase font-bold text-stone-500 border-b border-stone-100">
+        <table class="w-full text-left text-sm text-ink-soft">
+          <thead class="text-xs uppercase tracking-[0.08em] font-bold text-ink-mute border-b border-line">
             <tr>
               <th class="py-4 px-6">Vino</th>
               <th class="py-4 px-6">Cantina</th>
@@ -106,38 +102,35 @@
               <!-- Vino Name & Photo (Clickable Link to Product Detail Sheet) -->
               <td class="py-4 px-6 min-w-[240px]">
                 <NuxtLink :to="`/vini/${prod.slug || prod.id}`" target="_blank" class="flex items-center space-x-3.5 group cursor-pointer" title="Clicca per visualizzare la scheda tecnica del vino">
-                  <div class="w-12 h-14 shrink-0 bg-white rounded-xl border border-stone-200/70 p-1 flex items-center justify-center group-hover:border-wine-300 transition-colors">
+                  <div class="w-12 h-14 shrink-0 bg-white rounded-xl border border-line p-1 flex items-center justify-center group-hover:border-wine-300 transition-colors">
                     <img :src="getProductImage(prod)" class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform" />
                   </div>
                   <div>
-                    <span class="font-sans font-bold text-sm text-stone-900 group-hover:text-wine-800 leading-snug block transition-colors">{{ prod.name }}</span>
-                    <span :class="['inline-block px-2 py-0.5 text-[11px] font-semibold rounded-md border mt-0.5', getCategoryBadgeClass(prod.category)]">{{ formatCategory(prod.category) }}</span>
+                    <span class="font-bold text-[15px] text-ink group-hover:text-wine-800 leading-snug block transition-colors">{{ prod.name }}</span>
+                    <span class="block text-[13px] text-ink-mute mt-0.5">{{ formatCategory(prod.category) }}</span>
                   </div>
                 </NuxtLink>
               </td>
 
               <!-- Cantina -->
               <td class="py-4 px-6 font-semibold text-xs text-stone-800 whitespace-nowrap">
-                <span class="inline-flex items-center space-x-1.5 bg-stone-50 px-2.5 py-1 rounded-lg border border-stone-200/50">
-                  <Building2 class="w-3.5 h-3.5 text-stone-400" />
-                  <span>{{ prod.producer_name || 'N/D' }}</span>
-                </span>
+                <span class="text-sm font-normal text-ink-soft">{{ prod.producer_name || 'N/D' }}</span>
               </td>
 
               <!-- Annata / Denom -->
               <td class="py-4 px-6 text-xs whitespace-nowrap">
                 <span class="font-bold text-wine-900 block text-xs">{{ prod.denominazione }}</span>
-                <span class="text-stone-500 font-medium block mt-0.5">
+                <span class="text-ink-mute font-medium block mt-0.5">
                   {{ prod.vintage_year && prod.is_riserva ? `Annata ${prod.vintage_year} Riserva` : (prod.vintage_year ? `Annata ${prod.vintage_year}` : (prod.is_riserva ? 'Riserva' : '-')) }}
                 </span>
               </td>
 
               <!-- Stato -->
               <td class="py-4 px-6 text-xs whitespace-nowrap">
-                <span v-if="prod.status === 'PUBLISHED'" class="px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full font-bold border border-emerald-200/60 inline-block">
+                <span v-if="prod.status === 'PUBLISHED'" class="px-3 py-1 bg-bio-50 text-bio-900 rounded-full font-bold border border-bio/20 inline-block">
                   Pubblicato
                 </span>
-                <span v-else class="px-3 py-1 bg-amber-50 text-amber-800 rounded-full font-bold border border-amber-200/60 inline-block">
+                <span v-else class="px-3 py-1 bg-sand-100 text-[#5A4524] rounded-full font-bold inline-block">
                   Bozza
                 </span>
               </td>
@@ -150,7 +143,7 @@
                     <NuxtLink 
                       :to="`/vini/${prod.slug || prod.id}`"
                       target="_blank"
-                      class="px-3 py-1.5 bg-stone-100 hover:bg-wine-50 hover:text-wine-900 text-stone-700 rounded-xl text-xs font-semibold transition-all inline-flex items-center space-x-1 border border-stone-200/60"
+                      class="px-3 py-1.5 bg-stone-100 hover:bg-wine-50 hover:text-wine-900 text-ink-soft rounded-xl text-xs font-semibold transition-all inline-flex items-center space-x-1 border border-line"
                       title="Visualizza Scheda Tecnica Vino"
                     >
                       <Eye class="w-3.5 h-3.5 text-wine-800" />
@@ -171,9 +164,9 @@
                   <div class="flex items-center space-x-2">
                     <NuxtLink 
                       :to="`/dashboard/prodotti/edit-${prod.id}`" 
-                      class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-semibold transition-all inline-flex items-center space-x-1 border border-stone-200/60"
+                      class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-semibold transition-all inline-flex items-center space-x-1 border border-line"
                     >
-                      <Pencil class="w-3.5 h-3.5 text-stone-500" />
+                      <Pencil class="w-3.5 h-3.5 text-ink-mute" />
                       <span>Modifica</span>
                     </NuxtLink>
 
@@ -194,7 +187,7 @@
         </table>
       </div>
 
-      <div v-else class="p-16 text-center text-stone-500">
+      <div v-else class="p-16 text-center text-ink-mute">
         <Wine class="w-8 h-8 text-stone-400 mx-auto mb-2" />
         <p class="text-sm font-light">Nessun vino presente per i filtri selezionati.</p>
       </div>
@@ -203,7 +196,7 @@
 
     <!-- MODAL IMPORTA CATALOGO -->
     <div v-if="showImportModal" class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-stone-100 space-y-6">
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative border border-stone-100 space-y-6">
         
         <div class="flex items-center justify-between border-b border-stone-100 pb-3">
           <div class="flex items-center space-x-2.5">
@@ -211,11 +204,11 @@
               <Upload class="w-5 h-5" />
             </div>
             <div>
-              <h3 class="font-sans text-lg font-bold text-stone-900">Importa / Ricarica Catalogo Vini</h3>
-              <p class="text-xs text-stone-500">Formati supportati: Excel (.xlsx) e JSON (.json)</p>
+              <h3 class="font-sans text-lg font-bold text-ink">Importa / Ricarica Catalogo Vini</h3>
+              <p class="text-xs text-ink-mute">Formati supportati: Excel (.xlsx) e JSON (.json)</p>
             </div>
           </div>
-          <button @click="showImportModal = false" class="text-stone-400 hover:text-stone-600 p-1">
+          <button @click="showImportModal = false" class="text-stone-400 hover:text-ink-soft p-1">
             <X class="w-5 h-5" />
           </button>
         </div>
@@ -236,21 +229,21 @@
               <span class="inline-block px-3 py-1 bg-wine-800 text-white font-mono text-xs font-bold rounded-lg">
                 {{ selectedFile.name }}
               </span>
-              <p class="text-xs text-stone-500">Dimensione: {{ (selectedFile.size / 1024).toFixed(1) }} KB</p>
+              <p class="text-xs text-ink-mute">Dimensione: {{ (selectedFile.size / 1024).toFixed(1) }} KB</p>
               <p class="text-[11px] text-wine-800 font-semibold">Clicca per scegliere un altro file</p>
             </div>
             <div v-else class="space-y-2">
               <Upload class="w-8 h-8 text-stone-400 mx-auto" />
-              <p class="text-xs font-semibold text-stone-700">Seleziona un file .xlsx o .json dal tuo computer</p>
-              <p class="text-[11px] text-stone-500 leading-relaxed">
+              <p class="text-xs font-semibold text-ink-soft">Seleziona un file .xlsx o .json dal tuo computer</p>
+              <p class="text-[11px] text-ink-mute leading-relaxed">
                 Se il file contiene l'<strong>ID Prodotto</strong> o corrisponde per <strong>Cantina + Nome + Annata</strong>, i vini esistenti verranno <strong>aggiornati</strong>; altrimenti verranno creati nuovi.
               </p>
             </div>
           </div>
 
           <!-- Import Result Summary Card -->
-          <div v-if="importResult" class="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-3">
-            <div class="flex items-center space-x-2 text-xs font-bold text-stone-900">
+          <div v-if="importResult" class="p-4 bg-stone-50 rounded-2xl border border-line space-y-3">
+            <div class="flex items-center space-x-2 text-xs font-bold text-ink">
               <CheckCircle2 class="w-4 h-4 text-emerald-600" />
               <span>Esito Importazione: {{ importResult.message }}</span>
             </div>
@@ -265,14 +258,14 @@
                 {{ importResult.errors }} Errori
               </div>
             </div>
-            <div v-if="importResult.error_details && importResult.error_details.length" class="text-xs text-rose-700 space-y-1 max-h-24 overflow-y-auto pt-1 border-t border-stone-200/60">
+            <div v-if="importResult.error_details && importResult.error_details.length" class="text-xs text-rose-700 space-y-1 max-h-24 overflow-y-auto pt-1 border-t border-line">
               <div v-for="(err, idx) in importResult.error_details" :key="idx">• {{ err }}</div>
             </div>
           </div>
         </div>
 
         <div class="pt-2 flex justify-end space-x-3 border-t border-stone-100">
-          <button type="button" @click="showImportModal = false" class="px-4 py-2.5 text-xs text-stone-600 font-semibold hover:bg-stone-50 rounded-xl">Annulla</button>
+          <button type="button" @click="showImportModal = false" class="px-4 py-2.5 text-xs text-ink-soft font-semibold hover:bg-stone-50 rounded-xl">Annulla</button>
           <button 
             type="button" 
             @click="handleImport" 
