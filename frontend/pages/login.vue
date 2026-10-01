@@ -123,9 +123,14 @@ const handleLogin = async () => {
     const redirect = route.query.redirect
     navigateTo(typeof redirect === 'string' && redirect.startsWith('/dashboard') ? redirect : '/dashboard')
   } catch (err) {
-    error.value = err?.status === 429
-      ? (err.data?.detail || 'Troppi tentativi di accesso. Riprova tra qualche minuto.')
-      : 'Credenziali errate o account non trovato'
+    if (!err?.status) {
+      // nessuna risposta: il server non e' raggiungibile, le credenziali non c'entrano
+      error.value = 'Il server non risponde. Controlla la connessione e riprova tra poco.'
+    } else if (err.status === 429) {
+      error.value = err.data?.detail || 'Troppi tentativi di accesso. Riprova tra qualche minuto.'
+    } else {
+      error.value = 'Credenziali errate o account non trovato'
+    }
   } finally {
     loading.value = false
   }
