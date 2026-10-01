@@ -411,6 +411,24 @@ def normalize_price_text(text: Any) -> Any:
     return format_price(nums[0])
 
 
+def normalize_temperature_text(text: Any) -> Any:
+    """Temperatura di servizio sempre nello stesso formato: '16 - 18°' -> '16-18°C', '15°' -> '15°C'.
+    Un testo senza numeri ('Scheda tecnica') non e' una temperatura e viene svuotato."""
+    if text is None:
+        return text
+    t = str(text).strip()
+    if not t:
+        return t
+    nums = [n.replace(",", ".") for n in re.findall(r"\d{1,2}(?:[.,]\d)?", t)]
+    nums = [n[:-2] if n.endswith(".0") else n for n in nums if 0 <= float(n) <= 30]
+    if not nums:
+        return ""
+    nums = [n.replace(".", ",") for n in nums]
+    if len(nums) >= 2 and nums[0] != nums[1]:
+        return f"{nums[0]}-{nums[1]}°C"
+    return f"{nums[0]}°C"
+
+
 def format_price(value: float) -> str:
     """17.0 -> '17,00 €' (stesso formato per tutto il catalogo)."""
     return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"

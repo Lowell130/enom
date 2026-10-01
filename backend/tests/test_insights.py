@@ -47,6 +47,34 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(ins.normalize_price_text("15 € in cantina"), "15 € in cantina")
         self.assertEqual(ins.normalize_price_text(""), "")
 
+    def test_temperature_normalized(self):
+        self.assertEqual(ins.normalize_temperature_text("8 - 10°"), "8-10°C")
+        self.assertEqual(ins.normalize_temperature_text("18°"), "18°C")
+        self.assertEqual(ins.normalize_temperature_text("12,5°"), "12,5°C")
+        self.assertEqual(ins.normalize_temperature_text("Scheda tecnica"), "")
+        from app.schemas.product import ProductUpdate
+        self.assertEqual(ProductUpdate(serving_temperature="10° - 12°").serving_temperature, "10-12°C")
+        self.assertIsNone(ProductUpdate().serving_temperature)
+
+    def test_normalize_catalog_script(self):
+        import importlib.util, pathlib
+        from tests.fake_mongo import FakeClient
+        spec = importlib.util.spec_from_file_location("nc", pathlib.Path(__file__).parent.parent / "scripts" / "normalize_catalog.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        database = FakeClient()["t"]
+        run_ = __import__("asyncio").run
+        run_(database.products.insert_one({"name": "A", "indicative_price": "€14", "serving_temperature": "8 - 10°",
+                                           "grape_varieties": ["Montepulciano 55% Sangiovese 45%"]}))
+        run_(database.products.insert_one({"name": "B", "indicative_price": "14,00 €", "serving_temperature": "16-18°C",
+                                           "grape_varieties": ["Tintilia 100%"]}))
+        self.assertEqual(run_(mod.normalize_catalog(database, apply=False)), 1)
+        self.assertEqual(run_(database.products.find_one({"name": "A"}))["indicative_price"], "€14")  # anteprima
+        self.assertEqual(run_(mod.normalize_catalog(database, apply=True)), 1)
+        a = run_(database.products.find_one({"name": "A"}))
+        self.assertEqual((a["indicative_price"], a["serving_temperature"], a["grape_varieties"]),
+                         ("14,00 €", "8-10°C", ["Montepulciano 55%", "Sangiovese 45%"]))
+
     def test_multi_grape_entry_split(self):
         self.assertEqual(ins.split_grape_entry("Montepulciano 55% Sangiovese 45%"), ["Montepulciano 55%", "Sangiovese 45%"])
         self.assertEqual(ins.split_grape_entry("Montepulciano 85% - Aglianico 15%"), ["Montepulciano 85%", "Aglianico 15%"])

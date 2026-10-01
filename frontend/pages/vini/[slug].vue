@@ -162,6 +162,9 @@ const { data: product, pending } = await useAsyncData(`product_${route.params.sl
   }
 }, { default: () => null })
 
+// pagina "non trovato" con il codice giusto (404), anche per i motori di ricerca
+if (!product.value) setResponseStatus(useRequestEvent(), 404)
+
 watchEffect(() => {
   if (product.value) {
     useSeoMeta({

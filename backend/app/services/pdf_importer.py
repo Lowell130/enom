@@ -17,7 +17,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pypdf
 
-from app.services.insights import normalize_price_text
+from app.services.insights import normalize_price_text, normalize_temperature_text
 from app.services.ai_extractor import (
     CATEGORIES,
     AIExtractionError,
@@ -211,15 +211,7 @@ def parse_vintage(value: Any) -> Optional[int]:
 
 
 def normalize_temperature(value: Any) -> str:
-    text = _clean(value, 60)
-    if not text:
-        return ""
-    nums = re.findall(r"\d{1,2}", text)
-    if len(nums) >= 2 and re.search(r"\d\s*°?\s*(?:-|–|a|/)\s*\d", text):
-        return f"{nums[0]}-{nums[1]}°C"
-    if len(nums) == 1:
-        return f"{nums[0]}°C"
-    return text
+    return normalize_temperature_text(_clean(value, 60)) or ""
 
 
 def match_grape(raw_name: str, master_grapes: List[str]) -> str:

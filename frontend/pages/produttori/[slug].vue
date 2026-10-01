@@ -217,6 +217,9 @@ const { data: producer, pending } = await useAsyncData(`producer_${route.params.
   }
 }, { default: () => null })
 
+// pagina "non trovato" con il codice giusto (404), anche per i motori di ricerca
+if (!producer.value) setResponseStatus(useRequestEvent(), 404)
+
 watchEffect(() => {
   if (producer.value) {
     useSeoMeta({

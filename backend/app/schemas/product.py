@@ -13,7 +13,7 @@ def _validate_status(v):
     return v
 from datetime import datetime
 
-from app.services.insights import normalize_price_text, split_grape_list
+from app.services.insights import normalize_price_text, normalize_temperature_text, split_grape_list
 
 class TastingNotesSchema(BaseModel):
     visual: Optional[str] = ""
@@ -70,6 +70,11 @@ class ProductBase(BaseModel):
     def split_grape_varieties(cls, v):
         # "Montepulciano 55% Sangiovese 45%" in una sola voce -> due vitigni
         return split_grape_list(v)
+
+    @field_validator('serving_temperature', mode='before')
+    def clean_serving_temperature(cls, v):
+        # "16 - 18°", "18°" -> "16-18°C", "18°C"
+        return normalize_temperature_text(v)
 
 class ProductCreate(ProductBase):
     producer_id: Optional[str] = None
@@ -128,6 +133,11 @@ class ProductUpdate(BaseModel):
     def split_grape_varieties(cls, v):
         # "Montepulciano 55% Sangiovese 45%" in una sola voce -> due vitigni
         return split_grape_list(v)
+
+    @field_validator('serving_temperature', mode='before')
+    def clean_serving_temperature(cls, v):
+        # "16 - 18°", "18°" -> "16-18°C", "18°C"
+        return normalize_temperature_text(v)
 
 class ProductResponse(ProductBase):
     id: str

@@ -46,7 +46,7 @@ async def sync_grapes_with_master(grape_varieties: list, db, grapes_cache: dict 
     for item in grape_varieties:
         if not item or not isinstance(item, str):
             continue
-        clean_name = re.sub(r'\d+\s*%?', '', item).strip()
+        clean_name = re.sub(r'\s+', ' ', re.sub(r'\d+\s*%?', '', item)).strip(' -,;')
         if not clean_name:
             continue
         clean_lower = clean_name.lower()
