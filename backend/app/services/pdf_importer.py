@@ -88,6 +88,7 @@ ATTRIBUTE_SYNONYMS: List[Tuple[str, List[str]]] = [
     ("Prima Annata di Produzione", ["prima annata di produzione", "prima annata", "prima produzione"]),
     ("Età delle Viti", ["eta delle viti", "eta media delle viti", "eta del vigneto", "eta vigneto"]),
     ("Superficie Vigneto", ["superficie", "superficie vigneto", "estensione vigneto", "ettari vitati"]),
+    ("Tipo Vino", ["tipo vino", "tipo", "tipo di vino", "tipologia vino"]),
 ]
 
 # Voci che hanno un campo dedicato: vengono spostate nel campo e rimosse dagli attributi
@@ -114,7 +115,24 @@ ORGANIC_RE = re.compile(
 )
 # "in conversione al biologico" non e' ancora un vino biologico certificato
 NOT_ORGANIC_RE = re.compile(r"\bin conversione\b|\bnon (?:e |è )?biologic|\bnon bio\b")
-ORGANIC_TYPE_VALUE = "Vino Biologico"
+# Unico modo in cui il catalogo registra un vino biologico (stesso formato dei vini inseriti a mano)
+ORGANIC_ATTRIBUTE_NAME = "Tipo Vino"
+ORGANIC_ATTRIBUTE_VALUE = "Biologico"
+# attributi in cui le schede indicano il biologico: vengono ricondotti a "Tipo Vino"
+_TIPO_KEYS = {"tipo", "tipo vino", "tipo di vino", "tipologia vino"}
+_ORGANIC_HOLDER_KEYS = _TIPO_KEYS | {
+    "certificazione", "certificazioni", "certificazione biologica", "certificato", "agricoltura",
+    "coltivazione", "metodo di coltivazione", "regime", "regime di coltivazione", "regime colturale",
+    "conduzione", "conduzione agronomica", "conduzione del vigneto", "biologico", "bio", "produzione",
+    "agricoltura biologica", "vino biologico",
+}
+_YES_VALUES = {"si", "yes", "presente", "x", "vero", "true"}
+# parole del biologico da togliere da un valore "Tipo" misto (es. "Vino fermo biologico" -> "Vino fermo")
+_ORGANIC_WORDS_RE = re.compile(
+    r"\b(?:vino\s+)?(?:da\s+(?:uve|agricoltura)\s+)?biologic(?:[oai]|he)\b|\bbio\b|\borganic[oa]?\b"
+    r"|\bcertificat[oa]\b|\bicea\b|\bccpb\b|\bbioagricert\b|\bsuolo e salute\b|\bit[- ]bio[- ]\d{3}\b",
+    re.I,
+)
 
 LABEL_LINE_RE = re.compile(r"^\s*([A-Za-zÀ-ÿ'’ .()/]{3,45}?)\s*[:：]\s*(.+)$")
 
@@ -302,15 +320,51 @@ def mentions_organic(*texts: Any) -> bool:
     return found
 
 
-def apply_organic_type(attributes: Dict[str, str], order: List[str], master_attributes: List[str]) -> None:
-    """Aggiunge "Vino Biologico" all'attributo Tipo (senza perdere un eventuale valore gia' presente)."""
-    tipo = canonical_attribute_name("Tipo", master_attributes)
-    current = attributes.get(tipo, "")
-    if re.search(r"biologic", current, re.I):
-        return
-    attributes[tipo] = f"{current}; {ORGANIC_TYPE_VALUE}" if current else ORGANIC_TYPE_VALUE
-    if tipo not in order:
-        order.insert(0, tipo)
+def _is_organic_value(value: str) -> bool:
+    return mentions_organic(value) or _key(value) in _YES_VALUES
+
+
+def normalize_organic_attributes(custom_attributes: List[Dict[str, str]], is_organic: bool = False,
+                                 master_attributes: Optional[List[str]] = None) -> Tuple[List[Dict[str, str]], bool]:
+    """Riconduce ogni indicazione di biologico all'unico attributo "Tipo Vino: Biologico".
+
+    - "Certificazione: Biologico ICEA", "Agricoltura: biologica", "Tipo: Vino Biologico" ... vengono rimossi
+      e sostituiti da "Tipo Vino: Biologico";
+    - un "Tipo"/"Tipo Vino" con altre informazioni le conserva (es. "Vino fermo; Biologico").
+    Restituisce (attributi normalizzati, il vino e' biologico).
+    """
+    tipo_name = ORGANIC_ATTRIBUTE_NAME
+    if master_attributes:
+        tipo_name = next((m for m in master_attributes if _key(m) == _key(ORGANIC_ATTRIBUTE_NAME)), tipo_name)
+
+    organic = bool(is_organic)
+    tipo_parts: List[str] = []
+    others: List[Dict[str, str]] = []
+    for attr in custom_attributes or []:
+        if not isinstance(attr, dict):
+            continue
+        name, value = str(attr.get("name") or "").strip(), str(attr.get("value") or "").strip()
+        k = _key(name)
+        if k in _ORGANIC_HOLDER_KEYS and value and _is_organic_value(value):
+            organic = True
+            if k in _TIPO_KEYS:
+                rest = _ORGANIC_WORDS_RE.sub(" ", value)
+                rest = re.sub(r"\s*[;,/-]\s*(?=[;,/-]|$)|^\s*[;,/-]\s*", "", re.sub(r"\s+", " ", rest)).strip(" ;,/-")
+                if rest and _key(rest) not in {"vino", "da", "uve", "agricoltura"}:
+                    tipo_parts.append(_cap(rest))
+            continue
+        if k in _TIPO_KEYS:
+            tipo_parts.append(value)
+            continue
+        others.append({"name": name, "value": value})
+
+    if organic:
+        tipo_parts.append(ORGANIC_ATTRIBUTE_VALUE)
+    if not tipo_parts:
+        return others, organic
+    tipo_value = "; ".join(dict.fromkeys(p for p in tipo_parts if p))
+    return [{"name": tipo_name, "value": tipo_value}] + others, organic
+
 
 def _guess_category(text: str, grapes: List[str]) -> str:
     low = (text or "").lower()
@@ -416,11 +470,9 @@ def normalize_wine(raw: Dict[str, Any], master_attributes: List[str], master_gra
     organic_texts = [wine["name"], wine["description"], pairings_text, _clean(raw.get("notes"))]
     organic_texts += [f"{k}: {v}" for k, v in attributes.items()]
     organic_texts += list(wine["tasting_notes"].values())
-    wine["is_organic"] = bool(raw.get("is_organic")) or mentions_organic(*organic_texts)
-    if wine["is_organic"]:
-        apply_organic_type(attributes, order, master_attributes)
-
-    wine["custom_attributes"] = [{"name": n, "value": attributes[n]} for n in dict.fromkeys(order) if n in attributes]
+    detected = bool(raw.get("is_organic")) or mentions_organic(*organic_texts)
+    ordered = [{"name": n, "value": attributes[n]} for n in dict.fromkeys(order) if n in attributes]
+    wine["custom_attributes"], wine["is_organic"] = normalize_organic_attributes(ordered, detected, master_attributes)
 
     # --- categoria
     if not wine["category"]:

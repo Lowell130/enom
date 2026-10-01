@@ -234,6 +234,10 @@ ANTHROPIC_API_KEY=...     # https://console.anthropic.com
 ```
 
 Senza chiave si possono importare solo PDF con testo selezionabile, tramite un parser più semplice.
+
+**Vini biologici**: l'import li registra sempre con l'attributo **Tipo Vino = Biologico** (lo stesso usato per i vini
+inseriti a mano e per il badge "Biologico"). Per uniformare i vini già presenti nel catalogo:
+`python scripts/normalize_organic.py` (anteprima) e poi `python scripts/normalize_organic.py --apply`.
 Da riga di comando: `python import_pdfs.py --dir cartella_pdf [--producer "Nome"] [--publish]`.
 
 ---

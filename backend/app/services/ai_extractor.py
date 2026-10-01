@@ -116,7 +116,8 @@ REGOLE FONDAMENTALI
     "biologico/biologica", "bio", "da uve biologiche", "agricoltura biologica", "organic", "certificazione biologica",
     il logo europeo del biologico (foglia di stelle) o enti certificatori del biologico (es. ICEA, CCPB, Bioagricert,
     Suolo e Salute, Valoritalia Bio). Se il vino è solo "in conversione al biologico" o non c'è alcun riferimento, false.
-    Riporta l'eventuale certificazione anche negli attributi (es. "Certificazione": "Biologico ICEA").
+    NON creare attributi separati per il biologico (es. "Certificazione", "Agricoltura"): lo registra il sistema
+    a partire da questo campo.
 13. "producer": il nome dell'azienda/cantina produttrice, il comune e il sito web se presenti.
 14. "notes": eventuali avvisi utili alla revisione (es. dati illeggibili o ambigui), altrimenti null.
 """

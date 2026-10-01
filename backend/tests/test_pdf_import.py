@@ -376,39 +376,63 @@ if __name__ == "__main__":
 
 
 class OrganicTests(unittest.TestCase):
-    """Vini biologici: attributo Tipo = "Vino Biologico" (usato dal badge "Biologico" del sito)."""
+    """Vini biologici: un solo standard, "Tipo Vino" = "Biologico" (come nei vini inseriti a mano)."""
 
     def norm(self, **over):
         raw = copy.deepcopy(CATABBO_AI["wines"][0])
         raw.update(over)
-        return normalize_wine(raw, ["Tipo", "Uvaggio"], VALID_SINGLE_GRAPES, CANONICAL_PAIRINGS)
+        return normalize_wine(raw, ["Tipo Vino", "Uvaggio"], VALID_SINGLE_GRAPES, CANONICAL_PAIRINGS)
 
     @staticmethod
-    def tipo(w):
-        return {a["name"]: a["value"] for a in w["custom_attributes"]}.get("Tipo")
+    def attrs(w):
+        return {a["name"]: a["value"] for a in w["custom_attributes"]}
+
+    def tipo(self, w):
+        return self.attrs(w).get("Tipo Vino")
 
     def test_non_organic_wine_has_no_tipo(self):
         w = self.norm()
         self.assertFalse(w["is_organic"])
         self.assertIsNone(self.tipo(w))
 
-    def test_ai_flag_adds_tipo(self):
+    def test_ai_flag_adds_tipo_vino(self):
         w = self.norm(is_organic=True)
         self.assertTrue(w["is_organic"])
-        self.assertEqual(self.tipo(w), "Vino Biologico")
-        self.assertEqual(w["custom_attributes"][0]["name"], "Tipo")
+        self.assertEqual(self.tipo(w), "Biologico")
+        self.assertEqual(w["custom_attributes"][0]["name"], "Tipo Vino")
 
     def test_detected_from_text_even_without_ai_flag(self):
         for desc in ("Ottenuto da uve biologiche di Tintilia.", "Prodotto BIO certificato.",
                      "Vino da agricoltura biologica", "Organic wine from Molise"):
             with self.subTest(desc=desc):
-                self.assertEqual(self.tipo(self.norm(description=desc)), "Vino Biologico")
+                self.assertEqual(self.tipo(self.norm(description=desc)), "Biologico")
 
-    def test_detected_from_certification_attribute(self):
-        attrs = CATABBO_AI["wines"][0]["attributes"] + [{"name": "Certificazione", "value": "ICEA - IT-BIO-006"}]
-        w = self.norm(attributes=attrs)
-        self.assertEqual(self.tipo(w), "Vino Biologico")
-        self.assertIn("Certificazione", {a["name"] for a in w["custom_attributes"]})
+    def test_every_variant_becomes_the_same_attribute(self):
+        base = CATABBO_AI["wines"][0]["attributes"]
+        for extra in ({"name": "Certificazione", "value": "Biologico"},
+                      {"name": "Certificazione", "value": "Biologico ICEA - IT-BIO-006"},
+                      {"name": "Tipo", "value": "Vino Biologico"},
+                      {"name": "Agricoltura", "value": "Biologica"},
+                      {"name": "Biologico", "value": "Sì"},
+                      {"name": "Tipo Vino", "value": "Biologico"}):
+            with self.subTest(extra=extra):
+                attrs = self.attrs(self.norm(attributes=base + [extra]))
+                self.assertEqual(attrs.get("Tipo Vino"), "Biologico")
+                for other in ("Certificazione", "Tipo", "Agricoltura", "Biologico"):
+                    self.assertNotIn(other, attrs)
+
+    def test_other_tipo_information_is_kept(self):
+        base = CATABBO_AI["wines"][0]["attributes"]
+        self.assertEqual(self.tipo(self.norm(attributes=base + [{"name": "Tipo", "value": "Vino fermo"}], is_organic=True)),
+                         "Vino fermo; Biologico")
+        self.assertEqual(self.tipo(self.norm(attributes=base + [{"name": "Tipo", "value": "Vino fermo biologico"}])),
+                         "Vino fermo; Biologico")
+        self.assertEqual(self.tipo(self.norm(attributes=base + [{"name": "Tipo", "value": "Vino fermo"}])), "Vino fermo")
+
+    def test_non_organic_certification_untouched(self):
+        attrs = self.attrs(self.norm(attributes=CATABBO_AI["wines"][0]["attributes"] + [{"name": "Certificazione", "value": "Vegan"}]))
+        self.assertEqual(attrs["Certificazione"], "Vegan")
+        self.assertNotIn("Tipo Vino", attrs)
 
     def test_false_positives(self):
         for desc in ("Grande biodiversità del vigneto.", "Studi di biologia del suolo.", "Vigneti in conversione al biologico.",
@@ -416,11 +440,11 @@ class OrganicTests(unittest.TestCase):
             with self.subTest(desc=desc):
                 self.assertIsNone(self.tipo(self.norm(description=desc)))
 
-    def test_existing_tipo_value_is_kept(self):
-        attrs = CATABBO_AI["wines"][0]["attributes"] + [{"name": "Tipo", "value": "Vino fermo"}]
-        self.assertEqual(self.tipo(self.norm(attributes=attrs, is_organic=True)), "Vino fermo; Vino Biologico")
-        attrs = CATABBO_AI["wines"][0]["attributes"] + [{"name": "Tipo", "value": "Biologico"}]
-        self.assertEqual(self.tipo(self.norm(attributes=attrs, is_organic=True)), "Biologico")
+    def test_master_attribute_casing_is_used(self):
+        raw = copy.deepcopy(CATABBO_AI["wines"][0])
+        raw["is_organic"] = True
+        w = normalize_wine(raw, ["Tipo vino"], VALID_SINGLE_GRAPES, CANONICAL_PAIRINGS)
+        self.assertEqual(w["custom_attributes"][0], {"name": "Tipo vino", "value": "Biologico"})
 
     def test_schema_and_prompt_include_organic(self):
         schema = ai_extractor.build_json_schema(CANONICAL_PAIRINGS)
@@ -428,4 +452,34 @@ class OrganicTests(unittest.TestCase):
         self.assertIn("is_organic", schema["properties"]["wines"]["items"]["required"])
         gemini = ai_extractor._to_gemini_schema(schema)
         self.assertEqual(gemini["properties"]["wines"]["items"]["properties"]["is_organic"]["type"], "BOOLEAN")
-        self.assertIn("is_organic", ai_extractor.build_prompt("x.pdf", [], [], CANONICAL_PAIRINGS))
+        prompt = ai_extractor.build_prompt("x.pdf", [], [], CANONICAL_PAIRINGS)
+        self.assertIn("is_organic", prompt)
+        self.assertNotIn('"Certificazione": "Biologico', prompt)
+
+
+class NormalizeCatalogScriptTests(BaseTest):
+    def test_existing_wines_are_normalized(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "normalize_organic", os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "normalize_organic.py"))
+        script = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(script)
+
+        imported = run(self.db.products.insert_one({"name": "Importato", "slug": "a", "producer_id": self.p1, "status": "PUBLISHED",
+                                                    "custom_attributes": [{"name": "Formato", "value": "75 cl"},
+                                                                          {"name": "Certificazione", "value": "Biologico"}]})).inserted_id
+        manual = run(self.db.products.insert_one({"name": "A mano", "slug": "b", "producer_id": self.p1, "status": "PUBLISHED",
+                                                  "custom_attributes": [{"name": "Tipo Vino", "value": "Biologico"}]})).inserted_id
+
+        # anteprima: nessuna modifica
+        self.assertEqual(run(script.normalize_catalog(self.db, apply=False)), 1)
+        self.assertEqual(run(self.db.products.find_one({"_id": imported}))["custom_attributes"][1]["name"], "Certificazione")
+
+        # applicazione
+        self.assertEqual(run(script.normalize_catalog(self.db, apply=True)), 1)
+        self.assertEqual(run(self.db.products.find_one({"_id": imported}))["custom_attributes"],
+                         [{"name": "Tipo Vino", "value": "Biologico"}, {"name": "Formato", "value": "75 cl"}])
+        self.assertEqual(run(self.db.products.find_one({"_id": manual}))["custom_attributes"],
+                         [{"name": "Tipo Vino", "value": "Biologico"}])
+        # seconda esecuzione: nulla da fare
+        self.assertEqual(run(script.normalize_catalog(self.db, apply=True)), 0)

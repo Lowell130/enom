@@ -192,7 +192,7 @@ async def seed_sample_data(db):
             "photos": ["https://images.unsplash.com/photo-1558001373-7b9fcc986b26?auto=format&fit=crop&w=600&q=80"],
             "technical_sheet_pdf": "",
             "custom_attributes": [
-                {"name": "Tipo", "value": "Vino Biologico"},
+                {"name": "Tipo Vino", "value": "Biologico"},
                 {"name": "Uvaggio", "value": "Tintilia 100%"},
                 {"name": "Vinificazione", "value": "Acciaio inox a temperatura controllata"},
                 {"name": "Allevamento", "value": "Cordone speronato"},
