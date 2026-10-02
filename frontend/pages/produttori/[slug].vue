@@ -63,7 +63,7 @@
       <dl class="grid grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(160px,1fr))] card overflow-hidden">
         <div v-for="fact in facts" :key="fact.label" class="px-5 py-4 border-r border-b md:border-b-0 border-line-soft flex flex-col gap-1">
           <dt class="eyebrow-sm tracking-[0.08em]">{{ fact.label }}</dt>
-          <dd class="font-serif text-2xl font-bold leading-tight text-ink">{{ fact.value }}</dd>
+          <dd class="font-serif text-lg md:text-xl font-bold leading-snug text-ink">{{ fact.value }}</dd>
         </div>
       </dl>
     </section>
