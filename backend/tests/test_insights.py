@@ -80,6 +80,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(ins.split_grape_entry("Montepulciano 85% - Aglianico 15%"), ["Montepulciano 85%", "Aglianico 15%"])
         self.assertEqual(ins.split_grape_entry("Tintilia 100%"), ["Tintilia 100%"])
         self.assertEqual(ins.split_grape_entry("Coda di Volpe"), ["Coda di Volpe"])
+        self.assertEqual(ins.split_grape_entry("Montepulciano in Purezza"), ["Montepulciano 100%"])
         from app.schemas.product import ProductCreate, ProductUpdate
         self.assertEqual(ProductCreate(name="X", grape_varieties=["Montepulciano 55% Sangiovese 45%"]).grape_varieties,
                          ["Montepulciano 55%", "Sangiovese 45%"])
@@ -90,6 +91,9 @@ class ParserTests(unittest.TestCase):
         master = ["Montepulciano", "Sangiovese", "Falanghina", "Greco"]
         self.assertEqual(normalize_grapes(["Montepulciano 55% Sangiovese 45%"], master)[0], ["Montepulciano", "Sangiovese"])
         self.assertEqual(normalize_grapes(["Falanghina e Greco"], master)[0], ["Falanghina", "Greco"])
+        self.assertEqual(normalize_grapes(["Montepulciano in purezza"], master), (["Montepulciano"], "Montepulciano 100%"))
+        # "Moscato Bianco" e' ricondotto a "Moscato" (non e' piu' una voce a se')
+        self.assertEqual(normalize_grapes(["Moscato Bianco 95%"], ["Moscato"])[0], ["Moscato"])
 
     def test_price_normalized_when_saving(self):
         from app.schemas.product import ProductCreate, ProductUpdate

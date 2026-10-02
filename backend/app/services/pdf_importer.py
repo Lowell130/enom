@@ -30,9 +30,9 @@ logger = logging.getLogger("enotecamolise.pdf")
 
 # Vitigni sempre riconosciuti (uniti a quelli presenti nel DB)
 VALID_SINGLE_GRAPES = [
-    "Aglianico", "Bombino Bianco", "Cabernet Sauvignon", "Cerasuolo", "Chardonnay",
+    "Aglianico", "Bombino Bianco", "Cabernet Sauvignon", "Chardonnay",
     "Falanghina", "Garganega", "Garganica", "Greco", "Malvasia", "Merlot",
-    "Montepulciano", "Moscato", "Moscato Bianco", "Moscato Reale", "Pinot Grigio",
+    "Montepulciano", "Moscato", "Moscato Reale", "Pinot Grigio",
     "Pinot Nero", "Riesling", "Sangiovese", "Sauvignon Blanc", "Syrah", "Tintilia",
     "Trebbiano", "Trebbiano del Molise"
 ]
@@ -235,6 +235,7 @@ def normalize_grapes(raw: Any, master_grapes: List[str]) -> Tuple[List[str], str
 
     def add_text(text: str) -> None:
         # "Montepulciano 55% Sangiovese 45%", "Falanghina e Greco", "Montepulciano 85%, Aglianico 15%"
+        text = re.sub(r"\s*\bin\s+purezza\b", " 100%", text, flags=re.I)
         text = re.sub(r"(\d+(?:[.,]\d+)?\s*%)\s*[-–]?\s*(?=[A-Za-zÀ-ÿ])", r"\1,", text)
         for part in re.split(r"[,;/+]|\be\b", text):
             pct = re.search(r"(\d+(?:[.,]\d+)?)\s*%", part)

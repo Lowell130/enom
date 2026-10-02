@@ -47,6 +47,11 @@ def split_grape_entry(text: str) -> List[str]:
     """Divide una voce con piu' vitigni: 'Montepulciano 55% Sangiovese 45%' -> ['Montepulciano 55%', 'Sangiovese 45%'].
     Solo quando le percentuali sono almeno due: 'Tintilia 100%' o 'Coda di Volpe' restano come sono."""
     t = str(text or "").strip()
+    # "Montepulciano in purezza" -> "Montepulciano 100%"
+    if re.search(r"\bin\s+purezza\b", t, re.I):
+        t = re.sub(r"\s*\bin\s+purezza\b\s*", " ", t, flags=re.I).strip()
+        if "%" not in t:
+            t = f"{t} 100%"
     if len(re.findall(r"\d+(?:[.,]\d+)?\s*%", t)) < 2:
         return [t] if t else []
     t = _PCT_THEN_NAME.sub(r"\1,", t)
