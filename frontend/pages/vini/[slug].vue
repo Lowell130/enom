@@ -23,7 +23,7 @@
     <!-- PRODOTTO -->
     <section class="page-container pt-6 pb-14 md:pb-16 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-start">
       <div class="relative rounded-[22px] bg-sand min-h-[420px] lg:min-h-[600px] flex items-center justify-center lg:sticky lg:top-24">
-        <SafeImg :src="mainImage" :alt="product.name" class="max-h-[540px] w-full object-contain p-8"><BottleIcon :size="256" /></SafeImg>
+        <SafeImg :src="mainImage" :alt="product.name" class="bottle-photo max-h-[540px] w-full object-contain p-8"><BottleIcon :size="256" /></SafeImg>
         <span class="absolute top-4 left-4 flex flex-wrap gap-1.5">
           <span v-if="product.is_riserva" class="badge-soft">Riserva</span>
           <span v-if="isOrganicProduct(product)" class="badge-bio"><Leaf class="w-3.5 h-3.5" aria-hidden="true" /> Biologico</span>

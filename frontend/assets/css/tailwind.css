@@ -98,6 +98,12 @@
     @apply flex items-center justify-center bg-sand text-ink-mute;
   }
 
+  /* Foto delle bottiglie su fondo sabbia: il bianco della foto diventa sabbia,
+     cosi' non si vede il riquadro bianco (le foto trasparenti restano uguali) */
+  .bottle-photo {
+    mix-blend-mode: multiply;
+  }
+
   /* Moduli */
   .field-label {
     @apply flex flex-col gap-1.5 text-sm font-semibold text-ink;

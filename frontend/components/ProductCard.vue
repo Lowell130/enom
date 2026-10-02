@@ -6,7 +6,7 @@
         :src="productImage"
         :alt="product.name"
         loading="lazy"
-        class="w-full h-full object-contain p-5 group-hover:scale-[1.03] transition-transform duration-500"
+        class="bottle-photo w-full h-full object-contain p-5 group-hover:scale-[1.03] transition-transform duration-500"
       >
         <span class="absolute inset-0 flex items-center justify-center"><BottleIcon /></span>
       </SafeImg>
