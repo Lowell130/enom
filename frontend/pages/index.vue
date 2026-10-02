@@ -88,8 +88,8 @@
         </div>
         <div class="grid grid-cols-1 gap-5 md:grid-cols-3">
           <NuxtLink v-for="doc in denominations" :key="doc.name" :to="doc.to" class="group flex flex-col rounded-2xl overflow-hidden bg-white text-ink">
-            <div class="h-[140px] flex items-center justify-center" :style="{ background: doc.tone }">
-              <Grape class="w-10 h-10 text-white/80" aria-hidden="true" />
+            <div class="h-[140px] overflow-hidden" :style="{ background: doc.tone }">
+              <DenomArt :variant="doc.art" class="group-hover:scale-[1.03] transition-transform duration-700" />
             </div>
             <div class="p-[22px] flex flex-col gap-2">
               <span class="text-xs font-bold text-gold-600">{{ doc.since }}</span>
@@ -146,7 +146,7 @@
 </template>
 
 <script setup>
-import { Grape } from 'lucide-vue-next'
+import DenomArt from '~/components/DenomArt.vue'
 
 const router = useRouter()
 const { fetchWithAuth } = useApi()
@@ -178,9 +178,9 @@ const productTabs = [
 ]
 
 const denominations = [
-  { name: 'Tintilia del Molise', since: 'DOC dal 2011', to: '/vini?search=Tintilia', tone: '#8C5A5F', text: 'Il vitigno autoctono simbolo della regione: rosso rubino, pepe nero e prugna secca.' },
-  { name: 'Biferno', since: 'DOC dal 1983', to: '/vini?search=Biferno', tone: '#9A8F6C', text: 'Lungo il fiume, tra Campobasso e il mare: rossi strutturati, rosati e bianchi freschi.' },
-  { name: "Pentro d'Isernia", since: 'DOC dal 1983', to: '/vini?search=Pentro', tone: '#7F8B80', text: "L'Alto Molise e l'escursione termica appenninica: vini minerali ed eleganti." }
+  { name: 'Tintilia del Molise', since: 'DOC dal 2011', to: '/vini?search=Tintilia', art: 'tintilia', tone: '#8C5A5F', text: 'Il vitigno autoctono simbolo della regione: rosso rubino, pepe nero e prugna secca.' },
+  { name: 'Biferno', since: 'DOC dal 1983', to: '/vini?search=Biferno', art: 'biferno', tone: '#9A8F6C', text: 'Lungo il fiume, tra Campobasso e il mare: rossi strutturati, rosati e bianchi freschi.' },
+  { name: "Pentro d'Isernia", since: 'DOC dal 1983', to: '/vini?search=Pentro', art: 'pentro', tone: '#7F8B80', text: "L'Alto Molise e l'escursione termica appenninica: vini minerali ed eleganti." }
 ]
 
 const reasons = [
