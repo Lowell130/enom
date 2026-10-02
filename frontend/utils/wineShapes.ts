@@ -37,3 +37,13 @@ export const smoothHill = (points: [number, number][], bottom: number) => {
   const last = p[p.length - 1]
   return `${d} L${last[0]} ${bottom} L${p[0][0]} ${bottom} Z`
 }
+
+// Tavolozze nei toni del sito: tramonto bordeaux, colline d'oliva, mattino di salvia, sabbia, lavanda, oro
+export const PALETTES = [
+  { skyTop: '#E8CFC2', skyBottom: '#F5E8DD', sun: '#F1C4AE', cloud: '#FBF3EC', far: '#C3AFAC', mid: '#A88A88', near: '#94696C', front: '#7A4A50', row: '#5E3239', leaf: '#A4766A', tree: '#5E4A44', roof: '#A86E52' },
+  { skyTop: '#E4E0CB', skyBottom: '#F3EFE3', sun: '#EFD9A8', cloud: '#FAF7EF', far: '#C3BEA4', mid: '#ADA582', near: '#958D69', front: '#7A7350', row: '#5D5839', leaf: '#A9A27A', tree: '#5E6248', roof: '#B07A5C' },
+  { skyTop: '#D7E0D8', skyBottom: '#EEF1EA', sun: '#F3E3C6', cloud: '#F8FAF6', far: '#B4BEB3', mid: '#97A296', near: '#7F8B7E', front: '#647063', row: '#4B5649', leaf: '#97A28F', tree: '#4F5A4C', roof: '#A97458' },
+  { skyTop: '#EDD5BE', skyBottom: '#F7EBDD', sun: '#F2C49E', cloud: '#FCF4EA', far: '#D0BDA4', mid: '#B9A083', near: '#A0856A', front: '#846A53', row: '#634E3C', leaf: '#B09378', tree: '#5F4E3F', roof: '#A5694C' },
+  { skyTop: '#DED0D8', skyBottom: '#F2EAEC', sun: '#EFC7B8', cloud: '#F9F3F5', far: '#BAB0BB', mid: '#A0949F', near: '#887D88', front: '#6F606C', row: '#50424E', leaf: '#9C8C98', tree: '#4E4650', roof: '#A86E52' },
+  { skyTop: '#EFE0BC', skyBottom: '#F8F1DE', sun: '#F3D08F', cloud: '#FCF8EC', far: '#CFC49F', mid: '#BBAB7B', near: '#A39162', front: '#89754A', row: '#6A5734', leaf: '#B9A372', tree: '#5F5838', roof: '#A86E52' }
+]
