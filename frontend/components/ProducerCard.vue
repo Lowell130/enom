@@ -7,7 +7,9 @@
       class="relative block h-[170px] overflow-hidden"
       :style="{ background: tone(producer.company_name) }"
     >
-      <SafeImg :src="cover" alt="" loading="lazy" class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700" />
+      <SafeImg :src="cover" alt="" loading="lazy" class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700">
+        <CoverArt :seed="producer.company_name" :place="place(producer)" class="group-hover:scale-[1.03] transition-transform duration-700" />
+      </SafeImg>
       <span class="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white text-ink text-xs font-bold">{{ countLabel(producer.product_count) }}</span>
     </NuxtLink>
 
@@ -29,6 +31,7 @@
 </template>
 
 <script setup>
+import CoverArt from '~/components/CoverArt.vue'
 import { MapPin } from 'lucide-vue-next'
 
 const props = defineProps({

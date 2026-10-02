@@ -23,7 +23,9 @@
     <!-- COPERTINA + LOGO SOVRAPPOSTO -->
     <section class="page-container pt-4">
       <div class="h-[220px] md:h-[340px] rounded-[20px] overflow-hidden" :style="{ background: tone(producer.company_name) }">
-        <SafeImg :src="cover" :alt="`Copertina di ${producer.company_name}`" class="w-full h-full object-cover" />
+        <SafeImg :src="cover" :alt="`Copertina di ${producer.company_name}`" class="w-full h-full object-cover">
+          <CoverArt :seed="producer.company_name" :place="place(producer)" />
+        </SafeImg>
       </div>
       <div class="flex flex-wrap items-end justify-between gap-6 px-2">
         <div class="flex flex-wrap items-end gap-5">
@@ -195,6 +197,7 @@
 </template>
 
 <script setup>
+import CoverArt from '~/components/CoverArt.vue'
 import { Pencil, MapPin, Phone, Mail, Globe, MessageCircle, Plus, AtSign } from 'lucide-vue-next'
 
 const route = useRoute()

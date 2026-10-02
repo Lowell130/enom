@@ -25,12 +25,8 @@
           </div>
         </form>
       </div>
-      <figure class="m-0">
-        <img
-          src="https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&w=1400&q=80"
-          alt="Filari di vigneto in collina"
-          class="w-full aspect-[5/4] object-cover rounded-[20px] bg-sand-300"
-        />
+      <figure class="m-0 w-full aspect-[5/4] rounded-[20px] overflow-hidden bg-sand-300">
+        <HeroArt />
       </figure>
     </section>
 
@@ -147,6 +143,7 @@
 
 <script setup>
 import DenomArt from '~/components/DenomArt.vue'
+import HeroArt from '~/components/HeroArt.vue'
 
 const router = useRouter()
 const { fetchWithAuth } = useApi()
