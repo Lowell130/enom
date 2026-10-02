@@ -42,7 +42,7 @@
               <td class="py-4 px-6 min-w-[240px]">
                 <NuxtLink :to="`/produttori/${p.slug}`" target="_blank" class="flex items-center space-x-3.5 group cursor-pointer" title="Clicca per visualizzare la pagina della cantina">
                   <div class="w-12 h-12 shrink-0 bg-white rounded-xl border border-line p-1 flex items-center justify-center group-hover:border-wine-300 transition-colors">
-                    <img :src="getLogo(p)" class="max-h-full max-w-full object-cover rounded-lg group-hover:scale-105 transition-transform" />
+                    <img :src="getLogo(p)" class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform" />
                   </div>
                   <div>
                     <span class="font-sans font-bold text-sm text-ink group-hover:text-wine-800 leading-snug block transition-colors">{{ p.company_name }}</span>

@@ -27,8 +27,8 @@
       </div>
       <div class="flex flex-wrap items-end justify-between gap-6 px-2">
         <div class="flex flex-wrap items-end gap-5">
-          <span class="relative -mt-[60px] w-[120px] h-[120px] rounded-[22px] border-4 border-cream bg-white shadow-[0_6px_20px_rgba(42,8,18,0.10)] overflow-hidden flex items-center justify-center font-serif text-[40px] font-bold text-wine-800">
-            <SafeImg :src="logo" :alt="`Logo ${producer.company_name}`" class="w-full h-full object-cover">{{ initials(producer.company_name) }}</SafeImg>
+          <span class="relative -mt-[60px] w-[120px] h-[120px] rounded-[22px] border-4 border-cream shadow-[0_6px_20px_rgba(42,8,18,0.10)] logo-box text-[40px]">
+            <SafeImg :src="logo" :alt="`Logo ${producer.company_name}`" class="logo-img p-2.5">{{ initials(producer.company_name) }}</SafeImg>
           </span>
           <div class="flex flex-col gap-1.5 pt-4">
             <span class="eyebrow">Cantina</span>
@@ -166,8 +166,8 @@
             :to="`/produttori/${near.slug}`"
             class="flex items-center gap-4 p-4 rounded-2xl border border-line bg-cream text-ink hover:border-line-strong"
           >
-            <span class="shrink-0 w-14 h-14 rounded-xl bg-sand-100 overflow-hidden flex items-center justify-center font-serif text-[22px] font-bold text-wine-800">
-              <SafeImg :src="logoUrl(near)" alt="" class="w-full h-full object-cover">{{ initials(near.company_name) }}</SafeImg>
+            <span class="logo-box shrink-0 w-14 h-14 rounded-xl border border-line text-[22px]">
+              <SafeImg :src="logoUrl(near)" alt="" class="logo-img p-1">{{ initials(near.company_name) }}</SafeImg>
             </span>
             <span class="flex flex-col gap-0.5 min-w-0">
               <span class="font-serif text-[22px] font-bold leading-tight">{{ near.company_name }}</span>

@@ -32,8 +32,8 @@
 
       <div class="flex flex-col gap-[22px]">
         <NuxtLink v-if="product.producer_slug" :to="`/produttori/${product.producer_slug}`" class="flex items-center gap-3 text-ink w-fit">
-          <span class="w-11 h-11 rounded-xl bg-sand-100 overflow-hidden flex items-center justify-center font-serif text-lg font-bold text-wine-800">
-            <SafeImg :src="producerLogo" alt="" class="w-full h-full object-cover">{{ initials(product.producer_name) }}</SafeImg>
+          <span class="logo-box w-11 h-11 rounded-xl border border-line text-lg">
+            <SafeImg :src="producerLogo" alt="" class="logo-img p-0.5">{{ initials(product.producer_name) }}</SafeImg>
           </span>
           <span class="flex flex-col leading-tight">
             <span class="text-[15px] font-bold">{{ product.producer_name }}</span>

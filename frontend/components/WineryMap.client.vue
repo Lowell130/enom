@@ -170,7 +170,7 @@ const initMap = async () => {
     const popupHtml = `
       <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 4px; max-width: 240px;">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-          <img src="${logo}" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; border: 1px solid #E7E5E4;" />
+          <img src="${logo}" style="width: 40px; height: 40px; border-radius: 6px; object-fit: contain; background: #FFFFFF; padding: 2px; border: 1px solid #ECE4DA;" />
           <div>
             <strong style="font-size: 13px; color: #1C1917; display: block; leading-height: 1.2;">${producer.company_name}</strong>
             <span style="font-size: 11px; color: #78716C; display: block; margin-top: 2px;">

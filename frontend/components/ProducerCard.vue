@@ -12,8 +12,8 @@
     </NuxtLink>
 
     <div class="relative px-5 pb-5 flex flex-col gap-2 flex-1">
-      <span class="-mt-8 w-16 h-16 rounded-[14px] border-[3px] border-white bg-sand-100 overflow-hidden flex items-center justify-center font-serif text-2xl font-bold text-wine-800">
-        <SafeImg :src="logo" :alt="`Logo ${producer.company_name}`" loading="lazy" class="w-full h-full object-cover">{{ initials(producer.company_name) }}</SafeImg>
+      <span class="logo-box -mt-8 w-16 h-16 rounded-[14px] border-[3px] border-white shadow-[0_2px_8px_rgba(42,8,18,0.08)] text-2xl">
+        <SafeImg :src="logo" :alt="`Logo ${producer.company_name}`" loading="lazy" class="logo-img p-1">{{ initials(producer.company_name) }}</SafeImg>
       </span>
       <h3 class="title-card text-[26px] mt-1">
         <NuxtLink :to="detailUrl" class="text-ink hover:text-wine-800">{{ producer.company_name }}</NuxtLink>

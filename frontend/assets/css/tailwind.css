@@ -104,6 +104,15 @@
     mix-blend-mode: multiply;
   }
 
+  /* Loghi delle cantine: sempre interi (mai ritagliati) e su fondo bianco,
+     anche quando il PNG ha lo sfondo trasparente */
+  .logo-box {
+    @apply bg-white overflow-hidden flex items-center justify-center font-serif font-bold text-wine-800;
+  }
+  .logo-img {
+    @apply w-full h-full object-contain;
+  }
+
   /* Moduli */
   .field-label {
     @apply flex flex-col gap-1.5 text-sm font-semibold text-ink;
