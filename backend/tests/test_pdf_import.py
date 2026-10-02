@@ -216,6 +216,63 @@ class ParsePdfTests(AIConfigMixin, BaseTest):
         self.assertEqual(sleep.call_count, 0)
         self.assertEqual(len(calls), 2)
 
+    def test_truncated_json_retries_then_falls_back(self):
+        settings.GEMINI_API_KEY = "k"
+        full = json.dumps(CATABBO_AI, ensure_ascii=False)
+        truncated = FakeResponse(200, {"candidates": [{"finishReason": "MAX_TOKENS",
+                                                       "content": {"parts": [{"text": full[:200]}]}}]})
+        calls = []
+
+        def fake_post(url, json=None, **kw):
+            calls.append((url, json["generationConfig"]["temperature"]))
+            return truncated if settings.GEMINI_MODEL in url else gemini_reply(CATABBO_AI)
+
+        with mock.patch.object(ai_extractor.requests, "post", side_effect=fake_post), \
+                mock.patch.object(ai_extractor.time, "sleep") as sleep:
+            f = self.parse().json()["files"][0]
+        self.assertEqual(f["status"], "ok", f)
+        self.assertEqual(f["model"], ai_extractor.gemini_models()[1])
+        # due tentativi sul modello principale (il secondo meno rigido), poi il modello di riserva
+        self.assertEqual([t for u, t in calls if settings.GEMINI_MODEL in u], [0, 0.4])
+        self.assertEqual(sleep.call_count, 0)
+
+    def test_recitation_retries_asking_to_rephrase(self):
+        settings.GEMINI_API_KEY = "k"
+        blocked = FakeResponse(200, {"candidates": [{"finishReason": "RECITATION",
+                                                     "content": {"parts": [{"text": '{"wines": [{"descr'}]}}]})
+        prompts = []
+
+        def fake_post(url, json=None, **kw):
+            text = json["contents"][0]["parts"][1]["text"]
+            prompts.append(text)
+            return gemini_reply(CATABBO_AI) if "riformulalo" in text else blocked
+
+        with mock.patch.object(ai_extractor.requests, "post", side_effect=fake_post):
+            f = self.parse().json()["files"][0]
+        self.assertEqual(f["status"], "ok", f)
+        self.assertEqual(f["model"], settings.GEMINI_MODEL)  # stesso modello, secondo tentativo
+        self.assertEqual(len(prompts), 2)
+        self.assertNotIn("riformulalo", prompts[0])
+
+    def test_json_in_code_fence_is_accepted(self):
+        settings.GEMINI_API_KEY = "k"
+        text = "```json\n" + json.dumps(CATABBO_AI, ensure_ascii=False) + "\n```"
+        reply = FakeResponse(200, {"candidates": [{"content": {"parts": [
+            {"text": "ragionamento", "thought": True}, {"text": text}]}}]})
+        with mock.patch.object(ai_extractor.requests, "post", return_value=reply):
+            f = self.parse().json()["files"][0]
+        self.assertEqual(f["status"], "ok", f)
+
+    def test_invalid_json_everywhere_gives_readable_error(self):
+        settings.GEMINI_API_KEY = "k"
+        bad = FakeResponse(200, {"candidates": [{"finishReason": "MAX_TOKENS",
+                                                 "content": {"parts": [{"text": '{"wines": [{"name": "Le'}]}}]})
+        with mock.patch.object(ai_extractor.requests, "post", return_value=bad), \
+                mock.patch.object(ai_extractor.time, "sleep"):
+            f = self.parse().json()["files"][0]
+        self.assertEqual(f["status"], "error")
+        self.assertIn("troncata", f["error"])
+
     def test_all_models_busy_gives_readable_error(self):
         settings.GEMINI_API_KEY = "k"
         with mock.patch.object(ai_extractor.requests, "post", return_value=FakeResponse(503, {})), \

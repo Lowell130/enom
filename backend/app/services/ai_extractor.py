@@ -37,9 +37,28 @@ class AIServiceBusy(AIExtractionError):
         self.status = status
 
 
+class AIInvalidOutput(AIExtractionError):
+    """Il modello ha risposto ma il JSON e' troncato o malformato: si riprova o si cambia modello."""
+
+    def __init__(self, message: str, recitation: bool = False):
+        super().__init__(message)
+        # Gemini interrompe la risposta (RECITATION) quando sta copiando alla lettera testi pubblicati sul web
+        self.recitation = recitation
+
+
+# Aggiunta al prompt quando Gemini blocca la copia letterale dei testi (tipico delle pagine web catturate)
+REWRITE_HINT = """
+
+ATTENZIONE: il tentativo precedente è stato bloccato perché copiava alla lettera testi pubblicati sul web.
+In "description", "tasting_notes" e "food_pairings_text" NON copiare il testo parola per parola:
+riformulalo con parole tue, in italiano, in modo sintetico, mantenendo tutti i fatti presenti nel documento
+e senza aggiungere nulla. Tutti gli altri campi restano dati da estrarre fedelmente."""
+
+
 # Codici HTTP temporanei: il servizio e' sovraccarico o la quota del modello e' esaurita
 TRANSIENT_STATUSES = {429, 500, 502, 503, 504, 529}
-RETRY_DELAYS = (3, 8)  # secondi di attesa tra i tentativi sullo stesso modello
+RETRY_DELAYS = (3, 8)
+MAX_OUTPUT_TOKENS = 32768  # spazio sufficiente anche per pagine con molti vini e per il ragionamento del modello  # secondi di attesa tra i tentativi sullo stesso modello
 
 
 # ---------------------------------------------------------------------------
@@ -257,14 +276,27 @@ def gemini_models() -> List[str]:
 
 def _call_gemini(file_bytes: bytes, mime_type: str, prompt: str, schema: Dict[str, Any]) -> Dict[str, Any]:
     """Prova il modello principale; se sovraccarico riprova con attese crescenti e poi passa ai modelli di riserva."""
-    last_error: Optional[AIServiceBusy] = None
+    last_error: Optional[AIExtractionError] = None
+    rewrite = False  # vale anche per i modelli di riserva: il blocco riguarda il testo, non il modello
     for model in gemini_models():
+        bad_outputs = 0
         for attempt in range(len(RETRY_DELAYS) + 1):
             try:
-                result = _call_gemini_model(model, file_bytes, mime_type, prompt, schema)
+                # dopo una risposta malformata si riprova con un po' di variabilita'
+                temperature = 0.4 if bad_outputs else 0
+                prompt_used = prompt + REWRITE_HINT if rewrite else prompt
+                result = _call_gemini_model(model, file_bytes, mime_type, prompt_used, schema, temperature)
                 if isinstance(result, dict):
                     result["_model_used"] = model
                 return result
+            except AIInvalidOutput as e:
+                last_error = e
+                bad_outputs += 1
+                rewrite = rewrite or e.recitation
+                logger.warning("Gemini %s: risposta non valida (%s), tentativo %d", model, e, attempt + 1)
+                # un secondo tentativo sullo stesso modello, poi si passa al successivo
+                if bad_outputs >= 2:
+                    break
             except AIServiceBusy as e:
                 last_error = e
                 logger.warning("Gemini %s non disponibile (%s), tentativo %d", model, e.status, attempt + 1)
@@ -275,7 +307,8 @@ def _call_gemini(file_bytes: bytes, mime_type: str, prompt: str, schema: Dict[st
     raise last_error or AIExtractionError("Servizio IA non disponibile.")
 
 
-def _call_gemini_model(model: str, file_bytes: bytes, mime_type: str, prompt: str, schema: Dict[str, Any]) -> Dict[str, Any]:
+def _call_gemini_model(model: str, file_bytes: bytes, mime_type: str, prompt: str, schema: Dict[str, Any],
+                       temperature: float = 0) -> Dict[str, Any]:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     body = {
         "contents": [{
@@ -286,7 +319,8 @@ def _call_gemini_model(model: str, file_bytes: bytes, mime_type: str, prompt: st
             ],
         }],
         "generationConfig": {
-            "temperature": 0,
+            "temperature": temperature,
+            "maxOutputTokens": MAX_OUTPUT_TOKENS,
             "responseMimeType": "application/json",
             "responseSchema": _to_gemini_schema(schema),
         },
@@ -296,12 +330,41 @@ def _call_gemini_model(model: str, file_bytes: bytes, mime_type: str, prompt: st
     if not candidates:
         reason = (data.get("promptFeedback") or {}).get("blockReason", "nessun risultato")
         raise AIExtractionError(f"L'IA non ha restituito risultati ({reason}).")
+    finish = candidates[0].get("finishReason", "")
     parts = (candidates[0].get("content") or {}).get("parts") or []
-    text = "".join(p.get("text", "") for p in parts)
+    # le parti "thought" sono il ragionamento del modello, non la risposta
+    text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+    result = parse_json_lenient(text)
+    if result is None:
+        logger.warning("Gemini %s: JSON non valido (finishReason=%s, %d caratteri, fine: %r)",
+                       model, finish, len(text), text[-300:])
+        if finish == "MAX_TOKENS":
+            raise AIInvalidOutput("La risposta dell'IA è stata troncata perché troppo lunga")
+        if finish == "RECITATION":
+            raise AIInvalidOutput("L'IA si è fermata perché stava copiando alla lettera i testi della pagina web",
+                                  recitation=True)
+        raise AIInvalidOutput(f"L'IA ha restituito un JSON non valido ({finish or 'motivo sconosciuto'})")
+    return result
+
+
+def parse_json_lenient(text: str) -> Optional[Any]:
+    """JSON della risposta, tollerando recinti ```json e testo prima o dopo l'oggetto."""
+    text = (text or "").strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+        text = text.rsplit("```", 1)[0]
     try:
         return json.loads(text)
     except ValueError:
-        raise AIExtractionError("L'IA ha restituito un JSON non valido.")
+        pass
+    start = text.find("{")
+    if start < 0:
+        return None
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(text[start:])
+        return obj
+    except ValueError:
+        return None
 
 
 def _call_anthropic(file_bytes: bytes, mime_type: str, prompt: str, schema: Dict[str, Any]) -> Dict[str, Any]:
