@@ -27,7 +27,7 @@
       </div>
       <div class="flex flex-wrap items-end justify-between gap-6 px-2">
         <div class="flex flex-wrap items-end gap-5">
-          <span class="relative -mt-[60px] w-[120px] h-[120px] rounded-[22px] border-4 border-cream shadow-[0_6px_20px_rgba(42,8,18,0.10)] logo-box text-[40px]">
+          <span class="relative z-10 self-start -mt-[44px] md:-mt-[60px] w-[120px] h-[120px] rounded-[22px] border-4 border-cream shadow-[0_6px_20px_rgba(42,8,18,0.10)] logo-box text-[40px]">
             <SafeImg :src="logo" :alt="`Logo ${producer.company_name}`" class="logo-img p-2.5">{{ initials(producer.company_name) }}</SafeImg>
           </span>
           <div class="flex flex-col gap-1.5 pt-4">
