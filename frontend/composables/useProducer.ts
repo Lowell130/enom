@@ -1,6 +1,7 @@
 // Dati di presentazione comuni a card e pagina della cantina
 const ARTICLES = new Set(['il', 'lo', 'la', 'le', 'i', 'gli'])
 const PREPOSITIONS = new Set(['di', 'd', 'del', 'della', 'dei', 'delle', 'e', 'ed'])
+const DEFAULT_COVER = 'https://images.unsplash.com/photo-1560493676-04071c5f467b?auto=format&fit=crop&w=1600&q=80'
 const TONES = ['#C9B79E', '#B7AE92', '#A9B19D', '#C4AF97', '#B2B3A0', '#BFA992', '#BDB096', '#AEB29A']
 
 export const useProducer = () => {
@@ -11,10 +12,10 @@ export const useProducer = () => {
     return url.startsWith('http') ? url : `${mediaBase}${url}`
   }
 
-  // vecchia immagine di default inserita dal seed: trattata come "nessuna copertina"
+  // senza copertina propria (o con la vecchia immagine del seed) si usa la foto del vigneto di default
   const coverUrl = (producer: any) => {
     const url = producer?.cover_image_url || ''
-    if (!url || url.includes('photo-1506377247377')) return ''
+    if (!url || url.includes('photo-1506377247377')) return DEFAULT_COVER
     return mediaUrl(url)
   }
 
