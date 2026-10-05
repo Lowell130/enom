@@ -228,3 +228,13 @@ class AdminCountsTests(BaseTest):
         r = self.client.delete(f"{API}/producers/{self.p2}", headers=self.auth(self.admin_token))
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(run(self.db.products.count_documents({"producer_id": {"$in": [self.p2, str(self.p2)]}})), 0)
+
+    def test_deleting_winery_removes_inquiries_and_accounts(self):
+        run(self.db.inquiries.insert_one({"producer_id": self.p2, "user_name": "X", "message": "ciao"}))
+        run(self.db.users.insert_one({"email": "cantina2@example.com", "role": "PRODUCER", "producer_id": self.p2}))
+        r = self.client.delete(f"{API}/producers/{self.p2}", headers=self.auth(self.admin_token))
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertGreaterEqual(r.json()["accounts_deleted"], 1)
+        self.assertEqual(run(self.db.inquiries.count_documents({"producer_id": self.p2})), 0)
+        self.assertEqual(run(self.db.users.count_documents({"producer_id": self.p2})), 0)
+        self.assertGreater(run(self.db.users.count_documents({"role": "ADMIN"})), 0)

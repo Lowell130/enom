@@ -160,14 +160,24 @@ async def delete_producer(
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Cantina non trovata")
 
-    # Elimina i vini associati e scollega/disattiva gli account della cantina
-    # anche i vini con il collegamento salvato come testo (es. importati da file)
-    await db.products.delete_many({"producer_id": {"$in": [oid, str(oid)]}})
-    await db.users.update_many(
-        {"producer_id": oid, "role": {"$ne": "ADMIN"}},
-        {"$set": {"producer_id": None, "is_active": False}}
-    )
-    return {"message": "Cantina e relativi vini eliminati con successo"}
+    # Con la cantina spariscono anche i suoi dati: vini (anche quelli collegati come testo,
+    # es. importati da file), richieste dei clienti, account di accesso e dati tecnici collegati.
+    # Cosi' l'email della cantina si puo' registrare di nuovo.
+    ids = [oid, str(oid)]
+    wines = await db.products.delete_many({"producer_id": {"$in": ids}})
+    inquiries = await db.inquiries.delete_many({"producer_id": {"$in": ids}})
+    accounts = await db.users.find({"producer_id": {"$in": ids}, "role": {"$ne": "ADMIN"}}, {"_id": 1}).to_list(50)
+    account_ids = [u["_id"] for u in accounts]
+    if account_ids:
+        await db.password_resets.delete_many({"user_id": {"$in": account_ids}})
+        await db.users.delete_many({"_id": {"$in": account_ids}})
+    await db.ai_usage.delete_many({"producer_id": {"$in": ids}})
+    return {
+        "message": "Cantina eliminata insieme ai suoi vini, alle richieste e agli account di accesso",
+        "products_deleted": wines.deleted_count,
+        "inquiries_deleted": inquiries.deleted_count,
+        "accounts_deleted": len(account_ids),
+    }
 
 
 async def _producer_user_emails(db, producer_oid) -> list:
