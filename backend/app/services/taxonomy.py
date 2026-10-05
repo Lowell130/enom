@@ -91,3 +91,83 @@ async def sync_pairings_with_master(food_pairings: list, db, pairings_cache: dic
             new_doc["_id"] = res.inserted_id
             if pairings_cache is not None:
                 pairings_cache[clean_lower] = new_doc
+
+
+# ---------------------------------------------------------------------------
+# Rinomina di una voce delle tassonomie: il nuovo nome viene applicato anche ai vini
+# ---------------------------------------------------------------------------
+
+def name_regex(name: str) -> dict:
+    """Filtro MongoDB per un nome uguale, senza badare alle maiuscole."""
+    return {"$regex": f"^{re.escape(name.strip())}$", "$options": "i"}
+
+
+async def find_same_name(collection, name: str, exclude_id=None):
+    """Voce con lo stesso nome (maiuscole ignorate), esclusa quella indicata."""
+    query = {"name": name_regex(name)}
+    if exclude_id is not None:
+        query["_id"] = {"$ne": exclude_id}
+    return await collection.find_one(query, {"_id": 1, "name": 1})
+
+
+def _rename_pairings(values: list, old: str, new: str) -> list:
+    old_l, out = old.strip().lower(), []
+    for v in values or []:
+        item = new if isinstance(v, str) and v.strip().lower() == old_l else v
+        if not any(isinstance(o, str) and isinstance(item, str) and o.lower() == item.lower() for o in out):
+            out.append(item)
+    return out
+
+
+def _rename_grapes(values: list, old: str, new: str) -> list:
+    """"Tintilia 85%" -> "<nuovo> 85%": cambia il nome del vitigno e conserva la percentuale."""
+    pattern = re.compile(rf"^\s*{re.escape(old.strip())}(?=\s*(?:\d|$|[(,;\-–]))", re.I)
+    return [pattern.sub(new, v, count=1).strip() if isinstance(v, str) else v for v in values or []]
+
+
+def _rename_attributes(values: list, old: str, new: str) -> list:
+    """Rinomina il campo; se il vino aveva gia' un campo con il nuovo nome, i valori vengono uniti."""
+    old_l, new_l = old.strip().lower(), new.strip().lower()
+    out = []
+    for attr in values or []:
+        if not isinstance(attr, dict):
+            out.append(attr)
+            continue
+        name = str(attr.get("name", "")).strip()
+        if name.lower() == old_l:
+            attr = {**attr, "name": new}
+        target = next((a for a in out if isinstance(a, dict) and str(a.get("name", "")).strip().lower() == new_l), None) \
+            if str(attr.get("name", "")).strip().lower() == new_l else None
+        if target is not None:
+            value = str(attr.get("value", "")).strip()
+            if value and value.lower() not in str(target.get("value", "")).lower():
+                target["value"] = f"{target.get('value', '')}; {value}".strip("; ")
+            continue
+        out.append(attr)
+    return out
+
+
+RENAMERS = {
+    "food_pairings": (_rename_pairings, lambda old: {"food_pairings": name_regex(old)}),
+    "grape_varieties": (
+        _rename_grapes,
+        lambda old: {"grape_varieties": {"$regex": rf"^\s*{re.escape(old.strip())}(?=\s*(\d|$|[(,;\-–]))", "$options": "i"}},
+    ),
+    "custom_attributes": (_rename_attributes, lambda old: {"custom_attributes.name": name_regex(old)}),
+}
+
+
+async def rename_in_products(db, field: str, old: str, new: str) -> int:
+    """Applica la rinomina a tutti i vini che usano il vecchio nome; restituisce quanti vini sono cambiati."""
+    if not old or not new or old.strip() == new.strip():
+        return 0
+    rename, query = RENAMERS[field]
+    changed = 0
+    async for product in db.products.find(query(old), {field: 1}):
+        updated = rename(product.get(field) or [], old, new)
+        if updated != product.get(field):
+            await db.products.update_one(
+                {"_id": product["_id"]}, {"$set": {field: updated, "updated_at": datetime.utcnow()}}
+            )
+            changed += 1
+    return changed

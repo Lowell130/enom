@@ -4,7 +4,10 @@ from app.api.v1.auth import get_current_user, get_current_admin
 from pydantic import BaseModel
 from bson import ObjectId
 from datetime import datetime
+import re
 from typing import List, Optional
+
+from app.services.taxonomy import find_same_name, rename_in_products
 
 router = APIRouter()
 
@@ -18,6 +21,7 @@ class PairingUpdate(BaseModel):
 
 class PairingResponse(PairingCreate):
     id: str
+    products_updated: Optional[int] = None  # vini aggiornati dopo una rinomina
 
 DEFAULT_PAIRINGS_SEED = [
     {"name": "Antipasti & Aperitivi", "category": "APERITIVI"},
@@ -58,7 +62,7 @@ async def create_pairing(
     current_user: dict = Depends(get_current_user),
     db=Depends(get_database)
 ):
-    existing = await db.pairings.find_one({"name": {"$regex": f"^{pairing_in.name}$", "$options": "i"}})
+    existing = await find_same_name(db.pairings, pairing_in.name)
     if existing:
         existing["id"] = str(existing["_id"])
         return existing
@@ -84,11 +88,24 @@ async def update_pairing(
         raise HTTPException(status_code=404, detail="Abbinamento non trovato")
         
     update_data = {k: v for k, v in pairing_in.model_dump().items() if v is not None}
+    old_name = existing.get("name", "")
+    if "name" in update_data:
+        update_data["name"] = re.sub(r"\s+", " ", update_data["name"]).strip()
+        if not update_data["name"]:
+            raise HTTPException(status_code=400, detail="Il nome non può essere vuoto")
+        # un altro elemento con lo stesso nome creerebbe un doppione
+        if await find_same_name(db.pairings, update_data["name"], exclude_id=existing["_id"]):
+            raise HTTPException(status_code=409, detail="Esiste già un abbinamento con questo nome")
     update_data["updated_at"] = datetime.utcnow()
-    
+
     await db.pairings.update_one({"_id": ObjectId(pairing_id)}, {"$set": update_data})
+    # il nuovo nome vale anche per i vini che usavano quello vecchio
+    products_updated = 0
+    if update_data.get("name") and update_data["name"] != old_name:
+        products_updated = await rename_in_products(db, "food_pairings", old_name, update_data["name"])
     updated = await db.pairings.find_one({"_id": ObjectId(pairing_id)})
     updated["id"] = str(updated["_id"])
+    updated["products_updated"] = products_updated
     return updated
 
 @router.delete("/{pairing_id}")

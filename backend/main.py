@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
+from app.services.catalog import migrate_ascii_slugs
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, get_database
 from app.api.v1 import auth, producers, products, product_io, pdf_import, inquiries, uploads, admin, attributes, grapes, pairings, reports
 from app.core.security import get_password_hash, verify_password
@@ -215,6 +216,10 @@ async def lifespan(app: FastAPI):
     await connect_to_mongo()
     db = await get_database()
     await ensure_indexes(db)
+    # indirizzi senza accenti (non fa nulla se sono gia' a posto)
+    fixed_slugs = await migrate_ascii_slugs(db)
+    if fixed_slugs:
+        logging.getLogger("enotecamolise").info("Indirizzi senza accenti: %d aggiornati", fixed_slugs)
     await seed_master_attributes(db)
     await ensure_admin_user(db)
     await seed_sample_data(db)

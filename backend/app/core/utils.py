@@ -1,4 +1,5 @@
 import re
+import unicodedata
 import time
 from collections import defaultdict, deque
 from threading import Lock
@@ -8,8 +9,12 @@ from fastapi import HTTPException, Request
 
 
 def slugify(text: str) -> str:
-    """Converte un testo in slug kebab-case (unica implementazione del progetto)."""
-    text = (text or "").lower().strip()
+    """Converte un testo in slug kebab-case (unica implementazione del progetto).
+    Le lettere accentate perdono l'accento ("Vietènn" -> "vietenn"): gli indirizzi restano leggibili
+    anche quando vengono condivisi."""
+    text = unicodedata.normalize("NFKD", text or "")
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    text = text.lower().strip()
     text = re.sub(r"[^\w\s-]", "", text)
     text = re.sub(r"[\s_-]+", "-", text)
     return text.strip("-")

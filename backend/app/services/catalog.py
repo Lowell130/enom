@@ -5,6 +5,8 @@ from datetime import datetime
 
 from bson import ObjectId
 
+from app.core.utils import slugify
+
 
 def parse_denominazione_acronym(denom: str) -> str:
     if not denom:
@@ -53,17 +55,8 @@ def clean_product_slug(text: str) -> str:
     # Remove 4-digit years
     cleaned = re.sub(r'\b(19\d{2}|20\d{2})\b', '', cleaned)
     
-    # Slugify in kebab-case
-    cleaned = cleaned.lower().strip()
-    cleaned = re.sub(r'[^\w\s-]', '', cleaned)
-    cleaned = re.sub(r'[\s_-]+', '-', cleaned).strip('-')
-    
-    if not cleaned:
-        fallback = str(text).lower().strip()
-        fallback = re.sub(r'[^\w\s-]', '', fallback)
-        cleaned = re.sub(r'[\s_-]+', '-', fallback).strip('-')
-        
-    return cleaned
+    # kebab-case senza accenti (stessa regola degli slug delle cantine)
+    return slugify(cleaned) or slugify(str(text))
 
 async def generate_unique_product_slug(
     db, 
@@ -183,3 +176,21 @@ async def run_products_cleanup_migration(db) -> int:
             migrated_count += 1
             
     return migrated_count
+
+
+async def migrate_ascii_slugs(db) -> int:
+    """Toglie gli accenti dagli indirizzi gia' salvati ("vietènn-..." -> "vietenn-...").
+    Eseguita all'avvio: non fa nulla se tutti gli indirizzi sono gia' senza accenti.
+    I vecchi link continuano a funzionare perche' la ricerca per indirizzo li ripulisce allo stesso modo."""
+    changed = 0
+    for collection, fallback in ((db.products, "vino"), (db.producers, "cantina")):
+        async for doc in collection.find({"slug": {"$regex": "[^a-z0-9-]"}}, {"slug": 1}):
+            base = slugify(doc.get("slug", "")) or fallback
+            candidate, counter = base, 2
+            while await collection.find_one({"slug": candidate, "_id": {"$ne": doc["_id"]}}, {"_id": 1}):
+                candidate = f"{base}-{counter}"
+                counter += 1
+            if candidate != doc.get("slug"):
+                await collection.update_one({"_id": doc["_id"]}, {"$set": {"slug": candidate}})
+                changed += 1
+    return changed

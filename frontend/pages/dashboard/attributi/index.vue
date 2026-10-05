@@ -210,7 +210,7 @@ const handleSaveEdit = async () => {
       ? editSuggestedValuesInput.value.split(',').map(v => v.trim()).filter(Boolean)
       : []
 
-    await fetchWithAuth(`/attributes/${editingAttr.value.id}`, {
+    const saved = await fetchWithAuth(`/attributes/${editingAttr.value.id}`, {
       method: 'PUT',
       body: {
         name: editingAttr.value.name,
@@ -220,10 +220,12 @@ const handleSaveEdit = async () => {
     })
     showEditModal.value = false
     editingAttr.value = null
-    toast.success('Caratteristica aggiornata con successo!')
+    const n = saved?.products_updated || 0
+    toast.success(n ? `Campo aggiornato: nuovo nome applicato anche a ${n === 1 ? '1 vino' : `${n} vini`}.` : 'Campo aggiornato.')
     await refresh()
   } catch (err) {
-    toast.error('Errore durante l\'aggiornamento.')
+    // es. 409: esiste già una voce con lo stesso nome
+    toast.error(err?.data?.detail || 'Errore durante l\'aggiornamento.')
   }
 }
 

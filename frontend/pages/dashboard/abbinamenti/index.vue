@@ -191,7 +191,7 @@ const openEditModal = (item) => {
 const handleSaveEdit = async () => {
   if (!editingPairing.value) return
   try {
-    await fetchWithAuth(`/pairings/${editingPairing.value.id}`, {
+    const saved = await fetchWithAuth(`/pairings/${editingPairing.value.id}`, {
       method: 'PUT',
       body: {
         name: editingPairing.value.name,
@@ -200,10 +200,12 @@ const handleSaveEdit = async () => {
     })
     showEditModal.value = false
     editingPairing.value = null
-    toast.success('Abbinamento aggiornato con successo!')
+    const n = saved?.products_updated || 0
+    toast.success(n ? `Abbinamento aggiornato: nuovo nome applicato anche a ${n === 1 ? '1 vino' : `${n} vini`}.` : 'Abbinamento aggiornato.')
     await refresh()
   } catch (err) {
-    toast.error('Errore durante l\'aggiornamento.')
+    // es. 409: esiste già una voce con lo stesso nome
+    toast.error(err?.data?.detail || 'Errore durante l\'aggiornamento.')
   }
 }
 

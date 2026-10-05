@@ -4,7 +4,10 @@ from app.api.v1.auth import get_current_user, get_current_admin
 from pydantic import BaseModel
 from bson import ObjectId
 from datetime import datetime
+import re
 from typing import List, Optional
+
+from app.services.taxonomy import find_same_name, name_regex, rename_in_products
 
 router = APIRouter()
 
@@ -20,6 +23,7 @@ class AttributeUpdate(BaseModel):
 
 class AttributeResponse(AttributeCreate):
     id: str
+    products_updated: Optional[int] = None  # vini aggiornati dopo una rinomina
 
 DEFAULT_ATTRIBUTES_SEED = [
     {
@@ -92,7 +96,7 @@ async def create_attribute(
     current_user: dict = Depends(get_current_user), # Allowed for both Producer and Admin
     db=Depends(get_database)
 ):
-    existing = await db.attributes.find_one({"name": attr_in.name})
+    existing = await db.attributes.find_one({"name": name_regex(attr_in.name)})
     if existing:
         existing["id"] = str(existing["_id"])
         if attr_in.suggested_values:
@@ -122,11 +126,24 @@ async def update_attribute(
         raise HTTPException(status_code=404, detail="Attributo non trovato")
         
     update_data = {k: v for k, v in attr_in.model_dump().items() if v is not None}
+    old_name = existing.get("name", "")
+    if "name" in update_data:
+        update_data["name"] = re.sub(r"\s+", " ", update_data["name"]).strip()
+        if not update_data["name"]:
+            raise HTTPException(status_code=400, detail="Il nome non può essere vuoto")
+        # un altro elemento con lo stesso nome creerebbe un doppione
+        if await find_same_name(db.attributes, update_data["name"], exclude_id=existing["_id"]):
+            raise HTTPException(status_code=409, detail="Esiste già un campo con questo nome")
     update_data["updated_at"] = datetime.utcnow()
-    
+
     await db.attributes.update_one({"_id": ObjectId(attr_id)}, {"$set": update_data})
+    # il nuovo nome vale anche per i vini che usavano quello vecchio
+    products_updated = 0
+    if update_data.get("name") and update_data["name"] != old_name:
+        products_updated = await rename_in_products(db, "custom_attributes", old_name, update_data["name"])
     updated = await db.attributes.find_one({"_id": ObjectId(attr_id)})
     updated["id"] = str(updated["_id"])
+    updated["products_updated"] = products_updated
     return updated
 
 @router.delete("/{attr_id}")

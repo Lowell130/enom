@@ -184,7 +184,7 @@ const openEditModal = (grape) => {
 const handleSaveEdit = async () => {
   if (!editingGrape.value) return
   try {
-    await fetchWithAuth(`/grapes/${editingGrape.value.id}`, {
+    const saved = await fetchWithAuth(`/grapes/${editingGrape.value.id}`, {
       method: 'PUT',
       body: {
         name: editingGrape.value.name,
@@ -193,10 +193,12 @@ const handleSaveEdit = async () => {
     })
     showEditModal.value = false
     editingGrape.value = null
-    toast.success('Vitigno aggiornato con successo!')
+    const n = saved?.products_updated || 0
+    toast.success(n ? `Vitigno aggiornato: nuovo nome applicato anche a ${n === 1 ? '1 vino' : `${n} vini`}.` : 'Vitigno aggiornato.')
     await refresh()
   } catch (err) {
-    toast.error('Errore durante l\'aggiornamento.')
+    // es. 409: esiste già una voce con lo stesso nome
+    toast.error(err?.data?.detail || 'Errore durante l\'aggiornamento.')
   }
 }
 
