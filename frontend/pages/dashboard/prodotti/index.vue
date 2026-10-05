@@ -69,13 +69,39 @@
       </div>
     </div>
 
-    <!-- Admin Filter by Producer if Admin -->
-    <div v-if="isAdmin && producers" class="mb-4 flex flex-wrap items-center gap-3">
-      <label for="filtro-cantina" class="text-sm font-semibold text-ink-soft">Cantina</label>
-      <select id="filtro-cantina" v-model="selectedProducerId" class="select h-10 w-auto min-w-[240px] text-sm">
-        <option value="">Tutte le cantine</option>
-        <option v-for="p in producers" :key="p.id" :value="p.id">{{ p.company_name }}</option>
-      </select>
+    <!-- Ricerca e filtro per cantina -->
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <div class="relative flex-1 min-w-[240px] max-w-[460px]">
+        <Search class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-mute pointer-events-none" aria-hidden="true" />
+        <label for="cerca-vino" class="sr-only">Cerca vino</label>
+        <input
+          id="cerca-vino"
+          v-model="searchQuery"
+          type="search"
+          placeholder="Cerca per nome, cantina, vitigno, annata…"
+          class="input h-10 pl-10 pr-9 text-sm [&::-webkit-search-cancel-button]:appearance-none"
+          @keydown.esc="searchQuery = ''"
+        />
+        <button
+          v-if="searchQuery"
+          type="button"
+          class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-ink-mute hover:text-ink"
+          aria-label="Cancella la ricerca"
+          @click="searchQuery = ''"
+        >
+          <X class="w-4 h-4" aria-hidden="true" />
+        </button>
+      </div>
+      <template v-if="isAdmin && producers">
+        <label for="filtro-cantina" class="text-sm font-semibold text-ink-soft">Cantina</label>
+        <select id="filtro-cantina" v-model="selectedProducerId" class="select h-10 w-auto min-w-[220px] text-sm">
+          <option value="">Tutte le cantine</option>
+          <option v-for="p in producers" :key="p.id" :value="p.id">{{ p.company_name }}</option>
+        </select>
+      </template>
+      <span v-if="!pending" class="text-sm text-ink-mute ml-auto" aria-live="polite">
+        {{ visibleProducts.length === 1 ? '1 vino' : `${visibleProducts.length} vini` }}<template v-if="searchQuery"> su {{ filteredProducts.length }}</template>
+      </span>
     </div>
 
     <!-- Products Table -->
@@ -85,7 +111,7 @@
         Caricamento vini in corso...
       </div>
 
-      <div v-else-if="filteredProducts && filteredProducts.length" class="overflow-x-auto">
+      <div v-else-if="visibleProducts.length" class="overflow-x-auto">
         <table class="w-full text-left text-sm text-ink-soft">
           <thead class="text-xs uppercase tracking-[0.08em] font-bold text-ink-mute border-b border-line">
             <tr>
@@ -97,19 +123,54 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-stone-100">
-            <tr v-for="prod in filteredProducts" :key="prod.id" class="hover:bg-stone-50/50 transition-colors">
+            <tr v-for="prod in visibleProducts" :key="prod.id" class="hover:bg-stone-50/50 transition-colors">
               
-              <!-- Vino Name & Photo (Clickable Link to Product Detail Sheet) -->
-              <td class="py-4 px-6 min-w-[240px]">
-                <NuxtLink :to="`/vini/${prod.slug || prod.id}`" target="_blank" class="flex items-center space-x-3.5 group cursor-pointer" title="Clicca per visualizzare la scheda tecnica del vino">
-                  <div class="w-12 h-14 shrink-0 bg-white rounded-xl border border-line p-1 flex items-center justify-center group-hover:border-wine-300 transition-colors">
-                    <img :src="getProductImage(prod)" class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform" />
-                  </div>
-                  <div>
-                    <span class="font-bold text-[15px] text-ink group-hover:text-wine-800 leading-snug block transition-colors">{{ prod.name }}</span>
+              <!-- Foto e nome (link alla scheda), con modifica veloce del nome -->
+              <td class="py-4 px-6 min-w-[320px]">
+                <div class="flex items-center gap-3.5">
+                  <NuxtLink :to="`/vini/${prod.slug || prod.id}`" target="_blank" tabindex="-1" aria-hidden="true" class="group w-12 h-14 shrink-0 bg-white rounded-xl border border-line p-1 flex items-center justify-center hover:border-wine-300 transition-colors">
+                    <img :src="getProductImage(prod)" alt="" class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform" />
+                  </NuxtLink>
+
+                  <form v-if="editingId === prod.id" class="flex-1 flex items-center gap-1.5" @submit.prevent="saveTitle(prod)">
+                    <label :for="`titolo-${prod.id}`" class="sr-only">Nome del vino</label>
+                    <input
+                      :id="`titolo-${prod.id}`"
+                      ref="titleInput"
+                      v-model="editingName"
+                      type="text"
+                      maxlength="150"
+                      class="input h-10 text-[15px] font-bold min-w-[280px]"
+                      :disabled="savingTitle"
+                      @keydown.esc.prevent="cancelEdit"
+                    />
+                    <button type="submit" class="shrink-0 w-9 h-9 rounded-lg bg-wine-800 text-white flex items-center justify-center hover:bg-wine-900 disabled:opacity-50" :disabled="savingTitle || !editingName.trim()" aria-label="Salva il nome">
+                      <RefreshCw v-if="savingTitle" class="w-4 h-4 animate-spin" aria-hidden="true" />
+                      <Check v-else class="w-4 h-4" aria-hidden="true" />
+                    </button>
+                    <button type="button" class="shrink-0 w-9 h-9 rounded-lg border border-line-strong bg-white text-ink-soft flex items-center justify-center hover:border-ink-mute" :disabled="savingTitle" aria-label="Annulla" @click="cancelEdit">
+                      <X class="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  </form>
+
+                  <div v-else class="flex-1 min-w-0">
+                    <div class="flex items-start gap-1.5 group/title">
+                      <NuxtLink :to="`/vini/${prod.slug || prod.id}`" target="_blank" class="font-bold text-[15px] text-ink hover:text-wine-800 leading-snug transition-colors" title="Apri la scheda del vino">
+                        {{ prod.name }}
+                      </NuxtLink>
+                      <button
+                        type="button"
+                        class="shrink-0 -my-1 p-1.5 rounded-md text-ink-mute hover:text-wine-800 hover:bg-sand-100 opacity-60 group-hover/title:opacity-100 focus-visible:opacity-100 transition"
+                        :aria-label="`Modifica il nome di ${prod.name}`"
+                        title="Modifica il nome"
+                        @click="startEdit(prod)"
+                      >
+                        <Pencil class="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
                     <span class="block text-[13px] text-ink-mute mt-0.5">{{ formatCategory(prod.category) }}</span>
                   </div>
-                </NuxtLink>
+                </div>
               </td>
 
               <!-- Cantina -->
@@ -189,7 +250,11 @@
 
       <div v-else class="p-16 text-center text-ink-mute">
         <Wine class="w-8 h-8 text-stone-400 mx-auto mb-2" />
-        <p class="text-sm font-light">Nessun vino presente per i filtri selezionati.</p>
+        <p v-if="searchQuery" class="text-sm">
+          Nessun vino trovato per «{{ searchQuery }}».
+          <button type="button" class="font-semibold text-wine-800 hover:text-wine-900" @click="searchQuery = ''">Mostra tutti</button>
+        </p>
+        <p v-else class="text-sm font-light">Nessun vino presente per i filtri selezionati.</p>
       </div>
 
     </div>
@@ -294,7 +359,7 @@
 <script setup>
 import { 
   ArrowLeft, Plus, Building2, Copy, Pencil, Trash2, Wine, Eye, 
-  Upload, Download, FileSpreadsheet, FileJson, X, CheckCircle2, RefreshCw, Sparkles 
+  Upload, Download, FileSpreadsheet, FileJson, X, CheckCircle2, RefreshCw, Sparkles, Search, Check
 } from 'lucide-vue-next'
 
 const { fetchWithAuth, mediaBase, apiBase } = useApi()
@@ -351,6 +416,79 @@ const filteredProducts = computed(() => {
   if (!myProducerId) return []
   return products.value.filter(p => String(p.producer_id) === String(myProducerId))
 })
+
+// Ricerca: nome, cantina, denominazione, tipologia, vitigni e annata, senza badare ad accenti e maiuscole.
+// Resta nell'indirizzo (?q=) cosi' tornando dalla modifica di un vino la ricerca non si perde.
+const route = useRoute()
+const router = useRouter()
+const searchQuery = ref(String(route.query.q || ''))
+watch(searchQuery, (q) => {
+  router.replace({ query: { ...route.query, q: q.trim() || undefined } })
+})
+
+const normalize = (text) => String(text ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+
+const searchText = (prod) => normalize([
+  prod.name,
+  prod.producer_name,
+  prod.denominazione,
+  formatCategory(prod.category),
+  (prod.grape_varieties || []).join(' '),
+  prod.vintage_year,
+  prod.is_riserva ? 'riserva' : '',
+  prod.status === 'PUBLISHED' ? 'pubblicato' : 'bozza'
+].join(' '))
+
+const visibleProducts = computed(() => {
+  const words = normalize(searchQuery.value).split(/\s+/).filter(Boolean)
+  if (!words.length) return filteredProducts.value
+  return filteredProducts.value.filter(prod => {
+    const text = searchText(prod)
+    return words.every(w => text.includes(w))
+  })
+})
+
+// Modifica veloce del nome
+const editingId = ref(null)
+const editingName = ref('')
+const savingTitle = ref(false)
+const titleInput = ref(null)
+
+const startEdit = async (prod) => {
+  editingId.value = prod.id
+  editingName.value = prod.name
+  await nextTick()
+  const input = Array.isArray(titleInput.value) ? titleInput.value[0] : titleInput.value
+  input?.focus()
+  input?.select()
+}
+
+const cancelEdit = () => {
+  editingId.value = null
+  editingName.value = ''
+}
+
+const saveTitle = async (prod) => {
+  const name = editingName.value.trim().replace(/\s+/g, ' ')
+  if (!name) return
+  if (name === prod.name) return cancelEdit()
+  savingTitle.value = true
+  try {
+    const updated = await fetchWithAuth(`/products/${prod.id}`, { method: 'PUT', body: { name } })
+    // aggiorna la riga senza ricaricare l'elenco (il server puo' ripulire il nome e rigenerare l'indirizzo)
+    prod.name = updated?.name || name
+    if (updated?.slug) prod.slug = updated.slug
+    toast.success('Nome del vino aggiornato.')
+    cancelEdit()
+  } catch (err) {
+    toast.error('Non è stato possibile salvare il nome del vino.')
+  } finally {
+    savingTitle.value = false
+  }
+}
 
 const getProductImage = (prod) => {
   if (prod.photos && prod.photos.length > 0) {
