@@ -171,3 +171,58 @@ async def rename_in_products(db, field: str, old: str, new: str) -> int:
             )
             changed += 1
     return changed
+
+
+# ---------------------------------------------------------------------------
+# Abbinamenti scritti a mano dalle cantine
+# ---------------------------------------------------------------------------
+
+PAIRINGS_TEXT_ATTRIBUTE = "Abbinamenti Consigliati"
+
+
+async def keep_canonical_pairings(db, pairings: list, custom_attributes: list):
+    """Per le cantine: negli abbinamenti restano solo le voci dell'elenco ufficiale (con il nome
+    esatto); quelle scritte a mano finiscono nel campo "Abbinamenti Consigliati" della scheda
+    tecnica, cosi' l'elenco ufficiale (usato da filtri e Osservatorio) non si riempie di varianti."""
+    master = {p["name"].strip().lower(): p["name"] for p in await db.pairings.find({}, {"name": 1}).to_list(500)
+              if p.get("name")}
+    if not master:
+        return pairings, custom_attributes
+    canonical, extra = [], []
+    for item in pairings or []:
+        name = re.sub(r"\s+", " ", str(item or "")).strip()
+        if not name:
+            continue
+        match = master.get(name.lower())
+        if match:
+            if match not in canonical:
+                canonical.append(match)
+        elif name.lower() not in (e.lower() for e in extra):
+            extra.append(name)
+    attributes = [dict(a) if isinstance(a, dict) else a for a in (custom_attributes or [])]
+    if extra:
+        target = next((a for a in attributes if isinstance(a, dict)
+                       and str(a.get("name", "")).strip().lower() == PAIRINGS_TEXT_ATTRIBUTE.lower()), None)
+        if target is None:
+            attributes.append({"name": PAIRINGS_TEXT_ATTRIBUTE, "value": ", ".join(extra)})
+        else:
+            current = str(target.get("value", ""))
+            missing = [e for e in extra if e.lower() not in current.lower()]
+            if missing:
+                target["value"] = ", ".join([current] + missing) if current else ", ".join(missing)
+    return canonical, attributes
+
+
+# ---------------------------------------------------------------------------
+# Unione di due voci (es. "Filtrazioni" dentro "Filtrazione")
+# ---------------------------------------------------------------------------
+
+async def merge_into(db, collection, field: str, source: dict, target: dict) -> int:
+    """Sposta sui vini il nome della voce sorgente su quello della voce di destinazione
+    (valori uniti se il vino le aveva entrambe) ed elimina la sorgente."""
+    updated = await rename_in_products(db, field, source.get("name", ""), target.get("name", ""))
+    if field == "custom_attributes":
+        values = list(dict.fromkeys((target.get("suggested_values") or []) + (source.get("suggested_values") or [])))
+        await collection.update_one({"_id": target["_id"]}, {"$set": {"suggested_values": values}})
+    await collection.delete_one({"_id": source["_id"]})
+    return updated

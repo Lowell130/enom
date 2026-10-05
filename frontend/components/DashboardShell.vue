@@ -57,7 +57,7 @@
 <script setup>
 import {
   LayoutDashboard, Wine, MessageSquare, Building2, Store, Grape, Utensils, ListChecks,
-  ArrowLeft, LogOut, Menu, X
+  ArrowLeft, LogOut, Menu, X, Mail
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -75,7 +75,8 @@ const adminNav = [
   { label: 'Cantine', to: '/dashboard/cantine', icon: Building2 },
   { label: 'Vitigni', to: '/dashboard/vitigni', icon: Grape },
   { label: 'Abbinamenti', to: '/dashboard/abbinamenti', icon: Utensils },
-  { label: 'Campi scheda tecnica', to: '/dashboard/attributi', icon: ListChecks }
+  { label: 'Campi scheda tecnica', to: '/dashboard/attributi', icon: ListChecks },
+  { label: 'Email e testi', to: '/dashboard/email', icon: Mail }
 ]
 
 const isActive = (item) => (item.exact ? route.path === item.to : route.path.startsWith(item.to))

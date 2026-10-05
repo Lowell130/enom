@@ -23,6 +23,7 @@ from app.services.taxonomy import (
     sync_custom_attributes_with_master,
     sync_grapes_with_master,
     sync_pairings_with_master,
+    keep_canonical_pairings,
 )
 
 router = APIRouter()
@@ -157,6 +158,9 @@ async def create_product(
         )
         
     doc = product_in.model_dump()
+    if not is_admin:
+        doc["food_pairings"], doc["custom_attributes"] = await keep_canonical_pairings(
+            db, doc.get("food_pairings", []), doc.get("custom_attributes", []))
     doc["name"] = cleaned_name
     doc["producer_id"] = target_producer_id
     doc["denominazione"] = parse_denominazione_acronym(doc.get("denominazione", "DOC"))
@@ -170,7 +174,9 @@ async def create_product(
     # Auto-sync custom attributes, grapes & food pairings with master collections
     await sync_custom_attributes_with_master(doc.get("custom_attributes", []), db)
     await sync_grapes_with_master(doc.get("grape_varieties", []), db)
-    await sync_pairings_with_master(doc.get("food_pairings", []), db)
+    if is_admin:
+        # solo l'amministratore allarga l'elenco ufficiale degli abbinamenti
+        await sync_pairings_with_master(doc.get("food_pairings", []), db)
 
     return await format_product_response(doc, db)
 
@@ -269,13 +275,18 @@ async def update_product(
         
     update_data["updated_at"] = datetime.utcnow()
     
+    if not is_admin and "food_pairings" in update_data:
+        update_data["food_pairings"], update_data["custom_attributes"] = await keep_canonical_pairings(
+            db, update_data["food_pairings"],
+            update_data.get("custom_attributes", existing.get("custom_attributes", [])))
+
     await db.products.update_one({"_id": ObjectId(product_id)}, {"$set": update_data})
     
     if "custom_attributes" in update_data:
         await sync_custom_attributes_with_master(update_data["custom_attributes"], db)
     if "grape_varieties" in update_data:
         await sync_grapes_with_master(update_data["grape_varieties"], db)
-    if "food_pairings" in update_data:
+    if "food_pairings" in update_data and is_admin:
         await sync_pairings_with_master(update_data["food_pairings"], db)
 
     updated = await db.products.find_one({"_id": ObjectId(product_id)})

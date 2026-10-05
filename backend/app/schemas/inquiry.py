@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Literal, Optional
 from datetime import datetime
 
@@ -10,6 +10,14 @@ class InquiryCreate(BaseModel):
     user_phone: Optional[str] = Field(default="", max_length=40)
     message_type: Literal["INFO_PREZZI", "DISPONIBILITA", "VISITA_CANTINA", "ALTRO"] = "INFO_PREZZI"
     message: str = Field(min_length=1, max_length=5000)
+    privacy_accepted: bool = Field(default=False, validate_default=True)
+
+    @field_validator("privacy_accepted")
+    @classmethod
+    def must_accept_privacy(cls, v):
+        if not v:
+            raise ValueError("Per inviare il messaggio devi accettare l'informativa sulla privacy")
+        return v
 
 class InquiryResponse(BaseModel):
     # Campi non vincolati: i messaggi gia' salvati devono restare leggibili

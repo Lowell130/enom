@@ -4,8 +4,8 @@ from datetime import datetime
 
 class AddressSchema(BaseModel):
     street: Optional[str] = ""
-    city: Optional[str] = "Campobasso"
-    province: Optional[str] = "CB"
+    city: Optional[str] = ""
+    province: Optional[str] = ""
     zip_code: Optional[str] = ""
     geo_coordinates: Optional[Dict[str, Any]] = None
 
@@ -81,3 +81,11 @@ class ProducerResponse(ProducerBase):
     id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     product_count: Optional[int] = 0
+    # vini inseriti, anche in bozza (solo per l'area riservata)
+    total_product_count: Optional[int] = None
+    deletion_requested_at: Optional[datetime] = None
+    deletion_reason: Optional[str] = None
+
+
+class DeletionRequest(BaseModel):
+    reason: Optional[str] = Field(default="", max_length=1000)

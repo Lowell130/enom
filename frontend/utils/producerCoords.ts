@@ -136,8 +136,8 @@ export const getProducerCoordinatesSync = (producer: any, index = 0): [number, n
     return [base[0] + offsetLat, base[1] + offsetLng]
   }
 
-  // 4. Match city partial substring
-  for (const [key, coords] of Object.entries(cityCoordinates)) {
+  // 4. Match city partial substring (solo se la citta' e' indicata: un testo vuoto "contiene" qualsiasi nome)
+  for (const [key, coords] of Object.entries(city ? cityCoordinates : {})) {
     if (city.includes(key) || key.includes(city)) {
       const offsetLat = ((index % 4) - 1.5) * 0.003
       const offsetLng = (Math.floor(index / 4) % 4 - 1.5) * 0.003

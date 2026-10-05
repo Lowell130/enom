@@ -11,7 +11,9 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.services.catalog import migrate_ascii_slugs
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, get_database
-from app.api.v1 import auth, producers, products, product_io, pdf_import, inquiries, uploads, admin, attributes, grapes, pairings, reports
+from app.api.v1 import auth, producers, products, product_io, pdf_import, inquiries, uploads, admin, attributes, grapes, pairings, reports, emails, site
+from app.core.errors import validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from app.core.security import get_password_hash, verify_password
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -235,6 +237,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -274,6 +278,8 @@ app.include_router(attributes.router, prefix=f"{settings.API_V1_STR}/attributes"
 app.include_router(grapes.router, prefix=f"{settings.API_V1_STR}/grapes", tags=["Grapes"])
 app.include_router(pairings.router, prefix=f"{settings.API_V1_STR}/pairings", tags=["Pairings"])
 app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["Reports"])
+app.include_router(emails.router, prefix=f"{settings.API_V1_STR}/emails", tags=["Email (admin)"])
+app.include_router(site.router, prefix=f"{settings.API_V1_STR}/site", tags=["Testi del sito"])
 
 
 @app.get("/")

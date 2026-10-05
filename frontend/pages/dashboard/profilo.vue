@@ -3,21 +3,18 @@
     
     <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">
-          Profilo Cantina
-        </h1>
-        <p class="text-xs text-ink-mute mt-1">
-          Gestisci la storia, la foto copertina, il logo e i contatti della tua azienda vinicola.
-        </p>
+        <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">Profilo della cantina</h1>
+        <p class="text-sm text-ink-soft mt-1.5">Storia, logo, copertina, indirizzo e contatti: è ciò che vedono i visitatori.</p>
       </div>
 
       <!-- Admin Producer Selector Dropdown -->
       <div v-if="isAdmin && producersList.length" class="w-full md:w-64">
-        <label class="block text-xs font-bold uppercase text-ink-mute mb-1">Seleziona Cantina (Admin)</label>
-        <select 
-          v-model="selectedAdminProducerId" 
+        <label for="scelta-cantina" class="block text-[13px] font-semibold text-ink-soft mb-1">Cantina da modificare</label>
+        <select
+          id="scelta-cantina"
+          v-model="selectedAdminProducerId"
           @change="loadProfile"
-          class="w-full border border-stone-200 rounded-xl px-3 py-2 text-xs font-semibold bg-white text-stone-800 focus:ring-2 focus:ring-wine-800"
+          class="select h-10 text-sm"
         >
           <option v-for="p in producersList" :key="p.id" :value="p.id">
             {{ p.company_name }}
@@ -26,158 +23,144 @@
       </div>
     </div>
 
+    <!-- Stato della cantina (solo per la cantina stessa) -->
+    <p v-if="!isAdmin && producerStatus === 'PENDING_APPROVAL'" role="status" class="mb-5 p-4 rounded-xl border border-[#E8D9B8] bg-[#FBF5E8] text-[#5A4524] text-sm">
+      <strong>In attesa di approvazione.</strong> Completa il profilo: lo verifichiamo e ti avvisiamo via email quando la cantina sarà pubblica.
+    </p>
+
     <!-- Loading State -->
-    <div v-if="pending" class="bg-white rounded-2xl p-12 text-center text-sm text-ink-mute flex flex-col items-center justify-center space-y-3 border border-stone-100 shadow-xs">
+    <div v-if="pending" class="card p-12 text-center text-sm text-ink-mute flex flex-col items-center justify-center gap-3">
       <RefreshCw class="w-6 h-6 text-wine-800 animate-spin" />
-      <span>Caricamento profilo cantina in corso...</span>
+      <span>Caricamento del profilo…</span>
     </div>
 
     <!-- Form State -->
-    <form v-else-if="form" @submit.prevent="handleSubmit" class="space-y-8 bg-white rounded-2xl p-8 border border-line shadow-xs">
-      
-      <!-- General Info -->
-      <div>
-        <h3 class="font-sans text-lg font-bold text-wine-900 mb-4 border-b border-stone-100 pb-2">
-          Dati Aziendali & Posizione Mappa
-        </h3>
+    <form v-else-if="form" @submit.prevent="handleSubmit" class="flex flex-col gap-8 card p-6 sm:p-8">
 
+      <!-- Dati e indirizzo -->
+      <section class="flex flex-col gap-4" aria-labelledby="sez-dati">
+        <h2 id="sez-dati" class="font-serif text-2xl font-bold text-ink">Dati della cantina e posizione</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Nome Cantina / Ragione Sociale *</label>
-            <input v-model="form.company_name" type="text" required class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
+          <label class="field-label sm:col-span-2">Nome della cantina *
+            <input v-model="form.company_name" type="text" required class="input" />
+          </label>
+          <label class="field-label">Comune *
+            <input v-model="form.city" type="text" required list="comuni-molise" placeholder="es. Larino" class="input" />
+            <span v-if="!form.city" class="text-[13px] font-normal text-wine-800">Indica il comune: serve per la pagina pubblica e per la mappa.</span>
+          </label>
+          <datalist id="comuni-molise">
+            <option v-for="t in towns" :key="t" :value="t" />
+          </datalist>
+          <label class="field-label">Provincia
+            <select v-model="form.province" class="select">
+              <option value="">—</option>
+              <option value="CB">Campobasso (CB)</option>
+              <option value="IS">Isernia (IS)</option>
+            </select>
+          </label>
+          <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-4">
+            <label class="field-label">Indirizzo (via o contrada)
+              <input v-model="form.street" type="text" placeholder="es. Contrada Colle 14" class="input" />
+            </label>
+            <label class="field-label">CAP
+              <input v-model="form.zip_code" type="text" inputmode="numeric" maxlength="5" placeholder="86035" class="input" />
+            </label>
           </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Città *</label>
-            <input v-model="form.city" type="text" required class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">CAP (Codice Avviamento Postale)</label>
-            <input v-model="form.zip_code" type="text" placeholder="es. 86010" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Provincia</label>
-            <input v-model="form.province" type="text" placeholder="es. CB" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-          </div>
-
-          <div class="sm:col-span-2">
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Indirizzo (Via/Contrada)</label>
-            <input v-model="form.street" type="text" placeholder="es. Contrada Colle 14" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-          </div>
-
-          <!-- Coordinate GPS Mappa -->
-          <div class="sm:col-span-2 bg-stone-50 p-4 rounded-xl border border-line space-y-3">
-            <div class="flex items-center space-x-2 text-wine-900 font-bold text-xs">
-              <MapPin class="w-4 h-4 text-wine-800" />
-              <span>Coordinate GPS Mappa Interattiva</span>
-            </div>
-            <p class="text-xs text-ink-mute font-light leading-relaxed">
-              Inserisci la latitudine e longitudine della tua cantina per posizionare con precisione la tua azienda sulla Mappa delle Cantine Molisane.
-            </p>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-semibold text-ink-soft mb-1">Latitudine (es. 41,6147818 o 41.6147818)</label>
-                <input v-model="form.lat" type="text" placeholder="41,6147818" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-wine-800 focus:outline-none font-mono" />
+          <div class="sm:col-span-2 flex flex-col gap-2">
+            <span class="text-sm font-semibold text-ink">Posizione sulla mappa</span>
+            <ClientOnly>
+              <LocationPicker :lat="form.lat" :lng="form.lng" :town="form.city" @update="onPickLocation" />
+            </ClientOnly>
+            <details class="text-[13px] text-ink-mute">
+              <summary class="cursor-pointer w-fit">Inserisci le coordinate a mano</summary>
+              <div class="grid grid-cols-2 gap-3 mt-2">
+                <label class="field-label">Latitudine<input v-model="form.lat" type="text" inputmode="decimal" placeholder="41,80140" class="input font-mono text-sm" /></label>
+                <label class="field-label">Longitudine<input v-model="form.lng" type="text" inputmode="decimal" placeholder="14,91080" class="input font-mono text-sm" /></label>
               </div>
-              <div>
-                <label class="block text-xs font-semibold text-ink-soft mb-1">Longitudine (es. 14,5462307 o 14.5462307)</label>
-                <input v-model="form.lng" type="text" placeholder="14,5462307" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-wine-800 focus:outline-none font-mono" />
-              </div>
-            </div>
+            </details>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Contacts -->
-      <div>
-        <h3 class="font-sans text-lg font-bold text-wine-900 mb-4 border-b border-stone-100 pb-2">
-          Contatti & Social
-        </h3>
-
+      <!-- Contatti -->
+      <section class="flex flex-col gap-4" aria-labelledby="sez-contatti">
+        <h2 id="sez-contatti" class="font-serif text-2xl font-bold text-ink">Contatti</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Email Pubblica Contatto</label>
-            <input v-model="form.email_contact" type="email" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Telefono Fisso / Sede</label>
-            <input v-model="form.phone" type="text" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">WhatsApp Diretto (es. 393331234567)</label>
-            <input v-model="form.whatsapp_number" type="text" placeholder="393331234567" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Sito Web Ufficiale</label>
-            <input v-model="form.website" type="text" placeholder="https://..." class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-          </div>
+          <label class="field-label">Email per le richieste dei clienti
+            <input v-model="form.email_contact" type="email" class="input" />
+            <span class="text-[13px] font-normal text-ink-mute">Qui ti avvisiamo quando un cliente ti scrive.</span>
+          </label>
+          <label class="field-label">Telefono
+            <input v-model="form.phone" type="tel" class="input" />
+          </label>
+          <label class="field-label">WhatsApp
+            <input v-model="form.whatsapp_number" type="tel" placeholder="es. 393331234567" class="input" />
+            <span class="text-[13px] font-normal text-ink-mute">Con il prefisso 39, senza spazi: comparirà il pulsante WhatsApp.</span>
+          </label>
+          <label class="field-label">Sito web
+            <input v-model="form.website" type="text" placeholder="www.lamiacantina.it" class="input" />
+          </label>
         </div>
-      </div>
+      </section>
 
-      <!-- Immagini & Storia -->
-      <div>
-        <h3 class="font-sans text-lg font-bold text-wine-900 mb-4 border-b border-stone-100 pb-2">
-          Immagini & Storia della Cantina
-        </h3>
-
-        <div class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Logo Cantina (URL o carica file)</label>
-            <div class="flex items-center space-x-2">
-              <input v-model="form.logo_url" type="text" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-              <label class="px-4 py-2.5 bg-stone-100 hover:bg-wine-50 text-ink-soft hover:text-wine-900 border border-stone-200 text-xs font-semibold rounded-xl cursor-pointer shrink-0 transition-colors">
-                <span>Carica File</span>
-                <input type="file" accept="image/*" @change="e => handleUpload(e, 'logo')" class="hidden" />
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Foto Copertina Cantina (URL o carica file)</label>
-            <div class="flex items-center space-x-2">
-              <input v-model="form.cover_image_url" type="text" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none" />
-              <label class="px-4 py-2.5 bg-stone-100 hover:bg-wine-50 text-ink-soft hover:text-wine-900 border border-stone-200 text-xs font-semibold rounded-xl cursor-pointer shrink-0 transition-colors">
-                <span>Carica File</span>
-                <input type="file" accept="image/*" @change="e => handleUpload(e, 'cover')" class="hidden" />
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">La Storia & Filosofia della Cantina</label>
-            <textarea v-model="form.description" rows="5" class="w-full border border-stone-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none"></textarea>
-          </div>
+      <!-- Immagini e storia -->
+      <section class="flex flex-col gap-4" aria-labelledby="sez-immagini">
+        <h2 id="sez-immagini" class="font-serif text-2xl font-bold text-ink">Immagini e storia</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FileUploadField v-model="form.logo_url" label="Logo" kind="logo" hint="PNG o JPG, meglio quadrato. Appare sempre su fondo bianco." />
+          <FileUploadField v-model="form.cover_image_url" label="Foto di copertina" kind="cover" hint="Una foto orizzontale dei vigneti o della cantina. Senza foto usiamo un'illustrazione." />
         </div>
-      </div>
+        <label class="field-label">La storia della cantina
+          <textarea v-model="form.description" rows="6" class="input h-auto py-3 leading-relaxed" placeholder="Chi siete, dove sono le vigne, cosa rende speciali i vostri vini…"></textarea>
+          <span class="text-[13px] font-normal" :class="(form.description || '').length < 150 ? 'text-ink-mute' : 'text-bio'">
+            {{ (form.description || '').length }} caratteri · consigliati almeno 150
+          </span>
+        </label>
+      </section>
 
-      <div class="pt-4 flex items-center justify-between space-x-4 border-t border-stone-100">
-        <button 
-          v-if="isAdmin || form.id"
+      <div class="pt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line">
+        <button
+          v-if="isAdmin"
           type="button"
           @click="handleDeleteProducer"
-          class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-xl text-xs transition-colors flex items-center space-x-1.5"
+          class="btn-ghost btn-sm text-wine-800"
         >
-          <Trash2 class="w-3.5 h-3.5" />
-          <span>Elimina Scheda Cantina</span>
+          <Trash2 class="w-4 h-4" aria-hidden="true" /> Elimina la cantina
         </button>
-
-        <div class="flex items-center space-x-3 ml-auto">
-          <NuxtLink to="/dashboard" class="px-6 py-3 border border-stone-200 text-ink-soft font-semibold rounded-xl text-sm hover:bg-stone-50 transition-colors">
-            Annulla
-          </NuxtLink>
-          <button type="submit" :disabled="submitting" class="px-8 py-3 bg-wine-800 hover:bg-wine-900 text-white font-bold rounded-xl text-sm shadow-md transition-all">
-            {{ submitting ? 'Salvataggio...' : 'Salva Profilo Cantina' }}
+        <div class="flex items-center gap-3 ml-auto">
+          <NuxtLink to="/dashboard" class="btn-ghost">Annulla</NuxtLink>
+          <button type="submit" :disabled="submitting" class="btn-primary">
+            {{ submitting ? 'Salvataggio…' : 'Salva il profilo' }}
           </button>
         </div>
       </div>
-
     </form>
+
+    <!-- Cancellazione dell'account (cantina) -->
+    <section v-if="form && !isAdmin" class="mt-6 card p-6 flex flex-col gap-3" aria-labelledby="sez-cancella">
+      <h2 id="sez-cancella" class="font-serif text-xl font-bold text-ink">Cancellazione dell'account</h2>
+      <template v-if="deletionRequestedAt">
+        <p class="text-sm text-ink-soft m-0">
+          Hai chiesto la cancellazione il {{ formatDate(deletionRequestedAt) }}. L'amministratore ti contatterà per confermarla;
+          fino ad allora il profilo resta com'è.
+        </p>
+        <button type="button" class="btn-ghost btn-sm w-fit" :disabled="deleting" @click="cancelDeletion">Annulla la richiesta</button>
+      </template>
+      <template v-else-if="showDeletionForm">
+        <label class="field-label">Vuoi dirci il motivo? (facoltativo)
+          <textarea v-model="deletionReason" rows="3" maxlength="1000" class="input h-auto py-3"></textarea>
+        </label>
+        <p class="text-[13px] text-ink-mute m-0">La cancellazione elimina la pagina della cantina, tutti i vini e l'account, e non si può annullare.</p>
+        <div class="flex gap-2">
+          <button type="button" class="btn-primary btn-sm" :disabled="deleting" @click="requestDeletion">Invia la richiesta</button>
+          <button type="button" class="btn-ghost btn-sm" @click="showDeletionForm = false">Annulla</button>
+        </div>
+      </template>
+      <template v-else>
+        <p class="text-sm text-ink-soft m-0">Puoi chiedere di cancellare la cantina, i vini e l'account: la richiesta arriva all'amministratore.</p>
+        <button type="button" class="btn-ghost btn-sm w-fit text-wine-800" @click="showDeletionForm = true">Chiedi la cancellazione</button>
+      </template>
+    </section>
 
     <!-- Error / Missing Profile State -->
     <div v-else class="bg-white rounded-2xl p-8 border border-line shadow-xs text-center py-12 space-y-4">
@@ -196,7 +179,10 @@
 </template>
 
 <script setup>
-import { ArrowLeft, Building2, RefreshCw, Trash2, MapPin } from 'lucide-vue-next'
+import { Building2, RefreshCw, Trash2 } from 'lucide-vue-next'
+import FileUploadField from '~/components/FileUploadField.vue'
+import LocationPicker from '~/components/LocationPicker.client.vue'
+import { apiErrorMessage } from '~/utils/apiError'
 
 const route = useRoute()
 const { fetchWithAuth } = useApi()
@@ -209,6 +195,34 @@ const form = ref(null)
 const loadError = ref(null)
 
 const producersList = ref([])
+const producerStatus = ref('')
+const deletionRequestedAt = ref(null)
+const showDeletionForm = ref(false)
+const deletionReason = ref('')
+const deleting = ref(false)
+
+// comuni del Molise suggeriti nel campo (si puo' comunque scrivere qualsiasi nome)
+const towns = ['Acquaviva Collecroce', 'Agnone', 'Bojano', 'Campobasso', 'Campomarino', 'Casacalenda', 'Castropignano', 'Colletorto',
+  'Guardialfiera', 'Guglionesi', 'Isernia', 'Larino', 'Macchia d\'Isernia', 'Mafalda', 'Montecilfone', 'Montenero di Bisaccia',
+  'Monteroduni', 'Montorio nei Frentani', 'Palata', 'Petacciato', 'Petrella Tifernina', 'Portocannone', 'Pozzilli', 'Ripalimosani',
+  'Rotello', 'San Felice del Molise', 'San Giacomo degli Schiavoni', 'San Martino in Pensilis', 'Santa Croce di Magliano',
+  'Sesto Campano', 'Termoli', 'Ururi', 'Venafro']
+
+// provincia proposta in automatico per i comuni noti (resta modificabile)
+const ISERNIA_TOWNS = ['Agnone', 'Isernia', 'Macchia d\'Isernia', 'Monteroduni', 'Pozzilli', 'Sesto Campano', 'Venafro']
+watch(() => form.value?.city, (city) => {
+  if (!form.value || form.value.province || !city) return
+  const name = city.trim().toLowerCase()
+  if (!towns.some(t => t.toLowerCase() === name)) return
+  form.value.province = ISERNIA_TOWNS.some(t => t.toLowerCase() === name) ? 'IS' : 'CB'
+})
+
+const onPickLocation = ({ lat, lng }) => {
+  form.value.lat = lat ?? ''
+  form.value.lng = lng ?? ''
+}
+
+const formatDate = (d) => new Date(d).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
 const selectedAdminProducerId = ref('')
 
 const currentProducerId = computed(() => {
@@ -247,6 +261,8 @@ const loadProfile = async () => {
 
     const p = await fetchWithAuth(`/producers/${pId}`)
     if (p) {
+      producerStatus.value = p.status || ''
+      deletionRequestedAt.value = p.deletion_requested_at || null
       const pGeo = p.address?.geo_coordinates || {}
       form.value = {
         id: p.id,
@@ -291,24 +307,6 @@ watch(() => user.value, (newVal) => {
   }
 })
 
-const handleUpload = async (event, type) => {
-  const file = event.target.files[0]
-  if (!file) return
-  const formData = new FormData()
-  formData.append('file', file)
-  try {
-    const res = await fetchWithAuth('/uploads/image', {
-      method: 'POST',
-      body: formData
-    })
-    if (type === 'logo') form.value.logo_url = res.url
-    if (type === 'cover') form.value.cover_image_url = res.url
-    toast.success('Immagine caricata con successo!')
-  } catch (err) {
-    toast.error('Errore durante l\'upload dell\'immagine.')
-  }
-}
-
 const parseCoordInput = (val) => {
   if (val === null || val === undefined || val === '') return null
   const num = Number(String(val).replace(',', '.').trim())
@@ -344,11 +342,11 @@ const handleSubmit = async () => {
         }
       }
     })
-    toast.success('Profilo cantina aggiornato con successo!')
+    toast.success('Profilo salvato.')
     await fetchUser()
     navigateTo('/dashboard')
   } catch (err) {
-    toast.error('Errore durante l\'aggiornamento.')
+    toast.error(apiErrorMessage(err, 'Errore durante il salvataggio del profilo.'))
   } finally {
     submitting.value = false
   }
@@ -367,6 +365,33 @@ const handleDeleteProducer = async () => {
     loadProfile()
   } catch (err) {
     toast.error('Errore durante l\'eliminazione della cantina.')
+  }
+}
+
+const requestDeletion = async () => {
+  deleting.value = true
+  try {
+    const res = await fetchWithAuth('/producers/me/deletion-request', { method: 'POST', body: { reason: deletionReason.value } })
+    deletionRequestedAt.value = res.deletion_requested_at
+    showDeletionForm.value = false
+    toast.success('Richiesta inviata all\'amministratore.')
+  } catch (err) {
+    toast.error(apiErrorMessage(err))
+  } finally {
+    deleting.value = false
+  }
+}
+
+const cancelDeletion = async () => {
+  deleting.value = true
+  try {
+    await fetchWithAuth('/producers/me/deletion-request', { method: 'DELETE' })
+    deletionRequestedAt.value = null
+    toast.success('Richiesta di cancellazione annullata.')
+  } catch (err) {
+    toast.error(apiErrorMessage(err))
+  } finally {
+    deleting.value = false
   }
 }
 </script>

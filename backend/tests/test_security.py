@@ -85,7 +85,8 @@ class BaseTest(unittest.TestCase):
 class AuthTests(BaseTest):
     def test_register_cannot_choose_admin_role(self):
         r = self.client.post(f"{API}/auth/register", json={
-            "email": "hacker@test.it", "password": "Password123!", "role": "ADMIN", "company_name": "Hack"
+            "email": "hacker@test.it", "password": "Password123!", "role": "ADMIN", "company_name": "Hack",
+            "privacy_accepted": True,
         })
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual(r.json()["role"], "PRODUCER")
@@ -95,13 +96,14 @@ class AuthTests(BaseTest):
         self.assertEqual(producer["status"], "PENDING_APPROVAL")
 
     def test_register_rejects_short_password(self):
-        r = self.client.post(f"{API}/auth/register", json={"email": "a@test.it", "password": "123"})
+        r = self.client.post(f"{API}/auth/register", json={"email": "a@test.it", "password": "123", "privacy_accepted": True})
         self.assertEqual(r.status_code, 422)
 
     def test_register_duplicate_company_gets_unique_slug(self):
         for i in range(2):
             r = self.client.post(f"{API}/auth/register", json={
-                "email": f"dup{i}@test.it", "password": "Password123!", "company_name": "Cantina Uno"
+                "email": f"dup{i}@test.it", "password": "Password123!", "company_name": "Cantina Uno",
+                "privacy_accepted": True,
             })
             self.assertEqual(r.status_code, 200, r.text)
         slugs = [d["slug"] for d in self.db.producers.docs]
@@ -189,15 +191,31 @@ class ProductVisibilityTests(BaseTest):
 class BatchImportTests(BaseTest):
     wines = [{"name": "Vino PDF", "grape_varieties": ["Tintilia"]}]
 
-    def test_pdf_import_is_admin_only(self):
+    def test_producer_import_is_scoped_to_own_winery(self):
+        # la cantina indica un'altra cantina: il vino viene comunque creato per la propria
         r = self.client.post(f"{API}/products/import/confirm-batch",
-                             json={"producer_id": str(self.p1), "wines": self.wines}, headers=self.auth(self.p1_token))
-        self.assertEqual(r.status_code, 403)
+                             json={"producer_id": str(self.p2), "wines": self.wines}, headers=self.auth(self.p1_token))
+        self.assertEqual(r.status_code, 200, r.text)
+        doc = run(self.db.products.find_one({"name": "Vino PDF"}))
+        self.assertEqual(doc["producer_id"], self.p1)
+        # non puo' aggiornare il vino di un'altra cantina
+        r = self.client.post(f"{API}/products/import/confirm-batch", json={"wines": [
+            {"name": "Biferno Rosso", "action": "update", "existing_id": str(self.pub2)}]}, headers=self.auth(self.p1_token))
+        self.assertEqual(r.json()["updated"], 0)
+        self.assertIn("solo i vini della tua cantina", r.json()["errors"][0])
+        status = self.client.get(f"{API}/products/import/ai-status", headers=self.auth(self.p1_token)).json()
+        self.assertEqual(status["daily_limit"], settings.PRODUCER_AI_FILES_PER_DAY)
+
+    def test_producer_ai_daily_limit(self):
+        run(self.db.ai_usage.insert_one({"producer_id": str(self.p1), "day": __import__("datetime").datetime.utcnow().strftime("%Y-%m-%d"),
+                                         "files": settings.PRODUCER_AI_FILES_PER_DAY}))
         r = self.client.post(f"{API}/products/import/parse-pdfs",
                              files={"files": ("a.pdf", b"%PDF-1.4", "application/pdf")}, headers=self.auth(self.p1_token))
-        self.assertEqual(r.status_code, 403)
-        self.assertEqual(self.client.get(f"{API}/products/import/ai-status", headers=self.auth(self.p1_token)).status_code, 403)
-        self.assertEqual(run(self.db.products.count_documents({"name": "Vino PDF"})), 0)
+        self.assertEqual(r.status_code, 429)
+        self.assertIn("limite giornaliero", r.json()["detail"])
+        too_many = [("files", (f"{i}.pdf", b"%PDF-1.4", "application/pdf")) for i in range(settings.PRODUCER_AI_FILES_PER_BATCH + 1)]
+        r = self.client.post(f"{API}/products/import/parse-pdfs", files=too_many, headers=self.auth(self.p2_token))
+        self.assertEqual(r.status_code, 400)
 
     def test_wine_fields_are_sanitized(self):
         r = self.client.post(f"{API}/products/import/confirm-batch",
@@ -294,7 +312,8 @@ class TaxonomyTests(BaseTest):
 class InquiryTests(BaseTest):
     def _send(self, producer_id):
         return self.client.post(f"{API}/inquiries", json={
-            "producer_id": str(producer_id), "user_name": "Mario", "user_email": "mario@test.it", "message": "Ciao"
+            "producer_id": str(producer_id), "user_name": "Mario", "user_email": "mario@test.it", "message": "Ciao",
+            "privacy_accepted": True,
         })
 
     def test_inquiry_rate_limited(self):

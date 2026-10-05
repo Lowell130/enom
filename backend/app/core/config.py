@@ -56,6 +56,26 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL: str = "claude-sonnet-5-5"
     AI_TIMEOUT_SECONDS: int = 180
 
+    # Indirizzo pubblico del sito, usato nei link delle email (in sviluppo: il frontend locale)
+    SITE_URL: str = "http://localhost:3000"
+
+    # Email: "outbox" = le email NON vengono spedite ma salvate nella "Posta in uscita"
+    # dell'area admin (ideale in sviluppo, senza dominio); "smtp" = invio reale con i dati SMTP.
+    EMAIL_MODE: str = "outbox"
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_SECURITY: str = "starttls"  # "starttls" (porta 587), "ssl" (porta 465) oppure "none"
+    SMTP_TIMEOUT_SECONDS: int = 20
+
+    # Validita' del link per reimpostare la password
+    PASSWORD_RESET_TTL_MINUTES: int = 60
+
+    # Importazione IA delle schede: limite giornaliero di file per ogni cantina
+    PRODUCER_AI_FILES_PER_DAY: int = 20
+    PRODUCER_AI_FILES_PER_BATCH: int = 10
+
     # Limiti anti-abuso
     LOGIN_MAX_ATTEMPTS: int = 10
     LOGIN_WINDOW_SECONDS: int = 900

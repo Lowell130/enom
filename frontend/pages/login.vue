@@ -47,11 +47,15 @@
           <p class="text-[15px] text-ink-soft">Accedi per gestire la tua cantina e i tuoi vini.</p>
         </div>
         <label class="field-label">Email
-          <input v-model="email" type="email" required autocomplete="email" placeholder="nome@cantina.it" class="input" />
+          <input v-model="email" type="email" required autocomplete="username" placeholder="nome@cantina.it" class="input" />
         </label>
-        <label class="field-label">Password
-          <input v-model="password" type="password" required autocomplete="current-password" class="input" />
-        </label>
+        <div class="field-label">
+          <span class="flex items-center justify-between gap-3">
+            <label for="login-password">Password</label>
+            <NuxtLink to="/password-dimenticata" class="text-[13px] font-semibold text-wine-800 hover:text-wine-900">Password dimenticata?</NuxtLink>
+          </span>
+          <PasswordInput id="login-password" v-model="password" autocomplete="current-password" />
+        </div>
         <p v-if="error" role="alert" class="p-3 rounded-[10px] bg-wine-50 border border-wine-200 text-wine-900 text-sm font-semibold">{{ error }}</p>
         <button type="submit" :disabled="loading" class="btn-primary h-[52px] text-base">
           {{ loading ? 'Accesso in corso…' : 'Accedi' }}
@@ -71,11 +75,20 @@
           <input v-model="companyName" type="text" required autocomplete="organization" placeholder="es. Tenuta San Giovanni" class="input" />
         </label>
         <label class="field-label">Email della cantina
-          <input v-model="email" type="email" required autocomplete="email" placeholder="info@cantina.it" class="input" />
+          <input v-model="regEmail" type="email" required autocomplete="email" placeholder="info@cantina.it" class="input" />
+          <span class="text-[13px] font-normal text-ink-mute">Sarà la tua email di accesso: qui riceverai le conferme e le richieste dei clienti.</span>
         </label>
-        <label class="field-label">Password
-          <input v-model="password" type="password" required minlength="8" autocomplete="new-password" class="input" />
+        <div class="field-label">
+          <label for="reg-password">Password</label>
+          <PasswordInput id="reg-password" v-model="regPassword" autocomplete="new-password" :minlength="8" />
           <span class="text-[13px] font-normal text-ink-mute">Almeno 8 caratteri.</span>
+        </div>
+        <label class="flex items-start gap-3 text-sm text-ink-soft cursor-pointer">
+          <input v-model="privacyAccepted" type="checkbox" required class="mt-0.5 w-[18px] h-[18px] accent-wine-800 shrink-0" />
+          <span>
+            Ho letto l'<NuxtLink to="/privacy" target="_blank" class="font-semibold text-wine-800 underline underline-offset-2">informativa sulla privacy</NuxtLink>
+            e acconsento al trattamento dei dati per la creazione e la gestione del profilo della cantina.
+          </span>
         </label>
         <p v-if="error" role="alert" class="p-3 rounded-[10px] bg-wine-50 border border-wine-200 text-wine-900 text-sm font-semibold">{{ error }}</p>
         <button type="submit" :disabled="loading" class="btn-primary h-[52px] text-base">
@@ -88,6 +101,8 @@
 
 <script setup>
 import { Check } from 'lucide-vue-next'
+import PasswordInput from '~/components/PasswordInput.vue'
+import { apiErrorMessage } from '~/utils/apiError'
 
 useSeoMeta({ title: 'Accedi - EnotecaMolise' })
 
@@ -95,13 +110,17 @@ const route = useRoute()
 const mode = ref(route.query.mode === 'register' ? 'register' : 'login')
 const email = ref('')
 const password = ref('')
+// la registrazione ha i suoi campi: email e password del login non vengono riportate
+const regEmail = ref('')
+const regPassword = ref('')
 const companyName = ref('')
+const privacyAccepted = ref(false)
 const error = ref('')
 const loading = ref(false)
 
 const benefits = [
   'Una pagina per la cantina, con storia, foto e contatti.',
-  'Le schede dei vini, anche caricate da PDF.',
+  'Le schede dei vini, anche lette in automatico dai tuoi PDF.',
   'Le richieste dei clienti arrivano direttamente a te.'
 ]
 
@@ -111,9 +130,12 @@ const toast = useToast()
 const switchMode = (value) => {
   mode.value = value
   error.value = ''
+  password.value = ''
+  regPassword.value = ''
 }
 
 watch(() => route.query.mode, (v) => { mode.value = v === 'register' ? 'register' : 'login' })
+watch([email, password, regEmail, regPassword, companyName, privacyAccepted], () => { error.value = '' })
 
 const handleLogin = async () => {
   loading.value = true
@@ -141,23 +163,27 @@ const handleRegister = async () => {
     error.value = 'Inserisci il nome della tua cantina'
     return
   }
-  if (password.value.length < 8) {
+  if (regPassword.value.length < 8) {
     error.value = 'La password deve contenere almeno 8 caratteri'
+    return
+  }
+  if (!privacyAccepted.value) {
+    error.value = "Per registrarti devi accettare l'informativa sulla privacy"
     return
   }
   loading.value = true
   error.value = ''
   try {
     await registerProducer({
-      email: email.value,
-      password: password.value,
-      company_name: companyName.value
+      email: regEmail.value.trim(),
+      password: regPassword.value,
+      company_name: companyName.value.trim(),
+      privacy_accepted: true
     })
-    toast.success('Profilo cantina creato! Sarà visibile al pubblico dopo l\'approvazione dell\'amministratore.')
+    toast.success('Registrazione completata! Ti abbiamo inviato un\'email di conferma: la cantina sarà pubblica dopo l\'approvazione.')
     navigateTo('/dashboard')
   } catch (err) {
-    const detail = err.data?.detail
-    error.value = (typeof detail === 'string' && detail) || 'Errore durante la creazione della cantina'
+    error.value = apiErrorMessage(err, 'Non è stato possibile completare la registrazione. Riprova.')
   } finally {
     loading.value = false
   }

@@ -24,6 +24,10 @@
           <CheckCircle2 class="w-3.5 h-3.5" />
           IA attiva: {{ providerLabel }} ({{ aiStatus.model }})
         </div>
+        <div v-else-if="!isAdmin" class="text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-start gap-1.5">
+          <AlertTriangle class="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>La lettura automatica delle immagini non è disponibile in questo momento: puoi importare i PDF con testo selezionabile oppure inserire il vino a mano.</span>
+        </div>
         <div v-else class="text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-start gap-1.5">
           <AlertTriangle class="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <span>IA non configurata: si possono leggere solo PDF con testo selezionabile (non immagini, screenshot o scansioni).
@@ -35,7 +39,13 @@
 
         <!-- STEP 1: selezione -->
         <template v-if="step === 'select'">
-          <div>
+          <div v-if="!isAdmin" class="text-sm text-stone-700 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 space-y-1">
+            <p class="m-0">I vini letti dalle schede verranno aggiunti alla <strong>tua cantina</strong>. Prima di salvarli potrai controllarli e correggerli uno per uno.</p>
+            <p v-if="aiStatus && aiStatus.daily_limit" class="m-0 text-xs text-stone-500">
+              Oggi puoi ancora analizzare <strong>{{ remainingToday }}</strong> file su {{ aiStatus.daily_limit }}.
+            </p>
+          </div>
+          <div v-if="isAdmin">
             <label class="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">1. Cantina produttrice</label>
             <select v-model="defaultProducerId" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm bg-white font-medium focus:ring-2 focus:ring-wine-800 focus:outline-none">
               <option value="">🔎 Riconosci automaticamente dal documento</option>
@@ -45,7 +55,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">2. Schede dei vini (PDF o immagini)</label>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-700 mb-1.5">{{ isAdmin ? '2. ' : '' }}Schede dei vini (PDF o immagini)</label>
             <div
               :class="['border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-colors', dragging ? 'border-wine-800 bg-wine-50' : 'border-amber-300 hover:border-amber-500 bg-amber-50/30']"
               @click="fileInput?.click()"
@@ -56,7 +66,7 @@
               <input ref="fileInput" type="file" :accept="ACCEPT" multiple class="hidden" @change="onFilesSelected" />
               <Upload class="w-9 h-9 text-amber-600 mx-auto mb-2" />
               <p class="text-sm font-bold text-stone-800">Trascina qui i file o clicca per sceglierli</p>
-              <p class="text-xs text-stone-500 mt-1">PDF, JPG, PNG o WebP · fino a {{ MAX_FILES }} file, max 15 MB ciascuno · un file può contenere uno o più vini.</p>
+              <p class="text-xs text-stone-500 mt-1">PDF, JPG, PNG o WebP · fino a {{ maxFiles }} file, max 15 MB ciascuno · un file può contenere uno o più vini.</p>
             </div>
             <ul v-if="files.length" class="mt-3 space-y-1.5">
               <li v-for="(f, idx) in files" :key="f.name + idx" class="flex items-center justify-between text-xs bg-stone-50 border border-stone-200 rounded-xl px-3 py-2">
@@ -150,7 +160,7 @@
                   </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 shrink-0">
-                  <select v-model="w.producer_id" @change="onProducerChange(w)"
+                  <select v-if="isAdmin" v-model="w.producer_id" @change="onProducerChange(w)"
                     :class="['border rounded-lg px-2 py-1.5 text-xs bg-white max-w-[200px]', w.producer_id ? 'border-stone-200' : 'border-rose-400 text-rose-700']">
                     <option value="">— Scegli la cantina —</option>
                     <option v-for="p in producers" :key="p.id" :value="p.id">{{ p.company_name }}</option>
@@ -294,6 +304,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'imported'])
 
 const { fetchWithAuth } = useApi()
+const { user, isAdmin } = useAuth()
 const toast = useToast()
 
 const MAX_FILES = 30
@@ -329,6 +340,19 @@ const pairingOptions = ref([...DEFAULT_PAIRINGS])
 const attributeNames = ref([])
 let keySeq = 0
 
+// Le cantine importano solo per sé, entro la quota giornaliera indicata dal server
+const remainingToday = computed(() => {
+  const s = aiStatus.value
+  if (!s || !s.daily_limit) return null
+  return Math.max(0, s.daily_limit - (s.used_today || 0))
+})
+const maxFiles = computed(() => {
+  if (isAdmin.value) return MAX_FILES
+  const caps = [MAX_FILES]
+  if (aiStatus.value?.batch_limit) caps.push(aiStatus.value.batch_limit)
+  if (remainingToday.value !== null) caps.push(remainingToday.value)
+  return Math.min(...caps)
+})
 const providerLabel = computed(() => ({ gemini: 'Google Gemini', anthropic: 'Anthropic Claude' }[aiStatus.value?.provider] || aiStatus.value?.provider))
 const doneCount = computed(() => fileStates.value.filter(f => ['ok', 'error', 'duplicate'].includes(f.state)).length)
 const failedFiles = computed(() => fileStates.value.filter(f => f.state === 'error'))
@@ -337,6 +361,7 @@ const selectedCount = computed(() => wines.value.filter(w => w.action !== 'skip'
 const hasPdfWines = computed(() => wines.value.some(w => w._file && isPdfFile(w._file)))
 
 onMounted(async () => {
+  if (!isAdmin.value && user.value?.producer_id) defaultProducerId.value = user.value.producer_id
   try { aiStatus.value = await fetchWithAuth('/products/import/ai-status') } catch (e) { aiStatus.value = null }
   try {
     const list = await fetchWithAuth('/pairings')
@@ -355,7 +380,10 @@ const addFiles = (list) => {
     if (!isSupportedFile(f)) { toast.error(`${f.name}: formato non supportato (usa PDF, JPG, PNG o WebP)`); continue }
     if (f.size > MAX_BYTES) { toast.error(`${f.name}: supera i 15 MB`); continue }
     if (files.value.some(x => x.name === f.name && x.size === f.size)) continue
-    if (files.value.length >= MAX_FILES) { toast.error(`Massimo ${MAX_FILES} file per volta`); break }
+    if (files.value.length >= maxFiles.value) {
+      toast.error(maxFiles.value === 0 ? 'Hai raggiunto il limite di schede analizzabili per oggi: riprova domani.' : `Massimo ${maxFiles.value} file per volta`)
+      break
+    }
     files.value.push(f)
   }
 }

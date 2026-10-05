@@ -41,14 +41,14 @@ export const useAuth = () => {
     return res
   }
 
-  const registerProducer = async (data: { email: string; password: string; company_name: string }) => {
+  const registerProducer = async (data: { email: string; password: string; company_name: string; privacy_accepted: boolean }) => {
     await fetchWithAuth('/auth/register', {
       method: 'POST',
       body: {
         email: data.email,
         password: data.password,
         company_name: data.company_name,
-        role: 'PRODUCER'
+        privacy_accepted: data.privacy_accepted
       }
     })
     return await login({ email: data.email, password: data.password })

@@ -14,7 +14,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
-from app.api.v1.auth import get_current_admin
+from app.api.v1.auth import get_current_user
+from app.core.config import settings
 from app.db.mongodb import get_database
 from app.schemas.product import ProductCreate
 from app.services.ai_extractor import AIExtractionError, provider_status
@@ -68,23 +69,64 @@ def _mark_batch_duplicates(wines: List[Dict[str, Any]]) -> None:
             seen.append(w)
 
 
+def _own_producer_id(user: dict) -> Optional[str]:
+    """None per l'amministratore (puo' importare per qualsiasi cantina); l'id della propria cantina per una cantina."""
+    if user.get("role") == "ADMIN":
+        return None
+    pid = user.get("producer_id")
+    if not pid or not ObjectId.is_valid(str(pid)):
+        raise HTTPException(status_code=403, detail="Il tuo account non è collegato ad alcuna cantina")
+    return str(pid)
+
+
+def _today() -> str:
+    return datetime.utcnow().strftime("%Y-%m-%d")
+
+
+async def _ai_usage_today(db, producer_id: str) -> int:
+    doc = await db.ai_usage.find_one({"producer_id": producer_id, "day": _today()})
+    return int((doc or {}).get("files", 0))
+
+
 @router.get("/import/ai-status")
-async def ai_status(current_admin: dict = Depends(get_current_admin)):
-    return provider_status()
+async def ai_status(current_user: dict = Depends(get_current_user), db=Depends(get_database)):
+    status = provider_status()
+    own = _own_producer_id(current_user)
+    if own:
+        # le cantine hanno un limite giornaliero di file (costo del servizio IA)
+        status["daily_limit"] = settings.PRODUCER_AI_FILES_PER_DAY
+        status["batch_limit"] = settings.PRODUCER_AI_FILES_PER_BATCH
+        status["used_today"] = await _ai_usage_today(db, own)
+    return status
 
 
 @router.post("/import/parse-pdfs")
 async def parse_pdfs_batch(
     files: List[UploadFile] = File(...),
     producer_id: Optional[str] = Form(None),
-    current_admin: dict = Depends(get_current_admin),
+    current_user: dict = Depends(get_current_user),
     db=Depends(get_database)
 ):
-    """Analizza i PDF e restituisce i vini proposti, uno o piu' per file. Non salva nulla."""
+    """Analizza i PDF e restituisce i vini proposti, uno o piu' per file. Non salva nulla.
+    Una cantina importa solo per se stessa, con un limite di file per volta e al giorno."""
     if not files:
         raise HTTPException(status_code=400, detail="Nessun file caricato")
-    if len(files) > MAX_PDF_FILES:
-        raise HTTPException(status_code=400, detail=f"Puoi caricare al massimo {MAX_PDF_FILES} file alla volta")
+    own = _own_producer_id(current_user)
+    max_files = settings.PRODUCER_AI_FILES_PER_BATCH if own else MAX_PDF_FILES
+    if len(files) > max_files:
+        raise HTTPException(status_code=400, detail=f"Puoi caricare al massimo {max_files} file alla volta")
+    if own:
+        producer_id = own
+        used = await _ai_usage_today(db, own)
+        remaining = settings.PRODUCER_AI_FILES_PER_DAY - used
+        if len(files) > remaining:
+            raise HTTPException(status_code=429, detail=(
+                f"Hai raggiunto il limite giornaliero di {settings.PRODUCER_AI_FILES_PER_DAY} schede analizzate"
+                if remaining <= 0 else
+                f"Oggi puoi analizzare ancora {remaining} {'scheda' if remaining == 1 else 'schede'}: riduci il numero di file"
+            ))
+        await db.ai_usage.update_one({"producer_id": own, "day": _today()},
+                                     {"$inc": {"files": len(files)}}, upsert=True)
 
     forced_producer = None
     if producer_id:
@@ -177,10 +219,13 @@ class DuplicateCheckPayload(BaseModel):
 @router.post("/import/check-duplicate")
 async def check_duplicate(
     payload: DuplicateCheckPayload,
-    current_admin: dict = Depends(get_current_admin),
+    current_user: dict = Depends(get_current_user),
     db=Depends(get_database)
 ):
     """Ricontrolla i doppioni quando nella revisione si cambia cantina o nome del vino."""
+    own = _own_producer_id(current_user)
+    if own:
+        payload.producer_id = own
     if not ObjectId.is_valid(payload.producer_id):
         return {"existing_product": None, "name_key": name_key(payload.name)}
     candidates = await _producer_wines(db, ObjectId(payload.producer_id))
@@ -202,7 +247,7 @@ class BatchCheckPayload(BaseModel):
 
 
 @router.post("/import/check-batch")
-async def check_batch(payload: BatchCheckPayload, current_admin: dict = Depends(get_current_admin)):
+async def check_batch(payload: BatchCheckPayload, current_user: dict = Depends(get_current_user)):
     """Per ogni vino dell'import indica se ripete un vino precedente dello stesso import (stessa cantina)."""
     wines = [w.model_dump() for w in payload.wines]
     for w in wines:
@@ -311,9 +356,10 @@ def _merge_for_update(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str
 @router.post("/import/confirm-batch")
 async def confirm_pdf_batch_import(
     payload: ConfirmBatchImportPayload,
-    current_admin: dict = Depends(get_current_admin),
+    current_user: dict = Depends(get_current_user),
     db=Depends(get_database)
 ):
+    own = _own_producer_id(current_user)
     producer_cache: Dict[str, bool] = {}
 
     async def producer_exists(pid: str) -> bool:
@@ -329,7 +375,8 @@ async def confirm_pdf_batch_import(
         if w.action == "skip":
             skipped += 1
             continue
-        pid = w.producer_id or payload.producer_id or ""
+        # una cantina importa sempre e solo per se stessa
+        pid = own or w.producer_id or payload.producer_id or ""
         if not await producer_exists(pid):
             errors.append(f"{label}: seleziona una cantina valida")
             continue
@@ -348,6 +395,9 @@ async def confirm_pdf_batch_import(
             existing = await db.products.find_one({"_id": ObjectId(w.existing_id)})
             if not existing:
                 errors.append(f"{label}: il vino da aggiornare non esiste più")
+                continue
+            if own and str(existing.get("producer_id")) != own:
+                errors.append(f"{label}: puoi aggiornare solo i vini della tua cantina")
                 continue
 
         now = datetime.utcnow()
@@ -381,7 +431,8 @@ async def confirm_pdf_batch_import(
             created += 1
 
         await sync_grapes_with_master(doc["grape_varieties"], db)
-        await sync_pairings_with_master(doc["food_pairings"], db)
+        if not own:
+            await sync_pairings_with_master(doc["food_pairings"], db)
         await sync_custom_attributes_with_master(doc["custom_attributes"], db)
 
     def plural(n, one, many):

@@ -3,17 +3,21 @@
     
     <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
       <div>
-        <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">
-          Gestione Cantine & Produttori (Admin)
-        </h1>
-        <p class="text-xs text-ink-mute mt-1">
-          Aggiungi nuove cantine molisane, modifica i loro dati e contatti o gestisci quelle esistenti.
-        </p>
+        <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">Cantine</h1>
+        <p class="text-sm text-ink-soft mt-1.5">Approva le nuove registrazioni, modifica i profili e gestisci le richieste di cancellazione.</p>
       </div>
 
       <button @click="showAddModal = true" class="inline-flex items-center space-x-1.5 px-6 py-3 bg-wine-800 hover:bg-wine-900 text-white font-semibold text-sm rounded-xl shadow-xs transition-all">
         <Plus class="w-4 h-4 text-amber-200" />
         <span>Aggiungi Nuova Cantina</span>
+      </button>
+    </div>
+
+    <!-- Filtro per stato -->
+    <div role="tablist" aria-label="Filtra per stato" class="flex flex-wrap gap-1.5 mb-4">
+      <button v-for="f in statusFilters" :key="f.value" type="button" role="tab" :aria-selected="statusFilter === f.value"
+              :class="['pill', statusFilter === f.value && 'pill-active']" @click="setFilter(f.value)">
+        {{ f.label }} <span class="ml-1.5 opacity-70">{{ f.count }}</span>
       </button>
     </div>
 
@@ -23,8 +27,9 @@
       <div v-if="pending" class="p-8 text-center text-sm text-ink-mute">
         Caricamento cantine in corso...
       </div>
+      <p v-else-if="!visibleProducers.length" class="p-10 text-center text-sm text-ink-mute m-0">Nessuna cantina in questo elenco.</p>
 
-      <div v-else-if="producers && producers.length" class="overflow-x-auto">
+      <div v-else-if="visibleProducers.length" class="overflow-x-auto">
         <table class="w-full text-left text-sm text-ink-soft">
           <thead class="bg-stone-50 text-xs uppercase font-bold text-ink-mute border-b border-stone-100">
             <tr>
@@ -36,13 +41,13 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-stone-100">
-            <tr v-for="p in producers" :key="p.id" class="hover:bg-stone-50/50 transition-colors">
+            <tr v-for="p in visibleProducers" :key="p.id" :class="['transition-colors', p.status === 'PENDING_APPROVAL' ? 'bg-[#FBF5E8]/60' : 'hover:bg-stone-50/50']">
               
               <!-- Cantina Name & Logo (Clickable Link to Producer Page) -->
               <td class="py-4 px-6 min-w-[240px]">
                 <NuxtLink :to="`/produttori/${p.slug}`" target="_blank" class="flex items-center space-x-3.5 group cursor-pointer" title="Clicca per visualizzare la pagina della cantina">
-                  <div class="w-12 h-12 shrink-0 bg-white rounded-xl border border-line p-1 flex items-center justify-center group-hover:border-wine-300 transition-colors">
-                    <img :src="getLogo(p)" class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform" />
+                  <div class="logo-box w-12 h-12 shrink-0 rounded-xl border border-line text-base group-hover:border-wine-300 transition-colors">
+                    <SafeImg :src="getLogo(p)" alt="" class="logo-img p-1">{{ initials(p.company_name) }}</SafeImg>
                   </div>
                   <div>
                     <span class="font-sans font-bold text-sm text-ink group-hover:text-wine-800 leading-snug block transition-colors">{{ p.company_name }}</span>
@@ -50,17 +55,22 @@
                     <span v-if="p.status && p.status !== 'APPROVED'" :class="['inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide', p.status === 'SUSPENDED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800']">
                       {{ p.status === 'SUSPENDED' ? 'Sospesa' : 'In attesa di approvazione' }}
                     </span>
+                    <span v-if="p.deletion_requested_at" class="inline-block mt-1 ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-wine-800 text-white"
+                          :title="p.deletion_reason ? `Motivo: ${p.deletion_reason}` : 'Nessun motivo indicato'">
+                      Chiede la cancellazione
+                    </span>
                   </div>
                 </NuxtLink>
               </td>
 
               <!-- Città / Prov & Coordinate GPS -->
               <td class="py-4 px-6 text-xs whitespace-nowrap">
-                <span class="font-bold text-ink block text-xs">{{ p.address?.city || 'Molise' }} ({{ p.address?.province || 'CB' }})</span>
+                <span v-if="p.address?.city" class="font-bold text-ink block text-xs">{{ p.address.city }}<template v-if="p.address?.province"> ({{ p.address.province }})</template></span>
+                <span v-else class="font-bold text-wine-800 block text-xs">Comune non indicato</span>
                 <span v-if="p.address?.geo_coordinates?.lat" class="text-wine-800 font-mono text-[11px] block mt-0.5" title="Coordinate GPS">
                   📍 {{ p.address.geo_coordinates.lat.toFixed(4) }}, {{ p.address.geo_coordinates.lng.toFixed(4) }}
                 </span>
-                <span v-else class="text-stone-400 font-medium block mt-0.5 text-[11px]">Coordinate non set</span>
+                <span v-else class="text-stone-400 font-medium block mt-0.5 text-[11px]">Nessun punto sulla mappa</span>
               </td>
 
               <!-- Contatti -->
@@ -85,7 +95,10 @@
               <td class="py-4 px-6 text-xs whitespace-nowrap">
                 <span class="px-3 py-1 bg-wine-50 text-wine-900 rounded-full font-bold border border-wine-200/60 inline-flex items-center space-x-1.5">
                   <Wine class="w-3.5 h-3.5 text-wine-800" />
-                  <span>{{ p.product_count || 0 }} Vini</span>
+                  <span>{{ wineCount(p.product_count) }}</span>
+                </span>
+                <span v-if="(p.total_product_count || 0) > (p.product_count || 0)" class="block mt-1 text-[11px] text-ink-mute">
+                  {{ p.total_product_count }} inseriti in totale
                 </span>
               </td>
 
@@ -93,6 +106,14 @@
               <td class="py-4 px-6 text-right whitespace-nowrap">
                 <div class="flex flex-col items-end space-y-1.5">
                   
+                  <!-- Azione rapida sullo stato -->
+                  <button v-if="p.status === 'PENDING_APPROVAL'" type="button" class="btn-primary btn-sm h-8 px-3 text-xs" @click="quickStatus(p, 'APPROVED')">
+                    <Check class="w-3.5 h-3.5" aria-hidden="true" /> Approva
+                  </button>
+                  <button v-else-if="p.status === 'SUSPENDED'" type="button" class="btn-outline btn-sm h-8 px-3 text-xs" @click="quickStatus(p, 'APPROVED')">
+                    Riattiva
+                  </button>
+
                   <!-- Row 1: Vedi Pagina & Modifica -->
                   <div class="flex items-center space-x-2">
                     <NuxtLink 
@@ -155,7 +176,7 @@
           <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-semibold text-ink-soft mb-1">Città *</label>
-              <input v-model="newProducer.city" type="text" required placeholder="Campobasso" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
+              <input v-model="newProducer.city" type="text" required placeholder="es. Larino" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
               <label class="block text-xs font-semibold text-ink-soft mb-1">CAP</label>
@@ -276,7 +297,11 @@
             <input v-model="editProducer.street" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
           </div>
 
-          <!-- Coordinate GPS Mappa -->
+          <!-- Posizione sulla mappa -->
+          <ClientOnly>
+            <LocationPicker :lat="editProducer.lat" :lng="editProducer.lng" :town="editProducer.city"
+              @update="({ lat, lng }) => { editProducer.lat = lat ?? ''; editProducer.lng = lng ?? '' }" />
+          </ClientOnly>
           <div class="grid grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-line">
             <div>
               <label class="block text-[11px] font-semibold text-ink-soft mb-1">Latitudine GPS (es. 41,6147818)</label>
@@ -339,7 +364,9 @@
 </template>
 
 <script setup>
-import { ArrowLeft, Plus, Pencil, Eye, Trash2, X, Mail, Phone, MessageSquare, Wine } from 'lucide-vue-next'
+import { Plus, Pencil, Eye, Trash2, X, Mail, Phone, MessageSquare, Wine, Check } from 'lucide-vue-next'
+import { apiErrorMessage } from '~/utils/apiError'
+import LocationPicker from '~/components/LocationPicker.client.vue'
 
 const { fetchWithAuth, mediaBase } = useApi()
 const toast = useToast()
@@ -352,10 +379,58 @@ const { data: producers, pending, refresh } = await useAsyncData('admin_producer
   return res || []
 }, { default: () => [] })
 
+const route = useRoute()
+const router = useRouter()
+const { initials } = useProducer()
+
+// filtro per stato (anche dal link "Rivedi" della panoramica: ?stato=PENDING_APPROVAL)
+const statusFilter = ref(String(route.query.stato || 'ALL'))
+const setFilter = (value) => {
+  statusFilter.value = value
+  router.replace({ query: { ...route.query, stato: value === 'ALL' ? undefined : value } })
+}
+const statusFilters = computed(() => {
+  const list = producers.value || []
+  return [
+    { value: 'ALL', label: 'Tutte', count: list.length },
+    { value: 'PENDING_APPROVAL', label: 'In attesa', count: list.filter(p => p.status === 'PENDING_APPROVAL').length },
+    { value: 'APPROVED', label: 'Approvate', count: list.filter(p => (p.status || 'APPROVED') === 'APPROVED').length },
+    { value: 'SUSPENDED', label: 'Sospese', count: list.filter(p => p.status === 'SUSPENDED').length },
+    { value: 'DELETION', label: 'Chiedono la cancellazione', count: list.filter(p => p.deletion_requested_at).length }
+  ]
+})
+// prima le cantine da approvare e quelle che chiedono la cancellazione, poi in ordine alfabetico
+const priority = (p) => (p.status === 'PENDING_APPROVAL' ? 0 : p.deletion_requested_at ? 1 : 2)
+const visibleProducers = computed(() => {
+  const list = (producers.value || []).filter((p) => {
+    if (statusFilter.value === 'ALL') return true
+    if (statusFilter.value === 'DELETION') return !!p.deletion_requested_at
+    return (p.status || 'APPROVED') === statusFilter.value
+  })
+  return [...list].sort((a, b) => priority(a) - priority(b) || a.company_name.localeCompare(b.company_name, 'it'))
+})
+
+const wineCount = (n) => {
+  const count = n || 0
+  return count === 1 ? '1 vino' : `${count} vini`
+}
+
+const quickStatus = async (p, status) => {
+  try {
+    await fetchWithAuth(`/producers/${p.id}`, { method: 'PUT', body: { status } })
+    toast.success(status === 'APPROVED'
+      ? `${p.company_name} è online: abbiamo avvisato la cantina via email.`
+      : `${p.company_name} è stata sospesa.`)
+    await refresh()
+  } catch (err) {
+    toast.error(apiErrorMessage(err))
+  }
+}
+
 const newProducer = reactive({
   company_name: '',
-  city: 'Campobasso',
-  province: 'CB',
+  city: '',
+  province: '',
   zip_code: '',
   street: '',
   lat: '',
@@ -389,10 +464,8 @@ const editProducer = reactive({
 })
 
 const getLogo = (p) => {
-  if (p.logo_url) {
-    return p.logo_url.startsWith('http') ? p.logo_url : `${mediaBase}${p.logo_url}`
-  }
-  return 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=300&q=80'
+  if (!p.logo_url) return ''
+  return p.logo_url.startsWith('http') ? p.logo_url : `${mediaBase}${p.logo_url}`
 }
 
 const openEditModal = (p) => {

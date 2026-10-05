@@ -34,7 +34,14 @@
       </div>
 
       <!-- Form -->
-      <form @submit.prevent="handleSubmit" class="space-y-4">
+      <div v-if="successMessage" role="status" class="py-6 flex flex-col items-center text-center gap-3">
+        <span class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center"><CheckCircle class="w-6 h-6" aria-hidden="true" /></span>
+        <p class="font-semibold text-stone-800">{{ successMessage }}</p>
+        <p class="text-xs text-stone-500">Ti abbiamo inviato una copia del messaggio all'indirizzo {{ sentTo }}.</p>
+        <button type="button" class="mt-2 px-5 py-2 rounded-xl border border-stone-200 text-sm font-semibold text-stone-700 hover:bg-stone-50" @click="close">Chiudi</button>
+      </div>
+
+      <form v-else @submit.prevent="handleSubmit" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold text-stone-700 mb-1">Il tuo Nome e Cognome *</label>
           <div class="relative">
@@ -99,10 +106,13 @@
           ></textarea>
         </div>
 
-        <div v-if="successMessage" class="p-3.5 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold flex items-center space-x-2 border border-emerald-200">
-          <CheckCircle class="w-4 h-4 text-emerald-600 flex-shrink-0" />
-          <span>{{ successMessage }}</span>
-        </div>
+        <label class="flex items-start gap-2.5 text-xs text-stone-600 cursor-pointer">
+          <input v-model="form.privacy_accepted" type="checkbox" required class="mt-0.5 w-4 h-4 accent-wine-800 shrink-0" />
+          <span>
+            Acconsento all'invio dei miei dati a {{ producerName || 'questa cantina' }} per ricevere una risposta, come descritto
+            nell'<NuxtLink to="/privacy" target="_blank" class="font-semibold text-wine-800 underline underline-offset-2">informativa sulla privacy</NuxtLink>.
+          </span>
+        </label>
 
         <div v-if="errorMessage" class="p-3.5 bg-rose-50 text-rose-800 rounded-xl text-xs font-semibold flex items-center space-x-2 border border-rose-200">
           <AlertCircle class="w-4 h-4 text-rose-600 flex-shrink-0" />
@@ -130,6 +140,7 @@
 
 <script setup>
 import { X, MessageSquare, User, Mail, Phone, Send, CheckCircle, AlertCircle } from 'lucide-vue-next'
+import { apiErrorMessage } from '~/utils/apiError'
 
 const props = defineProps({
   isOpen: Boolean,
@@ -148,8 +159,10 @@ const form = reactive({
   user_email: '',
   user_phone: '',
   message_type: 'INFO_PREZZI',
-  message: ''
+  message: '',
+  privacy_accepted: false
 })
+const sentTo = ref('')
 
 const submitting = ref(false)
 const successMessage = ref('')
@@ -171,7 +184,19 @@ const close = () => {
   emit('close')
 }
 
+// riaprendo la finestra dopo un invio si riparte da un messaggio vuoto
+watch(() => props.isOpen, (open) => {
+  if (open) {
+    successMessage.value = ''
+    errorMessage.value = ''
+  }
+})
+
 const handleSubmit = async () => {
+  if (!form.privacy_accepted) {
+    errorMessage.value = "Per inviare il messaggio devi accettare l'informativa sulla privacy."
+    return
+  }
   submitting.value = true
   successMessage.value = ''
   errorMessage.value = ''
@@ -186,15 +211,19 @@ const handleSubmit = async () => {
         user_email: form.user_email,
         user_phone: form.user_phone,
         message_type: form.message_type,
-        message: form.message
+        message: form.message,
+        privacy_accepted: true
       }
     })
-    successMessage.value = 'Messaggio inviato con successo! La cantina ti risponderà al più presto.'
+    sentTo.value = form.user_email
+    successMessage.value = 'Messaggio inviato! La cantina ti risponderà direttamente via email.'
+    form.message = ''
+    form.privacy_accepted = false
     setTimeout(() => {
-      close()
-    }, 2000)
+      if (successMessage.value) close()
+    }, 4000)
   } catch (err) {
-    errorMessage.value = 'Errore durante l\'invio. Riprova più tardi.'
+    errorMessage.value = apiErrorMessage(err, 'Errore durante l\'invio. Riprova più tardi.')
   } finally {
     submitting.value = false
   }

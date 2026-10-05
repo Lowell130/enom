@@ -221,6 +221,18 @@ class FakeCollection:
                 new = copy.deepcopy(d)
                 for path, value in update.get("$set", {}).items():
                     _set_path(new, path, copy.deepcopy(value))
+                for path, value in update.get("$inc", {}).items():
+                    current = _get_values(new, path)
+                    _set_path(new, path, (current[0] if current and isinstance(current[0], (int, float)) else 0) + value)
+                for path in update.get("$unset", {}):
+                    parts = path.split(".")
+                    target = new
+                    for part in parts[:-1]:
+                        target = target.get(part) if isinstance(target, dict) else None
+                        if target is None:
+                            break
+                    if isinstance(target, dict):
+                        target.pop(parts[-1], None)
                 for path, value in update.get("$addToSet", {}).items():
                     current = _get_values(new, path)
                     arr = list(current[0]) if current and isinstance(current[0], list) else []
@@ -236,7 +248,16 @@ class FakeCollection:
         return FakeResult(matched_count=count, modified_count=count)
 
     async def update_one(self, query, update, upsert=False):
-        return await self._update(query, update, many=False)
+        result = await self._update(query, update, many=False)
+        if upsert and result.matched_count == 0:
+            # come MongoDB: il documento nuovo parte dai campi di uguaglianza del filtro
+            doc = {k: copy.deepcopy(v) for k, v in query.items() if not k.startswith("$") and not isinstance(v, dict)}
+            for path, value in update.get("$set", {}).items():
+                _set_path(doc, path, copy.deepcopy(value))
+            for path, value in update.get("$inc", {}).items():
+                _set_path(doc, path, value)
+            await self.insert_one(doc)
+        return result
 
     async def update_many(self, query, update):
         return await self._update(query, update, many=True)

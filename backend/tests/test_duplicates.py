@@ -92,9 +92,11 @@ class DuplicateImportTests(AIConfigMixin, BaseTest):
         r = self.client.post(f"{API}/products/import/check-duplicate",
                              json={"producer_id": str(self.p2), "name": "Colle del Limone"}, headers=self.auth(self.admin_token))
         self.assertIsNone(r.json()["existing_product"])
+        # una cantina controlla sempre e solo i propri vini, qualunque cantina indichi
         r = self.client.post(f"{API}/products/import/check-duplicate",
-                             json={"producer_id": str(self.p1), "name": "x"}, headers=self.auth(self.p1_token))
-        self.assertEqual(r.status_code, 403)
+                             json={"producer_id": str(self.p2), "name": "Colle del Limone"}, headers=self.auth(self.p1_token))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["existing_product"]["name"], "Colle del Limone")
 
     def test_confirm_never_creates_same_wine_twice(self):
         wine = {"name": "Colle del Limone – Falanghina del Molise", "producer_id": str(self.catabbo), "action": "create",

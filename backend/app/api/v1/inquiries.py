@@ -5,6 +5,7 @@ from app.api.v1.auth import get_current_user
 from app.core.config import settings
 from app.core.utils import rate_limiter, client_ip
 from bson import ObjectId
+from app.services import email as mail
 from datetime import datetime
 from typing import List
 
@@ -35,9 +36,11 @@ async def submit_inquiry(inquiry_in: InquiryCreate, request: Request, db=Depends
     else:
         doc["product_id"] = None
         
+    doc.pop("privacy_accepted", None)
     doc["is_read"] = False
     doc["created_at"] = datetime.utcnow()
-    
+    doc["privacy_accepted_at"] = doc["created_at"]
+
     res = await db.inquiries.insert_one(doc)
     doc["id"] = str(res.inserted_id)
     doc["producer_id"] = str(doc["producer_id"])
@@ -48,8 +51,32 @@ async def submit_inquiry(inquiry_in: InquiryCreate, request: Request, db=Depends
         prod = await db.products.find_one({"_id": ObjectId(doc["product_id"])})
         if prod:
             doc["product_name"] = prod.get("name", "")
-            
+
+    await _notify_inquiry(db, producer, doc)
     return doc
+
+
+async def _notify_inquiry(db, producer: dict, inquiry: dict) -> None:
+    """Avvisa la cantina (email di contatto, altrimenti quella di accesso) e manda una copia al cliente."""
+    contacts = producer.get("contacts") or {}
+    recipients = [contacts.get("email_contact")] if contacts.get("email_contact") else []
+    if not recipients:
+        users = await db.users.find({"producer_id": producer["_id"], "is_active": {"$ne": False}}, {"email": 1}).to_list(5)
+        recipients = [u["email"] for u in users if u.get("email")]
+    ctx = {
+        "nome_cantina": producer.get("company_name", ""),
+        "nome_cliente": inquiry.get("user_name", ""),
+        "email_cliente": inquiry.get("user_email", ""),
+        "telefono_cliente": inquiry.get("user_phone") or "non indicato",
+        "tipo_richiesta": mail.INQUIRY_TYPES.get(inquiry.get("message_type"), "Richiesta"),
+        "nome_vino": inquiry.get("product_name") or "richiesta generale sulla cantina",
+        "messaggio": inquiry.get("message", ""),
+        "link_richieste": mail.site_url("/dashboard/messaggi"),
+        "link_pagina_cantina": mail.site_url(f"/produttori/{producer.get('slug', '')}"),
+    }
+    related = {"producer_id": str(producer["_id"]), "inquiry_id": inquiry.get("id")}
+    await mail.send_template(db, "nuova_richiesta_cantina", recipients, ctx, related)
+    await mail.send_template(db, "conferma_richiesta_cliente", [inquiry.get("user_email", "")], ctx, related)
 
 @router.get("", response_model=List[InquiryResponse])
 async def list_inquiries(

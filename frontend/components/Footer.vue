@@ -27,7 +27,10 @@
         <NuxtLink to="/login" class="text-[#F3E7DF] hover:text-white">Area riservata</NuxtLink>
       </nav>
     </div>
-    <div class="page-container py-5 border-t border-[#4A1A26] text-[13px] text-[#CDB8AE]">© {{ year }} EnotecaMolise</div>
+    <div class="page-container py-5 border-t border-[#4A1A26] text-[13px] text-[#CDB8AE] flex flex-wrap gap-x-5 gap-y-1 justify-between">
+      <span>© {{ year }} EnotecaMolise</span>
+      <NuxtLink to="/privacy" class="text-[#CDB8AE] hover:text-white">Informativa privacy</NuxtLink>
+    </div>
   </footer>
 </template>
 

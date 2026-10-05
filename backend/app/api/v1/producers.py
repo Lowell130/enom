@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.db.mongodb import get_database
-from app.schemas.producer import ProducerCreate, ProducerUpdate, ProducerResponse
+from app.schemas.producer import ProducerCreate, ProducerUpdate, ProducerResponse, DeletionRequest
 from app.api.v1.auth import get_current_user, get_current_admin, get_optional_user, is_admin, owns_producer
 from app.core.utils import slugify, unique_slug
 from bson import ObjectId
+from app.services import email as mail
 from datetime import datetime
 from typing import Optional
 
@@ -31,12 +32,24 @@ async def get_producers(
         if c.get("_id"):
             count_map[str(c["_id"])] = c.get("count", 0)
 
+    total_map = {}
+    if include_all:
+        async for c in db.products.aggregate([{"$group": {"_id": "$producer_id", "count": {"$sum": 1}}}]):
+            if c.get("_id"):
+                total_map[str(c["_id"])] = total_map.get(str(c["_id"]), 0) + c.get("count", 0)
+
     # 2. Cantine
     query = {} if include_all else {"status": "APPROVED"}
     producers = []
     async for doc in db.producers.find(query):
         doc["id"] = str(doc["_id"])
         doc["product_count"] = count_map.get(doc["id"], 0)
+        if include_all:
+            doc["total_product_count"] = total_map.get(doc["id"], 0)
+        else:
+            # dati riservati all'area admin
+            doc.pop("deletion_requested_at", None)
+            doc.pop("deletion_reason", None)
         producers.append(doc)
     return producers
 
@@ -63,6 +76,9 @@ async def get_producer_by_slug_or_id(
 
     doc["id"] = str(doc["_id"])
     doc["product_count"] = await db.products.count_documents({"producer_id": doc["_id"], "status": "PUBLISHED"})
+    if not (is_admin(current_user) or owns_producer(current_user, doc["_id"])):
+        doc.pop("deletion_requested_at", None)
+        doc.pop("deletion_reason", None)
     return doc
 
 
@@ -119,6 +135,11 @@ async def update_producer(
     update_data["updated_at"] = datetime.utcnow()
     await db.producers.update_one({"_id": ObjectId(producer_id)}, {"$set": update_data})
 
+    old_status = existing.get("status", "APPROVED")
+    new_status = update_data.get("status", old_status)
+    if new_status != old_status and new_status in ("APPROVED", "SUSPENDED"):
+        await _notify_status_change(db, existing["_id"], new_status)
+
     updated_doc = await db.producers.find_one({"_id": ObjectId(producer_id)})
     updated_doc["id"] = str(updated_doc["_id"])
     updated_doc["product_count"] = await db.products.count_documents({"producer_id": updated_doc["_id"]})
@@ -147,3 +168,59 @@ async def delete_producer(
         {"$set": {"producer_id": None, "is_active": False}}
     )
     return {"message": "Cantina e relativi vini eliminati con successo"}
+
+
+async def _producer_user_emails(db, producer_oid) -> list:
+    users = await db.users.find({"producer_id": producer_oid, "is_active": {"$ne": False}}, {"email": 1}).to_list(5)
+    return [u["email"] for u in users if u.get("email")]
+
+
+async def _notify_status_change(db, producer_oid, status: str) -> None:
+    producer = await db.producers.find_one({"_id": producer_oid})
+    if not producer:
+        return
+    key = "cantina_approvata" if status == "APPROVED" else "cantina_sospesa"
+    await mail.send_template(db, key, await _producer_user_emails(db, producer_oid), {
+        "nome_cantina": producer.get("company_name", ""),
+        "link_pagina_cantina": mail.site_url(f"/produttori/{producer.get('slug', '')}"),
+        "link_area_riservata": mail.site_url("/dashboard"),
+    }, related={"producer_id": str(producer_oid)})
+
+
+@router.post("/me/deletion-request")
+async def request_deletion(
+    payload: DeletionRequest,
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """La cantina chiede la cancellazione del proprio account: l'amministratore viene avvisato
+    e la cancellazione vera e propria resta una sua decisione (azione irreversibile)."""
+    pid = current_user.get("producer_id")
+    if not pid or not ObjectId.is_valid(pid):
+        raise HTTPException(status_code=400, detail="Nessuna cantina collegata a questo account")
+    producer = await db.producers.find_one({"_id": ObjectId(pid)})
+    if not producer:
+        raise HTTPException(status_code=404, detail="Cantina non trovata")
+    now = datetime.utcnow()
+    reason = (payload.reason or "").strip()
+    await db.producers.update_one({"_id": producer["_id"]}, {"$set": {
+        "deletion_requested_at": now, "deletion_reason": reason,
+    }})
+    await mail.send_template(db, "richiesta_cancellazione_admin", await mail.admin_recipients(db), {
+        "nome_cantina": producer.get("company_name", ""),
+        "email": current_user.get("email", ""),
+        "motivo": reason or "non indicato",
+        "data": mail.format_date(now),
+        "link_approvazione": mail.site_url("/dashboard/cantine?stato=DELETION"),
+    }, related={"producer_id": pid})
+    return {"message": "Richiesta inviata: l'amministratore ti contatterà per confermare la cancellazione.",
+            "deletion_requested_at": now}
+
+
+@router.delete("/me/deletion-request")
+async def cancel_deletion_request(current_user: dict = Depends(get_current_user), db=Depends(get_database)):
+    pid = current_user.get("producer_id")
+    if not pid or not ObjectId.is_valid(pid):
+        raise HTTPException(status_code=400, detail="Nessuna cantina collegata a questo account")
+    await db.producers.update_one({"_id": ObjectId(pid)}, {"$unset": {"deletion_requested_at": "", "deletion_reason": ""}})
+    return {"message": "Richiesta di cancellazione annullata."}

@@ -8,7 +8,7 @@
           Vini
         </h1>
         <p class="text-sm text-ink-mute mt-2">
-          Visualizza, modifica, elimina, clona, esporta e importa i vini in catalogo.
+          {{ isAdmin ? 'Visualizza, modifica, elimina, clona, esporta e importa i vini in catalogo.' : 'I vini della tua cantina: aggiungili a mano o importali dalle schede tecniche.' }}
         </p>
       </div>
 
@@ -51,9 +51,8 @@
           <span>Importa Excel / JSON</span>
         </button>
 
-        <!-- Admin PDF AI Import Button -->
+        <!-- Importazione schede con IA (admin: tutte le cantine; cantina: solo i propri vini) -->
         <button 
-          v-if="isAdmin"
           @click="showPdfModal = true" 
           class="btn-ghost btn-sm h-11"
           title="Importa i vini da schede tecniche in PDF o immagine con l'IA"
@@ -116,7 +115,7 @@
           <thead class="text-xs uppercase tracking-[0.08em] font-bold text-ink-mute border-b border-line">
             <tr>
               <th class="py-4 px-6">Vino</th>
-              <th class="py-4 px-6">Cantina</th>
+              <th v-if="isAdmin" class="py-4 px-6">Cantina</th>
               <th class="py-4 px-6">Annata / Denom.</th>
               <th class="py-4 px-6">Stato</th>
               <th class="py-4 px-6 text-right">Azioni</th>
@@ -174,7 +173,7 @@
               </td>
 
               <!-- Cantina -->
-              <td class="py-4 px-6 font-semibold text-xs text-stone-800 whitespace-nowrap">
+              <td v-if="isAdmin" class="py-4 px-6 font-semibold text-xs text-stone-800 whitespace-nowrap">
                 <span class="text-sm font-normal text-ink-soft">{{ prod.producer_name || 'N/D' }}</span>
               </td>
 
@@ -188,7 +187,10 @@
 
               <!-- Stato -->
               <td class="py-4 px-6 text-xs whitespace-nowrap">
-                <span v-if="prod.status === 'PUBLISHED'" class="px-3 py-1 bg-bio-50 text-bio-900 rounded-full font-bold border border-bio/20 inline-block">
+                <span v-if="prod.status === 'PUBLISHED' && producerHidden" class="px-3 py-1 bg-amber-50 text-amber-900 rounded-full font-bold border border-amber-200 inline-block" title="Il vino è pronto ma resta nascosto finché la cantina non viene approvata">
+                  Pronto · in attesa della cantina
+                </span>
+                <span v-else-if="prod.status === 'PUBLISHED'" class="px-3 py-1 bg-bio-50 text-bio-900 rounded-full font-bold border border-bio/20 inline-block">
                   Pubblicato
                 </span>
                 <span v-else class="px-3 py-1 bg-sand-100 text-[#5A4524] rounded-full font-bold inline-block">
@@ -254,6 +256,14 @@
           Nessun vino trovato per «{{ searchQuery }}».
           <button type="button" class="font-semibold text-wine-800 hover:text-wine-900" @click="searchQuery = ''">Mostra tutti</button>
         </p>
+        <div v-else-if="!isAdmin" class="max-w-md mx-auto">
+          <p class="text-base font-semibold text-ink m-0">Non hai ancora inserito vini</p>
+          <p class="text-sm mt-2">Puoi compilare la scheda a mano oppure caricare le schede tecniche (PDF o foto): le leggiamo noi e ti mostriamo i dati da controllare prima di salvarli.</p>
+          <div class="flex flex-wrap justify-center gap-3 mt-5">
+            <NuxtLink to="/dashboard/prodotti/nuovo" class="btn-primary btn-sm h-11"><Plus class="w-4 h-4" aria-hidden="true" /> Inserisci un vino</NuxtLink>
+            <button type="button" class="btn-ghost btn-sm h-11" @click="showPdfModal = true"><Sparkles class="w-4 h-4 text-gold-600" aria-hidden="true" /> Importa dalle schede</button>
+          </div>
+        </div>
         <p v-else class="text-sm font-light">Nessun vino presente per i filtri selezionati.</p>
       </div>
 
@@ -345,9 +355,9 @@
       </div>
     </div>
 
-    <!-- Importazione vini da PDF con IA (solo admin) -->
+    <!-- Importazione vini da PDF con IA -->
     <PdfImportModal
-      v-if="showPdfModal && isAdmin"
+      v-if="showPdfModal"
       :producers="producers"
       @close="showPdfModal = false"
       @imported="refresh()"
@@ -366,6 +376,8 @@ const { fetchWithAuth, mediaBase, apiBase } = useApi()
 const { user, isAdmin } = useAuth()
 
 const selectedProducerId = ref('')
+// Per una cantina non ancora approvata (o sospesa) i vini non sono visibili al pubblico
+const producerHidden = computed(() => !isAdmin.value && !!user.value?.producer && user.value.producer.status !== 'APPROVED')
 const showImportModal = ref(false)
 const selectedFile = ref(null)
 const importing = ref(false)
@@ -564,7 +576,7 @@ const handleClone = async (prod) => {
   if (!confirm(`Vuoi clonare il vino "${prod.name}"? Verrà creata una copia in bozza che potrai modificare subito.`)) return
   try {
     const cloned = await fetchWithAuth(`/products/${prod.id}/clone`, { method: 'POST' })
-    toast.success(`Vino duplicato con successo come "${cloned.name}"! Reindirizzamento...`)
+    toast.success(`Copia creata come bozza: "${cloned.name}". Ricordati di pubblicarla quando è pronta.`)
     await refresh()
     navigateTo(`/dashboard/prodotti/edit-${cloned.id}`)
   } catch (err) {

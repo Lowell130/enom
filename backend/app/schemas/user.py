@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -14,6 +14,23 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     company_name: Optional[str] = Field(default=None, max_length=150)
+    privacy_accepted: bool = Field(default=False, validate_default=True)
+
+    @field_validator("privacy_accepted")
+    @classmethod
+    def must_accept_privacy(cls, v):
+        if not v:
+            raise ValueError("Per registrarti devi accettare l'informativa sulla privacy")
+        return v
+
+
+class PasswordForgot(BaseModel):
+    email: EmailStr
+
+
+class PasswordReset(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    password: str = Field(min_length=8, max_length=128)
 
 class UserLogin(BaseModel):
     email: EmailStr

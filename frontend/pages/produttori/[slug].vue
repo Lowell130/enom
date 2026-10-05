@@ -7,7 +7,11 @@
     <!-- Barra per amministratore o cantina proprietaria -->
     <div v-if="canEdit" class="bg-sand-100 border-b border-line">
       <div class="page-container py-2.5 flex flex-wrap items-center justify-between gap-3 text-sm">
-        <span class="text-ink-soft">Stai vedendo la pagina pubblica come <strong class="text-ink">{{ isAdmin ? 'amministratore' : 'cantina proprietaria' }}</strong>.</span>
+        <span class="text-ink-soft">
+          Stai vedendo la pagina pubblica come <strong class="text-ink">{{ isAdmin ? 'amministratore' : 'cantina proprietaria' }}</strong>.
+          <strong v-if="producer.status === 'PENDING_APPROVAL'" class="text-[#7A5A1E]"> Non è ancora visibile ai visitatori: la cantina è in attesa di approvazione.</strong>
+          <strong v-else-if="producer.status === 'SUSPENDED'" class="text-wine-800"> Non è visibile ai visitatori: la cantina è sospesa.</strong>
+        </span>
         <NuxtLink :to="isAdmin ? `/dashboard/profilo?producer_id=${producer.id}` : '/dashboard/profilo'" class="btn-ghost btn-sm">
           <Pencil class="w-4 h-4" aria-hidden="true" /> Modifica dati cantina
         </NuxtLink>

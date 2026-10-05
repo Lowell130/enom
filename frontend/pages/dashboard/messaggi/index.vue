@@ -33,6 +33,10 @@
               </span>
               <span v-if="!msg.is_read" class="px-2.5 py-0.5 bg-wine-800 text-white rounded-full text-[10px] font-bold tracking-wider uppercase">NUOVO</span>
             </div>
+            <p class="text-xs text-ink-mute m-0">
+              <time :datetime="msg.created_at">{{ formatWhen(msg.created_at) }}</time>
+              · {{ typeLabel(msg.message_type) }}
+            </p>
 
             <div class="text-xs font-semibold text-wine-900 flex items-center space-x-1.5">
               <Building2 class="w-3.5 h-3.5 text-wine-800" />
@@ -47,7 +51,7 @@
 
           <div class="flex items-center space-x-3 flex-shrink-0">
             <a 
-              :href="`mailto:${msg.user_email}?subject=Risposta da ${msg.producer_name}`" 
+              :href="replyLink(msg)"
               class="inline-flex items-center space-x-1.5 px-4 py-2.5 bg-wine-800 hover:bg-wine-900 text-white rounded-xl text-xs font-semibold transition-all shadow-xs"
             >
               <Mail class="w-3.5 h-3.5" />
@@ -87,6 +91,29 @@ const { data: inquiries, pending, refresh } = await useAsyncData('user_inquiries
 }, { default: () => [] })
 
 const toast = useToast()
+
+const TYPES = { INFO_PREZZI: 'Prezzi e listino', DISPONIBILITA: 'Disponibilità e acquisto', VISITA_CANTINA: 'Visita in cantina', ALTRO: 'Altro' }
+const typeLabel = (t) => TYPES[t] || 'Richiesta'
+
+// "oggi alle 15:30", "ieri alle 9:12", oppure la data
+const formatWhen = (value) => {
+  if (!value) return ''
+  const d = new Date(String(value).endsWith('Z') ? value : `${value}Z`)
+  const now = new Date()
+  const time = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+  const days = Math.floor((new Date(now.toDateString()) - new Date(d.toDateString())) / 86400000)
+  if (days === 0) return `Oggi alle ${time}`
+  if (days === 1) return `Ieri alle ${time}`
+  return `${d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric' })} alle ${time}`
+}
+
+const replyLink = (msg) => {
+  const subject = msg.product_name
+    ? `Re: ${msg.product_name} - ${msg.producer_name}`
+    : `Re: la tua richiesta a ${msg.producer_name}`
+  const body = `Gentile ${msg.user_name},\n\ngrazie per averci scritto.\n\n\n---\nIl tuo messaggio:\n${msg.message}`
+  return `mailto:${msg.user_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
 
 const markRead = async (id) => {
   try {

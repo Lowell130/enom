@@ -7,7 +7,7 @@ from datetime import datetime
 import re
 from typing import List, Optional
 
-from app.services.taxonomy import find_same_name, rename_in_products
+from app.services.taxonomy import find_same_name, merge_into, rename_in_products
 
 router = APIRouter()
 
@@ -122,3 +122,29 @@ async def delete_pairing(
         raise HTTPException(status_code=404, detail="Abbinamento non trovato")
         
     return {"message": "Abbinamento eliminato con successo"}
+
+
+
+class MergeRequest(BaseModel):
+    target_id: str
+
+
+@router.post("/{item_id}/merge")
+async def merge_item(
+    item_id: str,
+    payload: MergeRequest,
+    current_admin: dict = Depends(get_current_admin),
+    db=Depends(get_database)
+):
+    """Unisce questa voce in un'altra: i vini passano al nome di destinazione e questa voce viene eliminata."""
+    if not ObjectId.is_valid(item_id) or not ObjectId.is_valid(payload.target_id):
+        raise HTTPException(status_code=400, detail="ID non valido")
+    if item_id == payload.target_id:
+        raise HTTPException(status_code=400, detail="Scegli una voce diversa in cui unire")
+    source = await db.pairings.find_one({"_id": ObjectId(item_id)})
+    target = await db.pairings.find_one({"_id": ObjectId(payload.target_id)})
+    if not source or not target:
+        raise HTTPException(status_code=404, detail="Voce non trovata")
+    updated = await merge_into(db, db.pairings, "food_pairings", source, target)
+    return {"message": f"«{source.get('name')}» unito in «{target.get('name')}»", "products_updated": updated,
+            "target": {"id": str(target["_id"]), "name": target.get("name")}}

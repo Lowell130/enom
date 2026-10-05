@@ -50,6 +50,10 @@
                     <Pencil class="w-3.5 h-3.5 text-ink-mute" />
                     <span>Modifica</span>
                   </button>
+                  <button @click="mergeItem = item" class="inline-flex items-center space-x-1 px-3 py-1.5 bg-stone-100 hover:bg-wine-50 hover:text-wine-900 text-ink-soft rounded-lg text-xs font-semibold transition-colors" title="Unisci questo doppione in un'altra voce">
+                    <Merge class="w-3.5 h-3.5 text-ink-mute" />
+                    <span>Unisci in…</span>
+                  </button>
                   <button @click="handleDelete(item.id)" class="inline-flex items-center space-x-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-semibold">
                     <Trash2 class="w-3.5 h-3.5" />
                     <span>Elimina</span>
@@ -139,11 +143,14 @@
       </div>
     </div>
 
+    <MergeDialog v-if="mergeItem" endpoint="/pairings" :item="mergeItem" :items="pairings || []" @close="mergeItem = null" @merged="mergeItem = null; refresh()" />
   </div>
 </template>
 
 <script setup>
-import { ArrowLeft, Plus, Utensils, Pencil, Trash2, X } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Utensils, Pencil, Trash2, X, Merge } from 'lucide-vue-next'
+import MergeDialog from '~/components/MergeDialog.vue'
+const mergeItem = ref(null)
 
 const { fetchWithAuth } = useApi()
 const showAddModal = ref(false)

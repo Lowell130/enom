@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timedelta
 from typing import Optional, Any
 from jose import jwt, JWTError
@@ -29,6 +30,8 @@ def create_access_token(subject: str | Any, role: str, producer_id: Optional[str
     
     to_encode = {
         "exp": expire,
+        # data di emissione: dopo un cambio password i token precedenti non valgono piu'
+        "iat": int(time.time()),
         "sub": str(subject),
         "role": role,
         "producer_id": producer_id

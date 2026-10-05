@@ -25,7 +25,12 @@ async def get_admin_stats(
     total_inquiries = await db.inquiries.count_documents({})
     unread_inquiries = await db.inquiries.count_documents({"is_read": False})
 
+    pending_producers = sum(1 for p in producers if p.get("status") == "PENDING_APPROVAL")
+    deletion_requests = await db.producers.count_documents({"deletion_requested_at": {"$ne": None}})
+
     return {
+        "pending_producers": pending_producers,
+        "deletion_requests": deletion_requests,
         "total_producers": len(producers),
         "approved_producers": len(approved_ids),
         "total_products": total_products,

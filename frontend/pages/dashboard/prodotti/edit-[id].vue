@@ -4,13 +4,13 @@
     <div class="mb-8">
       <NuxtLink to="/dashboard/prodotti" class="text-xs font-semibold text-wine-800 hover:text-wine-900 mb-2 inline-flex items-center gap-1">
         <ArrowLeft class="w-3.5 h-3.5" />
-        <span>Torna alla lista prodotti</span>
+        <span>Torna ai vini</span>
       </NuxtLink>
       <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">
         Modifica Scheda Vino
       </h1>
       <p class="text-xs text-gray-500 mt-1">
-        Aggiorna le informazioni della bottiglia, la scheda tecnica dettagliata e la cantina associata.
+        {{ isAdmin ? 'Aggiorna le informazioni della bottiglia, la scheda tecnica dettagliata e la cantina associata.' : 'Aggiorna le informazioni della bottiglia e la scheda tecnica.' }}
       </p>
     </div>
 
@@ -18,7 +18,23 @@
       Caricamento scheda vino...
     </div>
 
-    <form v-else-if="form" @submit.prevent="handleSubmit" class="space-y-8 bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+    <div v-else-if="forbidden" class="card p-10 text-center">
+      <p class="text-base font-semibold text-ink m-0">Non puoi modificare questo vino</p>
+      <p class="text-sm text-ink-mute mt-2">Appartiene a un'altra cantina. Puoi modificare solo i vini della tua cantina.</p>
+      <NuxtLink to="/dashboard/prodotti" class="btn-primary btn-sm h-11 mt-5 inline-flex">Torna ai tuoi vini</NuxtLink>
+    </div>
+
+    <div v-else-if="!form" class="card p-10 text-center">
+      <p class="text-base font-semibold text-ink m-0">Vino non trovato</p>
+      <NuxtLink to="/dashboard/prodotti" class="btn-primary btn-sm h-11 mt-5 inline-flex">Torna ai vini</NuxtLink>
+    </div>
+
+    <form v-else @submit.prevent="handleSubmit" class="space-y-8 bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+
+      <div v-if="form.status === 'DRAFT'" class="p-4 rounded-2xl bg-sand-100 border border-sand-300 text-sm text-[#5A4524] flex flex-wrap items-center gap-3">
+        <span class="flex-1 min-w-[220px]"><strong>Questo vino è una bozza</strong> e non è visibile sul sito. Quando è pronto, pubblicalo.</span>
+        <button type="button" class="btn-ghost btn-sm h-9" @click="form.status = 'PUBLISHED'">Imposta «Pubblicato»</button>
+      </div>
       
       <!-- ADMIN PRODUCER ASSIGNMENT SELECTOR -->
       <div v-if="isAdmin" class="bg-amber-50/70 p-5 rounded-2xl border border-amber-200/60">
@@ -173,6 +189,14 @@
                 </label>
               </div>
             </div>
+
+            <label class="inline-flex items-start gap-2.5 cursor-pointer bg-white px-4 py-2.5 rounded-xl border border-stone-200 shadow-2xs hover:border-bio transition-colors w-full">
+              <input v-model="isOrganic" type="checkbox" class="w-4 h-4 mt-0.5 rounded border-stone-300 focus:ring-wine-800" />
+              <span>
+                <span class="block text-xs font-bold text-stone-800">Vino biologico</span>
+                <span class="block text-[11px] text-ink-mute">Mostra il badge «Biologico» e fa comparire il vino nel filtro dei vini biologici.</span>
+              </span>
+            </label>
           </div>
         </div>
       </div>
@@ -271,10 +295,10 @@
             </div>
 
             <!-- Quick Presets / Range Chips -->
-            <div v-if="getAttributeSuggestions(attr).length" class="flex flex-wrap items-center gap-1.5 pt-2 border-t border-stone-100">
+            <div v-if="presetChips(attr).length" class="flex flex-wrap items-center gap-1.5 pt-2 border-t border-stone-100">
               <span class="text-[10px] font-semibold text-stone-400 uppercase mr-1">Preset Rapidi:</span>
               <button 
-                v-for="preset in getAttributeSuggestions(attr)" 
+                v-for="preset in (attr._allPresets ? presetChips(attr) : presetChips(attr).slice(0, PRESET_LIMIT))" 
                 :key="preset"
                 type="button"
                 @click="attr.value = preset"
@@ -286,6 +310,14 @@
                 ]"
               >
                 {{ preset }}
+              </button>
+              <button
+                v-if="presetChips(attr).length > PRESET_LIMIT"
+                type="button"
+                class="px-2 py-0.5 text-[11px] font-semibold text-wine-800 hover:underline"
+                @click="attr._allPresets = !attr._allPresets"
+              >
+                {{ attr._allPresets ? 'mostra meno' : `mostra altri ${presetChips(attr).length - PRESET_LIMIT}` }}
               </button>
             </div>
 
@@ -484,24 +516,26 @@
             + Aggiungi
           </button>
         </div>
+        <p v-if="!isAdmin" class="text-[11px] text-ink-mute m-0">
+          Gli abbinamenti scritti a mano compaiono nella scheda tecnica come «Abbinamenti consigliati»; per i filtri del sito valgono quelli dell'elenco qui sopra.
+        </p>
       </div>
 
       <!-- Upload Foto -->
       <div>
         <h3 class="font-sans text-lg font-bold text-wine-900 mb-4 border-b border-gray-100 pb-2">
-          Immagine Bottiglia & Stato
+          Foto, scheda tecnica e pubblicazione
         </h3>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-semibold text-gray-700 mb-1">URL Immagine o Carica File</label>
-            <input 
-              v-model="photoUrlInput" 
-              type="text" 
-              class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-wine-800 focus:outline-none mb-2"
-            />
-            <input type="file" accept="image/*" @change="handleFileUpload" class="text-xs text-gray-500" />
-          </div>
+          <PhotoListField v-model="photosList" class="sm:col-span-2" />
+          <FileUploadField
+            v-model="technicalSheetPdf"
+            label="Scheda tecnica (PDF)"
+            type="pdf"
+            hint="Facoltativa: comparirà come «Scarica la scheda tecnica» nella pagina del vino."
+            class="sm:col-span-2"
+          />
 
           <div>
             <label class="block text-xs font-semibold text-gray-700 mb-1">Stato Pubblicazione *</label>
@@ -509,6 +543,9 @@
               <option value="PUBLISHED">Pubblicato (Visibile sul sito)</option>
               <option value="DRAFT">Bozza (Nascosto)</option>
             </select>
+            <p v-if="producerHidden" class="text-[11px] text-amber-900 mt-1.5">
+              La tua cantina è in attesa di approvazione: i vini pubblicati diventeranno visibili appena viene approvata.
+            </p>
           </div>
         </div>
       </div>
@@ -538,6 +575,8 @@
 
 <script setup>
 import { ArrowLeft, Shield, Plus, Trash2, Utensils } from 'lucide-vue-next'
+import PhotoListField from '~/components/PhotoListField.vue'
+import FileUploadField from '~/components/FileUploadField.vue'
 
 const route = useRoute()
 const productId = route.params.id
@@ -551,7 +590,21 @@ const error = ref('')
 
 const grapeVarietiesInput = ref('')
 const foodPairingsInput = ref('')
-const photoUrlInput = ref('')
+const photosList = ref([])
+const technicalSheetPdf = ref('')
+const isOrganic = ref(false)
+const { isOrganicProduct } = useOrganic()
+const producerHidden = computed(() => !isAdmin.value && !!user.value?.producer && user.value.producer.status !== 'APPROVED')
+
+// Preset rapidi: solo valori brevi (i testi lunghi sono descrizioni di altre cantine)
+const PRESET_LIMIT = 8
+const presetChips = (attr) => [...new Set(getAttributeSuggestions(attr).filter(v => typeof v === 'string' && v.trim() && v.length <= 40))]
+
+// Il biologico si salva come caratteristica «Tipo Vino: Biologico», letta dal resto del sito
+const applyOrganic = (attrs) => {
+  const withoutBio = attrs.filter(a => !isOrganicProduct({ custom_attributes: [a] }))
+  return isOrganic.value ? [...withoutBio, { name: 'Tipo Vino', value: 'Biologico' }] : withoutBio
+}
 
 const selectedPairingsList = ref([])
 
@@ -643,15 +696,20 @@ const syncGrapesInputFromList = () => {
 }
 
 const { data: productData, pending } = await useAsyncData(`fetch_product_${productId}`, async () => {
-  const prod = await fetchWithAuth(`/products/${productId}`)
-  if (!prod) return null
+  try { return await fetchWithAuth(`/products/${productId}`) } catch (e) { return null }
+}, { default: () => null })
 
+// Una cantina può aprire solo i propri vini
+const forbidden = computed(() => {
+  const prod = productData.value
+  if (!prod || isAdmin.value) return false
   const myProducerId = user.value?.producer_id || user.value?.producer?.id
-  if (!isAdmin.value && myProducerId && String(prod.producer_id) !== String(myProducerId)) {
-    toast.error('Non hai i permessi per modificare questo vino')
-    await navigateTo('/dashboard/prodotti')
-    return null
-  }
+  return String(prod.producer_id) !== String(myProducerId || '')
+})
+
+// Il modulo si compila dai dati caricati (anche dopo un ricaricamento della pagina)
+const initFromProduct = (prod) => {
+  if (!prod || forbidden.value) return
 
   let alc = prod.alcohol_degrees
   let temp = prod.serving_temperature
@@ -698,13 +756,15 @@ const { data: productData, pending } = await useAsyncData(`fetch_product_${produ
   if (prod.food_pairings && prod.food_pairings.length) {
     selectedPairingsList.value = [...prod.food_pairings]
   }
-  photoUrlInput.value = (prod.photos && prod.photos.length) ? prod.photos[0] : ''
+  photosList.value = [...(prod.photos || [])].filter(Boolean)
+  technicalSheetPdf.value = prod.technical_sheet_pdf || ''
+  isOrganic.value = isOrganicProduct(prod)
 
   const filteredCustomAttrs = (prod.custom_attributes || []).filter(a => {
     if (!a.name) return false
     const n = a.name.toLowerCase().trim()
     return !n.includes('gradazione') && !n.includes('grado alcolico') && !n.includes('temperatura') && n !== 'denominazione'
-  })
+  }).filter(a => !isOrganicProduct({ custom_attributes: [a] }))
 
   customAttributes.value = filteredCustomAttrs.map(a => ({
     name: a.name,
@@ -712,8 +772,8 @@ const { data: productData, pending } = await useAsyncData(`fetch_product_${produ
     is_custom_name: false,
     custom_name_input: ''
   }))
-  return prod
-}, { default: () => null })
+}
+watch(productData, initFromProduct, { immediate: true })
 
 const handleAttributeNameChange = (attr) => {
   if (attr.name === '__NEW__') {
@@ -754,23 +814,6 @@ const removeCustomAttributeRow = (index) => {
   customAttributes.value.splice(index, 1)
 }
 
-const handleFileUpload = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-  const formData = new FormData()
-  formData.append('file', file)
-  try {
-    const res = await fetchWithAuth('/uploads/image', {
-      method: 'POST',
-      body: formData
-    })
-    photoUrlInput.value = res.url
-    toast.success('Immagine caricata con successo!')
-  } catch (err) {
-    toast.error('Errore durante l\'upload dell\'immagine.')
-  }
-}
-
 const handleSubmit = async () => {
   submitting.value = true
   error.value = ''
@@ -793,7 +836,7 @@ const handleSubmit = async () => {
 
   const grapes = grapeVarietiesInput.value ? grapeVarietiesInput.value.split(',').map(s => s.trim()).filter(Boolean) : []
   const pairings = foodPairingsInput.value ? foodPairingsInput.value.split(',').map(s => s.trim()).filter(Boolean) : []
-  const photos = photoUrlInput.value ? [photoUrlInput.value] : []
+  const photos = photosList.value.filter(Boolean)
   const validCustomAttrs = customAttributes.value
     .filter(a => a.name && a.value)
     .filter(a => {
@@ -801,6 +844,7 @@ const handleSubmit = async () => {
       return !n.includes('gradazione') && !n.includes('grado alcolico') && !n.includes('temperatura') && n !== 'denominazione'
     })
     .map(a => ({ name: a.name, value: a.value }))
+  const finalCustomAttrs = applyOrganic(validCustomAttrs)
 
   const cleanVintageYear = (form.value.vintage_year !== '' && form.value.vintage_year !== null && form.value.vintage_year !== undefined)
     ? (isNaN(Number(form.value.vintage_year)) ? null : Number(form.value.vintage_year))
@@ -820,7 +864,8 @@ const handleSubmit = async () => {
         grape_varieties: grapes,
         food_pairings: pairings,
         photos: photos,
-        custom_attributes: validCustomAttrs
+        technical_sheet_pdf: technicalSheetPdf.value || '',
+        custom_attributes: finalCustomAttrs
       }
     })
     toast.success('Scheda vino aggiornata con successo!')

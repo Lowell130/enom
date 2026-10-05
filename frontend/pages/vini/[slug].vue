@@ -7,7 +7,10 @@
     <!-- Barra per amministratore o cantina proprietaria -->
     <div v-if="canEdit" class="bg-sand-100 border-b border-line">
       <div class="page-container py-2.5 flex flex-wrap items-center justify-between gap-3 text-sm">
-        <span class="text-ink-soft">Stai vedendo la scheda pubblica come <strong class="text-ink">{{ isAdmin ? 'amministratore' : 'cantina proprietaria' }}</strong>.</span>
+        <span class="text-ink-soft">
+          Stai vedendo la scheda pubblica come <strong class="text-ink">{{ isAdmin ? 'amministratore' : 'cantina proprietaria' }}</strong>.
+          <strong v-if="hiddenReason" class="text-[#7A5A1E]"> {{ hiddenReason }}</strong>
+        </span>
         <NuxtLink :to="`/dashboard/prodotti/edit-${product.id}`" class="btn-ghost btn-sm">
           <Pencil class="w-4 h-4" aria-hidden="true" /> Modifica scheda vino
         </NuxtLink>
@@ -189,6 +192,16 @@ const canEdit = computed(() => {
   if (isAdmin.value) return true
   const userProdId = user.value?.producer_id || user.value?.producer?.id
   return userProdId && String(userProdId) === String(product.value.producer_id)
+})
+
+// perche' i visitatori non vedono ancora questo vino (solo per chi puo' modificarlo)
+const hiddenReason = computed(() => {
+  if (!product.value) return ''
+  if (product.value.status && product.value.status !== 'PUBLISHED') return 'Questo vino è in bozza: i visitatori non lo vedono.'
+  const status = !isAdmin.value ? user.value?.producer?.status : ''
+  if (status === 'PENDING_APPROVAL') return 'La cantina è in attesa di approvazione: il vino sarà visibile dopo.'
+  if (status === 'SUSPENDED') return 'La cantina è sospesa: il vino non è visibile.'
+  return ''
 })
 
 const displaySpecs = computed(() => {
