@@ -55,6 +55,7 @@ class AIConfigMixin:
         super().setUp()
         self._saved = (settings.AI_PROVIDER, settings.GEMINI_API_KEY, settings.ANTHROPIC_API_KEY)
         settings.AI_PROVIDER, settings.GEMINI_API_KEY, settings.ANTHROPIC_API_KEY = "auto", None, None
+        ai_extractor._MODEL_COOLDOWN.clear()
         # cantina Catabbo con sito web, per il riconoscimento automatico
         self.catabbo = run(self.db.producers.insert_one({
             "company_name": "Catabbo", "slug": "catabbo", "status": "APPROVED",
@@ -200,6 +201,42 @@ class ParsePdfTests(AIConfigMixin, BaseTest):
         self.assertEqual(f["model"], fallback)
         self.assertEqual(sum(settings.GEMINI_MODEL in u for u in calls), 3)  # 1 tentativo + 2 riprove
         self.assertEqual(sleep.call_count, 2)
+
+    def test_failing_model_is_skipped_for_the_next_documents(self):
+        settings.GEMINI_API_KEY = "k"
+        busy = FakeResponse(503, {"error": {"message": "high demand"}})
+        calls = []
+
+        def fake_post(url, **kw):
+            calls.append(url)
+            return busy if settings.GEMINI_MODEL in url else gemini_reply(CATABBO_AI)
+
+        with mock.patch.object(ai_extractor.requests, "post", side_effect=fake_post), \
+                mock.patch.object(ai_extractor.time, "sleep") as sleep:
+            self.parse()
+            first_doc_calls = len(calls)
+            f = self.parse(pdf=CATABBO_PDF + b" ").json()["files"][0]
+        self.assertEqual(f["status"], "ok", f)
+        # il secondo documento va subito al modello di riserva: una sola chiamata, nessuna attesa in piu'
+        self.assertEqual(len(calls) - first_doc_calls, 1)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_timeout_moves_to_next_model(self):
+        settings.GEMINI_API_KEY = "k"
+        calls = []
+
+        def fake_post(url, **kw):
+            calls.append(url)
+            if settings.GEMINI_MODEL in url:
+                raise ai_extractor.requests.Timeout()
+            return gemini_reply(CATABBO_AI)
+
+        with mock.patch.object(ai_extractor.requests, "post", side_effect=fake_post), \
+                mock.patch.object(ai_extractor.time, "sleep") as sleep:
+            f = self.parse().json()["files"][0]
+        self.assertEqual(f["status"], "ok", f)
+        self.assertEqual(sum(settings.GEMINI_MODEL in u for u in calls), 1)
+        self.assertEqual(sleep.call_count, 0)
 
     def test_quota_exhausted_switches_model_immediately(self):
         settings.GEMINI_API_KEY = "k"

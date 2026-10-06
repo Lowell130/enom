@@ -240,7 +240,8 @@ def _post(url: str, headers: Dict[str, str], body: Dict[str, Any]) -> Dict[str, 
     try:
         resp = requests.post(url, headers=headers, json=body, timeout=settings.AI_TIMEOUT_SECONDS)
     except requests.Timeout:
-        raise AIExtractionError("Il servizio IA non ha risposto in tempo: riprova con un file più piccolo.")
+        # si passa subito al modello successivo, senza ripetere un'attesa cosi' lunga
+        raise AIServiceBusy("Il servizio IA non ha risposto in tempo: riprova con un file più piccolo.", 408)
     except requests.RequestException as e:
         raise AIExtractionError(f"Servizio IA non raggiungibile: {e.__class__.__name__}")
 
@@ -268,6 +269,19 @@ def _post(url: str, headers: Dict[str, str], body: Dict[str, Any]) -> Dict[str, 
         raise AIExtractionError("Risposta del servizio IA non valida.")
 
 
+# Modelli che hanno appena fallito (sovraccarichi, quota esaurita, troppo lenti): per qualche minuto
+# si prova prima con gli altri, cosi' i documenti successivi non ripetono le stesse attese.
+MODEL_COOLDOWN_SECONDS = 600
+_MODEL_COOLDOWN: Dict[str, float] = {}
+
+
+def _ordered_models(models: List[str]) -> List[str]:
+    now = time.time()
+    ready = [m for m in models if _MODEL_COOLDOWN.get(m, 0) <= now]
+    resting = [m for m in models if _MODEL_COOLDOWN.get(m, 0) > now]
+    return ready + resting
+
+
 def gemini_models() -> List[str]:
     """Modello principale seguito dai modelli di riserva (senza duplicati)."""
     models = [settings.GEMINI_MODEL] + [m.strip() for m in (settings.GEMINI_FALLBACK_MODELS or "").split(",")]
@@ -278,7 +292,7 @@ def _call_gemini(file_bytes: bytes, mime_type: str, prompt: str, schema: Dict[st
     """Prova il modello principale; se sovraccarico riprova con attese crescenti e poi passa ai modelli di riserva."""
     last_error: Optional[AIExtractionError] = None
     rewrite = False  # vale anche per i modelli di riserva: il blocco riguarda il testo, non il modello
-    for model in gemini_models():
+    for model in _ordered_models(gemini_models()):
         bad_outputs = 0
         for attempt in range(len(RETRY_DELAYS) + 1):
             try:
@@ -286,6 +300,7 @@ def _call_gemini(file_bytes: bytes, mime_type: str, prompt: str, schema: Dict[st
                 temperature = 0.4 if bad_outputs else 0
                 prompt_used = prompt + REWRITE_HINT if rewrite else prompt
                 result = _call_gemini_model(model, file_bytes, mime_type, prompt_used, schema, temperature)
+                _MODEL_COOLDOWN.pop(model, None)
                 if isinstance(result, dict):
                     result["_model_used"] = model
                 return result
@@ -300,8 +315,9 @@ def _call_gemini(file_bytes: bytes, mime_type: str, prompt: str, schema: Dict[st
             except AIServiceBusy as e:
                 last_error = e
                 logger.warning("Gemini %s non disponibile (%s), tentativo %d", model, e.status, attempt + 1)
-                # quota esaurita o modello inesistente: inutile insistere, si passa al modello successivo
-                if e.status in (404, 429) or attempt == len(RETRY_DELAYS):
+                # quota esaurita, modello inesistente o troppo lento: inutile insistere, si passa al successivo
+                if e.status in (404, 408, 429) or attempt == len(RETRY_DELAYS):
+                    _MODEL_COOLDOWN[model] = time.time() + MODEL_COOLDOWN_SECONDS
                     break
                 time.sleep(RETRY_DELAYS[attempt])
     raise last_error or AIExtractionError("Servizio IA non disponibile.")
