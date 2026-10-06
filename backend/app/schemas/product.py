@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict
 
 PRODUCT_STATUSES = {"PUBLISHED", "DRAFT"}
@@ -13,7 +13,24 @@ def _validate_status(v):
     return v
 from datetime import datetime
 
-from app.services.insights import normalize_price_text, normalize_temperature_text, split_grape_list
+from app.services.insights import normalize_grape_entries, normalize_price_text, normalize_temperature_text
+
+
+def unify_grapes(model):
+    """Vitigni in formato unico ("Tintilia 80%", dal principale): le percentuali mancanti si prendono
+    dall'Uvaggio della scheda tecnica, che viene tolto se non aggiunge altro (una sola fonte)."""
+    grapes = getattr(model, "grape_varieties", None)
+    attrs = getattr(model, "custom_attributes", None)
+    if not grapes or attrs is None:
+        return model
+    uvaggio = next((a for a in attrs if (a.name or "").strip().lower() == "uvaggio"), None)
+    if not uvaggio:
+        return model
+    unified, covered = normalize_grape_entries(grapes, uvaggio.value)
+    model.grape_varieties = unified
+    if covered:
+        model.custom_attributes = [a for a in attrs if a is not uvaggio]
+    return model
 
 class TastingNotesSchema(BaseModel):
     visual: Optional[str] = ""
@@ -68,8 +85,13 @@ class ProductBase(BaseModel):
 
     @field_validator('grape_varieties', mode='before')
     def split_grape_varieties(cls, v):
-        # "Montepulciano 55% Sangiovese 45%" in una sola voce -> due vitigni
-        return split_grape_list(v)
+        # "Montepulciano 55% Sangiovese 45%" in una sola voce -> due vitigni; "85,5%" -> "85%";
+        # dal vitigno con la percentuale piu' alta
+        return normalize_grape_entries(v)[0] if isinstance(v, list) else v
+
+    @model_validator(mode='after')
+    def grapes_with_uvaggio(self):
+        return unify_grapes(self)
 
     @field_validator('serving_temperature', mode='before')
     def clean_serving_temperature(cls, v):
@@ -131,8 +153,13 @@ class ProductUpdate(BaseModel):
 
     @field_validator('grape_varieties', mode='before')
     def split_grape_varieties(cls, v):
-        # "Montepulciano 55% Sangiovese 45%" in una sola voce -> due vitigni
-        return split_grape_list(v)
+        # "Montepulciano 55% Sangiovese 45%" in una sola voce -> due vitigni; "85,5%" -> "85%";
+        # dal vitigno con la percentuale piu' alta
+        return normalize_grape_entries(v)[0] if isinstance(v, list) else v
+
+    @model_validator(mode='after')
+    def grapes_with_uvaggio(self):
+        return unify_grapes(self)
 
     @field_validator('serving_temperature', mode='before')
     def clean_serving_temperature(cls, v):

@@ -89,11 +89,37 @@ class ParserTests(unittest.TestCase):
     def test_import_keeps_every_grape(self):
         from app.services.pdf_importer import normalize_grapes
         master = ["Montepulciano", "Sangiovese", "Falanghina", "Greco"]
-        self.assertEqual(normalize_grapes(["Montepulciano 55% Sangiovese 45%"], master)[0], ["Montepulciano", "Sangiovese"])
+        # formato unico: percentuali intere nei vitigni, dal principale
+        self.assertEqual(normalize_grapes(["Montepulciano 55% Sangiovese 45%"], master)[0], ["Montepulciano 55%", "Sangiovese 45%"])
+        self.assertEqual(normalize_grapes(["Sangiovese 14,5%, Montepulciano 85,5%"], master)[0], ["Montepulciano 85%", "Sangiovese 14%"])
         self.assertEqual(normalize_grapes(["Falanghina e Greco"], master)[0], ["Falanghina", "Greco"])
-        self.assertEqual(normalize_grapes(["Montepulciano in purezza"], master), (["Montepulciano"], "Montepulciano 100%"))
+        self.assertEqual(normalize_grapes(["Montepulciano in purezza"], master), (["Montepulciano 100%"], ""))
         # "Moscato Bianco" e' ricondotto a "Moscato" (non e' piu' una voce a se')
-        self.assertEqual(normalize_grapes(["Moscato Bianco 95%"], ["Moscato"])[0], ["Moscato"])
+        self.assertEqual(normalize_grapes(["Moscato Bianco 95%"], ["Moscato"])[0], ["Moscato 95%"])
+
+    def test_grapes_unified_when_saving(self):
+        from app.schemas.product import ProductCreate, ProductUpdate
+        # percentuali intere, dal vitigno principale
+        p = ProductCreate(name="X", grape_varieties=["Trebbiano 20%", "Falanghina 79,9%"])
+        self.assertEqual(p.grape_varieties, ["Falanghina 79%", "Trebbiano 20%"])
+        # percentuali prese dall'Uvaggio, che non serve piu' e viene tolto
+        p = ProductCreate(name="X", grape_varieties=["Tintilia", "Montepulciano"],
+                          custom_attributes=[{"name": "Uvaggio", "value": "Montepulciano 70%, Tintilia 30%"},
+                                             {"name": "Affinamento", "value": "Acciaio"}])
+        self.assertEqual(p.grape_varieties, ["Montepulciano 70%", "Tintilia 30%"])
+        self.assertEqual([a.name for a in p.custom_attributes], ["Affinamento"])
+        # un Uvaggio con informazioni in piu' resta
+        p = ProductCreate(name="X", grape_varieties=["Chardonnay", "Uve a Bacca Bianca"],
+                          custom_attributes=[{"name": "Uvaggio", "value": "Chardonnay 90% altre varietà bacca bianca 10%"}])
+        self.assertEqual(p.grape_varieties[0], "Chardonnay 90%")
+        self.assertEqual(len(p.custom_attributes), 1)
+        self.assertEqual(ProductUpdate(grape_varieties=["Greco", "Fiano 60%"]).grape_varieties, ["Fiano 60%", "Greco"])
+
+    def test_primary_grape_is_the_highest_percentage(self):
+        self.assertEqual(ins.primary_grape({"grape_varieties": ["Trebbiano 20%", "Falanghina 80%"]}), "Falanghina")
+        self.assertEqual(ins.primary_grape({"grape_varieties": ["Tintilia", "Montepulciano"]}), "Tintilia")
+        self.assertEqual(ins.grapes_of({"grape_varieties": ["Aglianico 5%", "Tintilia 80%", "Montepulciano 15%"]}),
+                         ["Tintilia", "Montepulciano", "Aglianico"])
 
     def test_price_normalized_when_saving(self):
         from app.schemas.product import ProductCreate, ProductUpdate
@@ -238,3 +264,19 @@ class AdminCountsTests(BaseTest):
         self.assertEqual(run(self.db.inquiries.count_documents({"producer_id": self.p2})), 0)
         self.assertEqual(run(self.db.users.count_documents({"producer_id": self.p2})), 0)
         self.assertGreater(run(self.db.users.count_documents({"role": "ADMIN"})), 0)
+
+
+class GrapeMigrationTests(BaseTest):
+    def test_migration_unifies_existing_wines(self):
+        from bson import ObjectId
+        a = run(self.db.products.insert_one({"name": "A", "slug": "a", "grape_varieties": ["Tintilia"],
+            "custom_attributes": [{"name": "Uvaggio", "value": "Tintilia 100%"}, {"name": "Affinamento", "value": "Legno"}]})).inserted_id
+        b = run(self.db.products.insert_one({"name": "B", "slug": "b", "grape_varieties": ["Trebbiano 20%", "Falanghina 80,5%"],
+            "custom_attributes": []})).inserted_id
+        self.assertEqual(run(ins.migrate_grape_format(self.db)), 2)
+        doc_a = run(self.db.products.find_one({"_id": a}))
+        self.assertEqual(doc_a["grape_varieties"], ["Tintilia 100%"])
+        self.assertEqual([x["name"] for x in doc_a["custom_attributes"]], ["Affinamento"])
+        self.assertEqual(run(self.db.products.find_one({"_id": b}))["grape_varieties"], ["Falanghina 80%", "Trebbiano 20%"])
+        # seconda esecuzione: niente da fare
+        self.assertEqual(run(ins.migrate_grape_format(self.db)), 0)

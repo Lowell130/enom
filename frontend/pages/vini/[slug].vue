@@ -157,6 +157,7 @@
 <script setup>
 import { Pencil, Mail, FileDown, Eye, Droplet, Wine, Leaf, CalendarDays } from 'lucide-vue-next'
 import { placeLabel } from '~/utils/events'
+import { grapesLabel } from '~/utils/grapes'
 
 const route = useRoute()
 const { fetchWithAuth, mediaBase } = useApi()
@@ -238,7 +239,7 @@ const displaySpecs = computed(() => {
     list.push({ name: 'Menzione', value: 'Riserva' })
   }
   if (product.value.grape_varieties && product.value.grape_varieties.length && !customMap.has('uvaggio') && !customMap.has('vitigni')) {
-    list.push({ name: 'Uvaggio', value: product.value.grape_varieties.join(', ') })
+    list.push({ name: 'Uvaggio', value: grapesLabel(product.value) })
   }
   if (product.value.alcohol_degrees && !customMap.has('grado alcolico') && !customMap.has('gradazione alcolica')) {
     list.push({ name: 'Gradazione Alcolica', value: `${product.value.alcohol_degrees}% vol` })
@@ -298,7 +299,7 @@ const keyFacts = computed(() => {
   const p = product.value
   if (!p) return []
   const list = []
-  if (p.grape_varieties?.length) list.push({ label: (p.grape_varieties.length > 1 ? 'Vitigni' : 'Vitigno'), value: p.grape_varieties.join(', ') })
+  if (p.grape_varieties?.length) list.push({ label: (p.grape_varieties.length > 1 ? 'Vitigni' : 'Vitigno'), value: grapesLabel(p) })
   if (p.alcohol_degrees) list.push({ label: 'Gradazione', value: `${String(p.alcohol_degrees).replace('.', ',')}% vol` })
   if (p.serving_temperature) list.push({ label: 'Servizio', value: String(p.serving_temperature).replace(/\s*°?\s*C?\s*$/i, ' °C').replace(/-/g, '–') })
   const formato = findAttr(/^formato/i)

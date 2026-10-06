@@ -55,7 +55,8 @@ def split_grape_entry(text: str) -> List[str]:
     if len(re.findall(r"\d+(?:[.,]\d+)?\s*%", t)) < 2:
         return [t] if t else []
     t = _PCT_THEN_NAME.sub(r"\1,", t)
-    return [part.strip(" -;/") for part in re.split(r"[,;/+]", t) if part.strip(" -;/")]
+    # la virgola dei decimali ("85,5%") non separa i vitigni
+    return [part.strip(" -;/") for part in re.split(r"(?<!\d),|,(?!\d)|[;/+]", t) if part.strip(" -;/")]
 
 
 def split_grape_list(values: Any) -> Any:
@@ -67,22 +68,92 @@ def split_grape_list(values: Any) -> Any:
     return out
 
 
+_PCT_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*%")
+
+
 def clean_grape(name: str) -> str:
-    g = re.sub(r"\s*\d+([.,]\d+)?\s*%", "", str(name or "")).strip(" -,;")
+    g = re.sub(r"\s*\d+([.,]\d+)?\s*%", "", str(name or ""))
+    g = re.sub(r"\s+", " ", g).strip(" -,;:")
     return g[:1].upper() + g[1:] if g else ""
 
 
+def parse_grape(entry: str) -> Tuple[str, Optional[int]]:
+    """"Malvasia 85,5%" -> ("Malvasia", 85): le percentuali sono sempre intere (si tronca la parte decimale)."""
+    text = str(entry or "")
+    if re.search(r"\bin\s+purezza\b", text, re.I):
+        text = re.sub(r"\s*\bin\s+purezza\b", "", text, flags=re.I) + " 100%"
+    m = _PCT_RE.search(text)
+    pct = int(float(m.group(1).replace(",", "."))) if m else None
+    if pct is not None and not 0 < pct <= 100:
+        pct = None
+    return clean_grape(text), pct
+
+
+def format_grape(name: str, pct: Optional[int]) -> str:
+    return f"{name} {pct}%" if pct is not None else name
+
+
+def normalize_grape_entries(entries: Any, uvaggio: Optional[str] = None) -> Tuple[List[str], bool]:
+    """Formato unico dei vitigni: "Nome NN%" (percentuale intera, se nota), dal vitigno principale al minore.
+    Le percentuali mancanti si prendono dal testo "Uvaggio" della scheda tecnica, se c'e'.
+    Restituisce (vitigni, True se il testo Uvaggio e' interamente rappresentato dai vitigni)."""
+    if not isinstance(entries, list):
+        return entries, False
+    parsed: List[Tuple[str, Optional[int]]] = []
+    seen: Dict[str, int] = {}
+    for raw in split_grape_list(entries):
+        if not isinstance(raw, str):
+            continue
+        name, pct = parse_grape(raw)
+        if not name:
+            continue
+        key = name.lower()
+        if key in seen:
+            i = seen[key]
+            if parsed[i][1] is None and pct is not None:
+                parsed[i] = (parsed[i][0], pct)
+            continue
+        seen[key] = len(parsed)
+        parsed.append((name, pct))
+
+    covered = False
+    if uvaggio and parsed:
+        parts = [parse_grape(x) for x in split_grape_entry(uvaggio)]
+        parts = [(n, p) for n, p in parts if n]
+        matched = 0
+        for n, p in parts:
+            nk = n.lower()
+            for i, (name, pct) in enumerate(parsed):
+                gk = name.lower()
+                if nk == gk or re.search(rf"\b{re.escape(gk)}\b", nk) or re.search(rf"\b{re.escape(nk)}\b", gk):
+                    if pct is None and p is not None:
+                        parsed[i] = (name, p)
+                    matched += 1
+                    break
+        covered = bool(parts) and matched == len(parts) and len(parts) == len(parsed)
+
+    order = sorted(range(len(parsed)), key=lambda i: (parsed[i][1] is None, -(parsed[i][1] or 0), i))
+    return [format_grape(*parsed[i]) for i in order], covered
+
+
 def grapes_of(product: dict) -> List[str]:
+    """Nomi dei vitigni, dal principale (percentuale piu' alta) al minore."""
+    entries = []
+    for i, g in enumerate(product.get("grape_varieties") or []):
+        name, pct = parse_grape(g)
+        if name:
+            entries.append((pct is None, -(pct or 0), i, name))
     seen, out = set(), []
-    for g in product.get("grape_varieties") or []:
-        c = clean_grape(g)
-        if c and c.lower() not in seen:
-            seen.add(c.lower())
-            out.append(c)
+    for *_, name in sorted(entries):
+        if name.lower() not in seen:
+            seen.add(name.lower())
+            out.append(name)
     return out
 
 
 def primary_grape(product: dict) -> Optional[str]:
+    """Il vitigno con la percentuale piu' alta (a parita' o senza percentuali, il primo indicato):
+    e' la "tipologia" del vino usata da filtri e Osservatorio."""
     g = grapes_of(product)
     return g[0] if g else None
 
@@ -660,3 +731,26 @@ def inquiries_report(inquiries: List[dict], products_by_id: Dict[str, dict], pro
         "top_producers": [{"id": pid, "name": (producers_by_id.get(pid) or {}).get("company_name"), "requests": n}
                           for pid, n in by_producer.most_common(5) if pid in producers_by_id],
     }
+
+
+async def migrate_grape_format(db) -> int:
+    """Porta tutti i vini al formato unico dei vitigni ("Tintilia 80%", dal principale, percentuali intere),
+    prendendo le percentuali dall'Uvaggio della scheda tecnica quando mancano.
+    Eseguita all'avvio: non fa nulla se i vini sono gia' a posto."""
+    changed = 0
+    async for p in db.products.find({}, {"grape_varieties": 1, "custom_attributes": 1}):
+        grapes = p.get("grape_varieties") or []
+        if not grapes:
+            continue
+        attrs = p.get("custom_attributes") or []
+        uvaggio = next((a for a in attrs if isinstance(a, dict) and str(a.get("name", "")).strip().lower() == "uvaggio"), None)
+        unified, covered = normalize_grape_entries(grapes, uvaggio.get("value") if uvaggio else None)
+        update: Dict[str, Any] = {}
+        if unified != grapes:
+            update["grape_varieties"] = unified
+        if uvaggio is not None and covered:
+            update["custom_attributes"] = [a for a in attrs if a is not uvaggio]
+        if update:
+            await db.products.update_one({"_id": p["_id"]}, {"$set": update})
+            changed += 1
+    return changed

@@ -220,6 +220,7 @@
 <script setup>
 import CoverArt from '~/components/CoverArt.vue'
 import EventCard from '~/components/EventCard.vue'
+import { primaryGrape } from '~/utils/grapes'
 import { Pencil, MapPin, Phone, Mail, Globe, MessageCircle, Plus, AtSign } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -302,10 +303,8 @@ const facts = computed(() => {
   if (prods.length) list.push({ label: 'Vini in catalogo', value: prods.length })
   const grapes = new Map()
   for (const p of prods) {
-    for (const g of p.grape_varieties || []) {
-      const name = String(g).replace(/\s*\d+([.,]\d+)?\s*%/g, '').trim()
-      if (name) grapes.set(name, (grapes.get(name) || 0) + 1)
-    }
+    const name = primaryGrape(p)
+    if (name) grapes.set(name, (grapes.get(name) || 0) + 1)
   }
   const topGrapes = [...grapes.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([n]) => n)
   if (topGrapes.length) list.push({ label: 'Vitigni', value: topGrapes.join(', ') })

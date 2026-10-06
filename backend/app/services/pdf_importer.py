@@ -17,7 +17,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pypdf
 
-from app.services.insights import normalize_price_text, normalize_temperature_text
+from app.services.insights import clean_grape, format_grape, normalize_grape_entries, normalize_price_text, normalize_temperature_text
 from app.services.ai_extractor import (
     CATEGORIES,
     AIExtractionError,
@@ -237,7 +237,8 @@ def normalize_grapes(raw: Any, master_grapes: List[str]) -> Tuple[List[str], str
         # "Montepulciano 55% Sangiovese 45%", "Falanghina e Greco", "Montepulciano 85%, Aglianico 15%"
         text = re.sub(r"\s*\bin\s+purezza\b", " 100%", text, flags=re.I)
         text = re.sub(r"(\d+(?:[.,]\d+)?\s*%)\s*[-–]?\s*(?=[A-Za-zÀ-ÿ])", r"\1,", text)
-        for part in re.split(r"[,;/+]|\be\b", text):
+        # la virgola dei decimali ("85,5%") non separa i vitigni
+        for part in re.split(r"(?<!\d),|,(?!\d)|[;/+]|\be\b", text):
             pct = re.search(r"(\d+(?:[.,]\d+)?)\s*%", part)
             items.append((part, float(pct.group(1).replace(",", ".")) if pct else None))
 
@@ -250,22 +251,23 @@ def normalize_grapes(raw: Any, master_grapes: List[str]) -> Tuple[List[str], str
     elif isinstance(raw, str):
         add_text(raw)
 
-    grapes, uvaggio = [], []
+    names, entries = [], []
     for name, pct in items:
         canonical = match_grape(name, master_grapes)
-        if not canonical or canonical in grapes:
+        if not canonical or canonical in names:
             continue
-        grapes.append(canonical)
+        names.append(canonical)
+        p = None
         if pct not in (None, ""):
             try:
-                p = float(pct)
-                uvaggio.append(f"{canonical} {int(p) if p.is_integer() else p}%")
+                p = int(float(str(pct).replace(",", ".")))   # 85,5% -> 85%
             except (TypeError, ValueError):
-                uvaggio.append(canonical)
-        else:
-            uvaggio.append(canonical)
-    uvaggio_text = ", ".join(uvaggio) if any("%" in u for u in uvaggio) else ""
-    return grapes, uvaggio_text
+                p = None
+        entries.append(format_grape(canonical, p if p and 0 < p <= 100 else None))
+    # formato unico del catalogo: "Tintilia 80%, Montepulciano 20%" dal vitigno principale;
+    # le percentuali stanno nei vitigni, quindi non serve ripeterle nel campo "Uvaggio"
+    grapes, _ = normalize_grape_entries(entries)
+    return grapes, ""
 
 
 def pairings_from_text(text: str) -> Tuple[List[str], bool]:
@@ -376,7 +378,7 @@ def _guess_category(text: str, grapes: List[str]) -> str:
         return "LIQUORE"
     if re.search(r"rosato|rosé|cerasuolo", low):
         return "ROSATO"
-    if re.search(r"\bbianco\b", low) or (grapes and all(g.lower() in WHITE_GRAPES for g in grapes)):
+    if re.search(r"\bbianco\b", low) or (grapes and all(clean_grape(g).lower() in WHITE_GRAPES for g in grapes)):
         return "VINO_BIANCO"
     return "VINO_ROSSO"
 

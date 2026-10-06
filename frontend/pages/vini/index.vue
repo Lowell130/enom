@@ -72,7 +72,7 @@
           </div>
 
           <div class="flex flex-col gap-2.5">
-            <span class="eyebrow-sm tracking-[0.12em]">Vitigno</span>
+            <span class="eyebrow-sm tracking-[0.12em]">Vitigno principale</span>
             <div class="flex flex-wrap gap-1.5">
               <button
                 v-for="grape in visibleGrapes"
@@ -172,6 +172,7 @@
 
 <script setup>
 import { Search, Leaf, X, SlidersHorizontal } from 'lucide-vue-next'
+import { primaryGrape } from '~/utils/grapes'
 
 const route = useRoute()
 const router = useRouter()
@@ -219,7 +220,6 @@ const { data: products, pending } = await useAsyncData('catalog_products', async
   return res || []
 }, { default: () => [] })
 
-const cleanGrape = (g) => String(g || '').replace(/\s*\d+([.,]\d+)?\s*%/g, '').trim()
 
 const matchProductWithSearch = (p, searchQuery) => {
   if (!searchQuery || !searchQuery.trim()) return true
@@ -262,7 +262,8 @@ const passes = (p, skip = '') => {
   if (skip !== 'category' && filters.category && p.category !== filters.category) return false
   if (skip !== 'denominazione' && filters.denominazione && !(p.denominazione || '').includes(filters.denominazione)) return false
   if (skip !== 'organic' && filters.organic === 'organic' && !isOrganicProduct(p)) return false
-  if (skip !== 'grape' && filters.grape && !(p.grape_varieties || []).some(g => cleanGrape(g).toLowerCase() === filters.grape.toLowerCase())) return false
+  // il vino rientra nel vitigno principale (quello con la percentuale piu' alta)
+  if (skip !== 'grape' && filters.grape && primaryGrape(p).toLowerCase() !== filters.grape.toLowerCase()) return false
   if (skip !== 'producer' && filters.producer && p.producer_name !== filters.producer) return false
   if (skip !== 'search' && filters.search && !matchProductWithSearch(p, filters.search)) return false
   return true
@@ -296,8 +297,8 @@ const denominationOptions = computed(() => {
 const grapeOptions = computed(() => {
   const counts = new Map()
   for (const p of (products.value || []).filter(p => passes(p, 'grape'))) {
-    const names = new Set((p.grape_varieties || []).map(cleanGrape).filter(Boolean))
-    for (const n of names) counts.set(n, (counts.get(n) || 0) + 1)
+    const name = primaryGrape(p)
+    if (name) counts.set(name, (counts.get(name) || 0) + 1)
   }
   return [...counts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count)
 })

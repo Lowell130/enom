@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.services.catalog import migrate_ascii_slugs
+from app.services.insights import migrate_grape_format
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, get_database
 from app.api.v1 import auth, producers, products, product_io, pdf_import, inquiries, uploads, admin, attributes, grapes, pairings, reports, emails, site, events
 from app.core.errors import validation_exception_handler
@@ -226,6 +227,10 @@ async def lifespan(app: FastAPI):
     fixed_slugs = await migrate_ascii_slugs(db)
     if fixed_slugs:
         logging.getLogger("enotecamolise").info("Indirizzi senza accenti: %d aggiornati", fixed_slugs)
+    # vitigni in formato unico ("Tintilia 80%", dal principale)
+    fixed_grapes = await migrate_grape_format(db)
+    if fixed_grapes:
+        logging.getLogger("enotecamolise").info("Vitigni uniformati: %d vini aggiornati", fixed_grapes)
     await seed_master_attributes(db)
     await ensure_admin_user(db)
     await seed_sample_data(db)

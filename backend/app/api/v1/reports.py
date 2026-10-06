@@ -193,13 +193,12 @@ async def get_report_summary(
     ], key=lambda x: x["count"], reverse=True)
 
     # 6. Grapes Popularity Breakdown
+    # ogni vino conta una volta, per il vitigno principale (quello con la percentuale piu' alta)
     grape_counts: Dict[str, int] = {}
     for p in products:
-        varieties = p.get("grape_varieties", []) or []
-        for g in varieties:
-            clean_g = re.sub(r'\s*\d+%', '', g).strip()
-            if clean_g:
-                grape_counts[clean_g] = grape_counts.get(clean_g, 0) + 1
+        clean_g = insights.primary_grape(p)
+        if clean_g:
+            grape_counts[clean_g] = grape_counts.get(clean_g, 0) + 1
 
     top_grapes = sorted([
         {"name": g_name, "count": count, "percentage": round((count / total_products) * 100, 1) if total_products > 0 else 0}

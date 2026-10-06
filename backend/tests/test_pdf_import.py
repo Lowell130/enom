@@ -113,7 +113,7 @@ class ParsePdfTests(AIConfigMixin, BaseTest):
         self.assertEqual(w["category"], "VINO_BIANCO")
         self.assertEqual(w["denominazione"], "DOP")
         self.assertIsNone(w["vintage_year"])  # "prima annata 2004" non e' l'annata
-        self.assertEqual(w["grape_varieties"], ["Falanghina"])
+        self.assertEqual(w["grape_varieties"], ["Falanghina 100%"])
         self.assertEqual(w["serving_temperature"], "10-12°C")
         self.assertEqual(w["indicative_price"], "15,00 €")
         self.assertEqual(w["action"], "create")
@@ -336,7 +336,7 @@ class ParsePdfTests(AIConfigMixin, BaseTest):
         self.assertTrue(w["is_riserva"])
         self.assertEqual(w["denominazione"], "DOC")
         self.assertEqual(w["alcohol_degrees"], 14.5)
-        self.assertEqual(w["grape_varieties"], ["Tintilia"])
+        self.assertEqual(w["grape_varieties"], ["Tintilia 100%"])
         self.assertEqual(w["serving_temperature"], "16-18°C")
         self.assertEqual(w["category"], "VINO_ROSSO")
         attrs = {a["name"]: a["value"] for a in w["custom_attributes"]}
@@ -417,7 +417,7 @@ class ConfirmImportTests(AIConfigMixin, BaseTest):
         self.assertEqual(doc["status"], "DRAFT")
         self.assertEqual(doc["slug"], "colle-del-limone-falanghina-del-molise")
         self.assertEqual(doc["photos"], [])
-        self.assertEqual(doc["grape_varieties"], ["Falanghina"])
+        self.assertEqual(doc["grape_varieties"], ["Falanghina 100%"])
         self.assertGreaterEqual(len(doc["custom_attributes"]), 14)
         self.assertTrue(doc["tasting_notes"]["olfactory"].startswith("Profumi intensi"))
         # tassonomie aggiornate

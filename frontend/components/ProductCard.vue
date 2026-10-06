@@ -40,6 +40,7 @@
 </template>
 
 <script setup>
+import { primaryGrape } from '~/utils/grapes'
 const props = defineProps({
   product: { type: Object, required: true },
   // sulla pagina della cantina il nome del produttore e' superfluo
@@ -59,9 +60,9 @@ const productImage = computed(() => {
 })
 
 const details = computed(() => {
-  const grape = (props.product.grape_varieties || [])[0]
+  const grape = primaryGrape(props.product)
   const parts = []
-  if (grape) parts.push(String(grape).replace(/\s*\d+\s*%/, '').trim())
+  if (grape) parts.push(grape)
   if (props.product.alcohol_degrees) parts.push(`${String(props.product.alcohol_degrees).replace('.', ',')}% vol`)
   return parts.join(' · ')
 })
