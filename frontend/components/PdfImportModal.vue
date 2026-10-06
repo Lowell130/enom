@@ -100,7 +100,7 @@
               </span>
             </li>
           </ul>
-          <p class="text-[11px] text-stone-500">Ogni documento richiede in genere 10–40 secondi.</p>
+          <p class="text-[11px] text-stone-500">Analizziamo fino a {{ PARALLEL }} documenti alla volta; ognuno può richiedere da 30 secondi a qualche minuto, soprattutto le schede grafiche o scansionate. Non chiudere questa finestra e non ricaricare la pagina.</p>
         </template>
 
         <!-- STEP 3: revisione -->
@@ -116,6 +116,9 @@
           <div v-if="!wines.length" class="text-center text-sm text-stone-500 py-10">Nessun vino da importare.</div>
 
           <template v-else>
+            <p class="m-0 text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+              I vini non sono ancora salvati: controlla i dati e premi «Importa» in basso per aggiungerli al catalogo.
+            </p>
             <div class="flex flex-wrap items-center justify-between gap-3 bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3">
               <span class="text-xs font-bold text-stone-800">{{ wines.length }} {{ wines.length === 1 ? 'vino trovato' : 'vini trovati' }} · {{ selectedCount }} da importare</span>
               <div class="flex flex-wrap items-center gap-4 text-xs">
@@ -268,7 +271,7 @@
 
       <!-- Footer -->
       <div class="px-6 py-4 flex justify-between items-center gap-3 border-t border-stone-100">
-        <button v-if="step === 'review'" type="button" class="px-4 py-2.5 text-xs text-stone-600 font-semibold hover:bg-stone-50 rounded-xl" :disabled="busy" @click="reset">
+        <button v-if="step === 'review'" type="button" class="px-4 py-2.5 text-xs text-stone-600 font-semibold hover:bg-stone-50 rounded-xl" :disabled="busy" @click="backToFiles">
           ← Altri file
         </button>
         <button v-else type="button" class="px-4 py-2.5 text-xs text-stone-600 font-semibold hover:bg-stone-50 rounded-xl" :disabled="busy" @click="close">
@@ -333,7 +336,8 @@ const fileStates = ref([])
 const wines = ref([])
 const defaultProducerId = ref('')
 const publishStatus = ref('PUBLISHED')
-const attachPdf = ref(false)
+const attachPdf = ref(true)
+const PARALLEL = 3
 const result = ref(null)
 const aiStatus = ref(null)
 const pairingOptions = ref([...DEFAULT_PAIRINGS])
@@ -415,7 +419,7 @@ const checkBatch = async () => {
   try {
     const res = await fetchWithAuth('/products/import/check-batch', {
       method: 'POST',
-      body: { wines: wines.value.map(w => ({ producer_id: w.producer_id || '', name: w.name || '', is_riserva: !!w.is_riserva, source_file: w.source_file || '' })) }
+      body: { wines: wines.value.map(w => ({ producer_id: w.producer_id || '', name: w.name || '', is_riserva: !!w.is_riserva, category: w.category || '', source_file: w.source_file || '' })) }
     })
     for (const r of res?.results || []) {
       const w = wines.value[r.index]
@@ -483,7 +487,7 @@ const parseOne = async (fs) => {
     if (!entry || entry.status !== 'ok') {
       fs.state = 'error'
       fs.error = entry?.error || 'Analisi non riuscita'
-      return
+      return []
     }
     const parsed = entry.wines.map(w => prepareWine(w, fs.file))
     fs.count = parsed.length
@@ -492,10 +496,11 @@ const parseOne = async (fs) => {
       fs.state = 'error'
       fs.error = (entry.warnings || []).join(' ') || 'Nessun vino riconosciuto nel documento'
     }
-    wines.value.push(...parsed)
+    return parsed
   } catch (err) {
     fs.state = 'error'
     fs.error = err?.data?.detail || 'Errore di comunicazione con il server'
+    return []
   }
 }
 
@@ -505,8 +510,9 @@ const analyze = async () => {
   step.value = 'analyzing'
   wines.value = []
   fileStates.value = files.value.map(f => ({ name: f.name, file: f, state: 'queued', count: 0, error: '', duplicateOf: '' }))
-  // un file alla volta: avanzamento visibile ed errori isolati per documento
+  // file identici analizzati una volta sola
   const seen = new Map()
+  const queue = []
   for (const fs of fileStates.value) {
     const fp = await fileFingerprint(fs.file)
     if (seen.has(fp)) {
@@ -515,8 +521,18 @@ const analyze = async () => {
       continue
     }
     seen.set(fp, fs.name)
-    await parseOne(fs)
+    queue.push(fs)
   }
+  // alcuni documenti in parallelo; i vini restano nell'ordine dei file scelti
+  const parsedByFile = new Map()
+  const worker = async () => {
+    while (queue.length) {
+      const fs = queue.shift()
+      parsedByFile.set(fs, await parseOne(fs))
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(PARALLEL, queue.length) }, worker))
+  wines.value = fileStates.value.flatMap(fs => parsedByFile.get(fs) || [])
   await checkBatch()
   if (wines.value.length === 1) wines.value[0]._open = true
   busy.value = false
@@ -525,7 +541,7 @@ const analyze = async () => {
 
 const retryFile = async (fs) => {
   busy.value = true
-  await parseOne(fs)
+  wines.value.push(...await parseOne(fs))
   await checkBatch()
   busy.value = false
 }
@@ -608,6 +624,11 @@ const confirmImport = async () => {
   }
 }
 
+const backToFiles = () => {
+  if (wines.value.length && !window.confirm('Tornando alla scelta dei file perdi i vini letti, non ancora salvati. Continuare?')) return
+  reset()
+}
+
 const reset = () => {
   step.value = 'select'
   files.value = []
@@ -616,8 +637,19 @@ const reset = () => {
   result.value = null
 }
 
+// avviso del browser se si chiude o ricarica la pagina con un'analisi in corso o vini non ancora salvati
+const hasUnsavedWork = computed(() => step.value === 'analyzing' || (step.value === 'review' && wines.value.length > 0))
+const onBeforeUnload = (e) => {
+  if (!hasUnsavedWork.value) return
+  e.preventDefault()
+  e.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
+
 const close = () => {
   if (busy.value) return
+  if (step.value === 'review' && wines.value.length && !window.confirm('I vini letti non sono ancora stati salvati. Chiudere comunque?')) return
   emit('close')
 }
 </script>

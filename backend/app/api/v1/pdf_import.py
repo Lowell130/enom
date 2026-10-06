@@ -24,7 +24,7 @@ from app.services.catalog import (
     generate_unique_product_slug,
     parse_denominazione_acronym,
 )
-from app.services.duplicates import compare_names, find_duplicate, name_key
+from app.services.duplicates import compare_names, find_duplicate, name_key, different_colour
 from app.services.pdf_importer import CANONICAL_PAIRINGS, SUPPORTED_EXTENSIONS, match_producer, process_document
 from app.services.taxonomy import (
     sync_custom_attributes_with_master,
@@ -61,6 +61,7 @@ def _mark_batch_duplicates(wines: List[Dict[str, Any]]) -> None:
         for first in seen:
             if first.get("producer_id") and first.get("producer_id") == w.get("producer_id") \
                     and bool(first.get("is_riserva")) == bool(w.get("is_riserva")) \
+                    and not different_colour(first.get("category", ""), w.get("category", "")) \
                     and compare_names(first["name"], w["name"])[0]:
                 w["batch_duplicate_of"] = {"name": first["name"], "source_file": first.get("source_file", "")}
                 w["action"] = "skip"
@@ -239,6 +240,7 @@ class BatchWineRef(BaseModel):
     producer_id: Optional[str] = ""
     name: str = Field(default="", max_length=200)
     is_riserva: Optional[bool] = False
+    category: Optional[str] = ""
     source_file: Optional[str] = ""
 
 

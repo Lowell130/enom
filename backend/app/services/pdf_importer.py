@@ -496,7 +496,38 @@ def normalize_wine(raw: Dict[str, Any], master_attributes: List[str], master_gra
     wine["missing_fields"] = missing
     notes = _clean(raw.get("notes"), 500)
     wine["warnings"] = [notes] if notes else []
+    wine["name"] = tidy_wine_name(wine["name"], wine["category"])
     return wine
+
+
+_LOWER_WORDS = {"di", "del", "della", "dello", "dei", "degli", "delle", "da", "dal", "e", "ed", "in", "al", "alla",
+                "a", "con", "su", "per", "tra", "fra"}
+_ROMAN = re.compile(r"^(?=[IVXLC]+$)(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$")
+
+
+def _title_word(word: str, first: bool) -> str:
+    if _ROMAN.match(word):
+        return word
+    low = word.lower()
+    if not first and low in _LOWER_WORDS:
+        return low
+    # d'uva -> d'Uva, sant'agata -> Sant'Agata
+    parts = low.split("'")
+    return "'".join(p[:1].upper() + p[1:] if (i > 0 or first or p not in ("d", "l")) else p
+                    for i, p in enumerate(parts))
+
+
+def tidy_wine_name(name: str, category: str = "") -> str:
+    """I nomi scritti tutti in maiuscolo come sulle etichette ("TINTILIA DEL MOLISE") diventano
+    "Tintilia del Molise"; un rosato senza il colore nel nome riceve "Rosato",
+    cosi' non si confonde con il rosso che ha lo stesso nome."""
+    name = (name or "").strip()
+    letters = [c for c in name if c.isalpha()]
+    if len(letters) >= 4 and all(c.isupper() for c in letters):
+        name = " ".join(_title_word(w, i == 0) for i, w in enumerate(name.split()))
+    if category == "ROSATO" and name and not re.search(r"(?i)\b(rosat[oi]|ros[eé]|cerasuolo|rosa)\b", name):
+        name = f"{name} Rosato"
+    return name
 
 
 # ---------------------------------------------------------------------------

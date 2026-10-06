@@ -77,6 +77,15 @@ def compare_names(a: str, b: str) -> Tuple[Optional[str], float]:
     return None, round(ratio, 2)
 
 
+# tipologie che indicano vini sicuramente diversi anche con lo stesso nome
+# (es. "Tintilia del Molise" rosso e rosato della stessa cantina)
+_COLOUR_CATEGORIES = {"VINO_ROSSO", "VINO_BIANCO", "ROSATO"}
+
+
+def different_colour(a: str, b: str) -> bool:
+    return bool(a and b and a != b and a in _COLOUR_CATEGORIES and b in _COLOUR_CATEGORIES)
+
+
 def find_duplicate(name: str, candidates: Iterable[Dict[str, Any]], category: str = "",
                    is_riserva: Optional[bool] = None) -> Optional[Dict[str, Any]]:
     """Trova tra i vini della stessa cantina quello che corrisponde meglio a `name`."""
@@ -87,7 +96,8 @@ def find_duplicate(name: str, candidates: Iterable[Dict[str, Any]], category: st
             continue
         if is_riserva is not None and c.get("is_riserva") is not None and bool(c.get("is_riserva")) != bool(is_riserva):
             continue
-        if category and c.get("category") and c["category"] != category and kind != "exact":
+        if category and c.get("category") and c["category"] != category \
+                and (kind != "exact" or different_colour(category, c["category"])):
             continue
         if score > best_score:
             best, best_score, best_kind = c, score, kind

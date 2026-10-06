@@ -133,3 +133,30 @@ class BatchCheckTests(AIConfigMixin, BaseTest):
         r = self.client.post(f"{API}/products/import/check-batch", json={"wines": wines}, headers=self.auth(self.admin_token))
         dup = [x["duplicate_of_index"] for x in r.json()["results"]]
         self.assertEqual(dup, [None, None, 0, None, None])
+
+    def test_check_batch_same_name_different_colour(self):
+        # rosso e rosato con lo stesso nome (schede Tenuta Gualtieri): sono due vini, non un doppione
+        wines = [
+            {"producer_id": "a", "name": "Tintilia del Molise", "category": "ROSATO", "source_file": "rosato.pdf"},
+            {"producer_id": "a", "name": "Tintilia del Molise", "category": "VINO_ROSSO", "source_file": "rosso.pdf"},
+            {"producer_id": "a", "name": "Tintilia del Molise", "category": "VINO_ROSSO", "source_file": "rosso2.pdf"},
+        ]
+        r = self.client.post(f"{API}/products/import/check-batch", json={"wines": wines}, headers=self.auth(self.admin_token))
+        self.assertEqual([x["duplicate_of_index"] for x in r.json()["results"]], [None, None, 1])
+
+    def test_find_duplicate_ignores_other_colour(self):
+        rosso = {"_id": "x1", "name": "Tintilia del Molise", "category": "VINO_ROSSO"}
+        self.assertIsNone(find_duplicate("Tintilia del Molise", [rosso], "ROSATO"))
+        self.assertIsNotNone(find_duplicate("Tintilia del Molise", [rosso], "VINO_ROSSO"))
+        # tipologie non di colore (es. passito): il nome identico resta un doppione
+        self.assertIsNotNone(find_duplicate("Tintilia del Molise", [rosso], "PASSITO"))
+
+
+class TidyNameTests(unittest.TestCase):
+    def test_uppercase_names_and_rosato(self):
+        from app.services.pdf_importer import tidy_wine_name
+        self.assertEqual(tidy_wine_name("TINTILIA DEL MOLISE", "ROSATO"), "Tintilia del Molise Rosato")
+        self.assertEqual(tidy_wine_name("SAUVIGNON DEL MOLISE", "VINO_BIANCO"), "Sauvignon del Molise")
+        self.assertEqual(tidy_wine_name("VIGNA D'UVA RISERVA II", "VINO_ROSSO"), "Vigna d'Uva Riserva II")
+        self.assertEqual(tidy_wine_name("Merlot del Molise", "VINO_ROSSO"), "Merlot del Molise")
+        self.assertEqual(tidy_wine_name("Cerasuolo del Molise", "ROSATO"), "Cerasuolo del Molise")
