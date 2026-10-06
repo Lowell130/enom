@@ -106,6 +106,23 @@
       <p v-else class="card p-8 text-center text-ink-soft">I vini di questa cantina saranno presto in catalogo.</p>
     </section>
 
+    <!-- PROSSIMI EVENTI -->
+    <section v-if="producerEvents.length || canEdit" class="page-container pb-12 md:pb-16">
+      <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+        <div class="flex flex-col gap-2">
+          <span class="eyebrow">In programma</span>
+          <h2 class="title-section text-[32px] md:text-[40px]">Prossimi eventi</h2>
+        </div>
+        <NuxtLink v-if="canEdit" to="/dashboard/eventi/nuovo" class="btn-ghost btn-sm">
+          <Plus class="w-4 h-4" aria-hidden="true" /> Nuovo evento
+        </NuxtLink>
+      </div>
+      <div v-if="producerEvents.length" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <EventCard v-for="ev in producerEvents.slice(0, 4)" :key="ev.id" :event="ev" compact />
+      </div>
+      <p v-else class="m-0 text-ink-soft">Nessun evento in programma: pubblica una degustazione o una visita, comparirà qui e nel calendario del sito.</p>
+    </section>
+
     <!-- STORIA + VISITA E CONTATTI -->
     <section id="contatti" class="bg-sand py-12 md:py-[72px]">
       <div class="page-container grid grid-cols-1 gap-10 lg:grid-cols-2 items-start">
@@ -202,6 +219,7 @@
 
 <script setup>
 import CoverArt from '~/components/CoverArt.vue'
+import EventCard from '~/components/EventCard.vue'
 import { Pencil, MapPin, Phone, Mail, Globe, MessageCircle, Plus, AtSign } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -246,6 +264,11 @@ const canEdit = computed(() => {
 const { data: producerProducts } = await useAsyncData(`producer_products_${route.params.slug}`, async () => {
   if (!producer.value?.id) return []
   return (await fetchWithAuth(`/products?producer_id=${producer.value.id}&status=PUBLISHED`)) || []
+}, { watch: [producer], default: () => [] })
+
+const { data: producerEvents } = await useAsyncData(`producer_events_${route.params.slug}`, async () => {
+  if (!producer.value?.id) return []
+  try { return (await fetchWithAuth(`/events?producer=${producer.value.id}`)) || [] } catch (e) { return [] }
 }, { watch: [producer], default: () => [] })
 
 const { data: allProducers } = await useAsyncData('all_producers', async () => {

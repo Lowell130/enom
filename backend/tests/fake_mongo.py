@@ -233,6 +233,10 @@ class FakeCollection:
                             break
                     if isinstance(target, dict):
                         target.pop(parts[-1], None)
+                for path, value in update.get("$pull", {}).items():
+                    current = _get_values(new, path)
+                    if current and isinstance(current[0], list):
+                        _set_path(new, path, [x for x in current[0] if x != value])
                 for path, value in update.get("$addToSet", {}).items():
                     current = _get_values(new, path)
                     arr = list(current[0]) if current and isinstance(current[0], list) else []

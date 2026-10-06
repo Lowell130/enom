@@ -161,6 +161,68 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "[[Gestisci la cantina|{{link_approvazione}}]]"
         ),
     },
+    "nuovo_evento_admin": {
+        "label": "Nuovo evento di una cantina",
+        "description": "All'amministratore, quando una cantina pubblica un evento (è già visibile: puoi nasconderlo).",
+        "recipient": "Amministratore (indirizzi delle notifiche)",
+        "variables": ["nome_cantina", "titolo_evento", "data_evento", "link_evento", "link_gestione_eventi"],
+        "subject": "Nuovo evento: {{titolo_evento}} ({{nome_cantina}})",
+        "body": (
+            "Ciao,\n\n"
+            "{{nome_cantina}} ha pubblicato un nuovo evento su {{nome_sito}}.\n\n"
+            "Evento: {{titolo_evento}}\nData: {{data_evento}}\n\n"
+            "L'evento è già visibile sul sito. Se non è adatto puoi nasconderlo dall'area riservata.\n\n"
+            "[[Guarda l'evento|{{link_evento}}]]\n\n"
+            "[[Gestisci gli eventi|{{link_gestione_eventi}}]]"
+        ),
+    },
+    "nuova_prenotazione_evento": {
+        "label": "Nuova richiesta di prenotazione",
+        "description": "All'organizzatore (cantina, contatto dell'evento o amministratore) quando un visitatore chiede di partecipare.",
+        "recipient": "Organizzatore dell'evento",
+        "variables": ["nome_organizzatore", "titolo_evento", "data_evento", "persone", "nome_cliente",
+                      "email_cliente", "telefono_cliente", "messaggio", "link_richieste"],
+        "subject": "Richiesta di prenotazione: {{titolo_evento}} ({{persone}} persone)",
+        "body": (
+            "Ciao {{nome_organizzatore}},\n\n"
+            "hai ricevuto una richiesta di prenotazione tramite {{nome_sito}}.\n\n"
+            "Evento: {{titolo_evento}}\nData: {{data_evento}}\nPersone: {{persone}}\n\n"
+            "Da: {{nome_cliente}} ({{email_cliente}})\nTelefono: {{telefono_cliente}}\n\n"
+            "Note:\n{{messaggio}}\n\n"
+            "La prenotazione non è ancora confermata: rispondi direttamente a {{email_cliente}} per confermarla.\n\n"
+            "[[Apri le richieste nell'area riservata|{{link_richieste}}]]"
+        ),
+    },
+    "conferma_prenotazione_evento": {
+        "label": "Richiesta di prenotazione ricevuta",
+        "description": "Al visitatore, dopo aver chiesto di partecipare a un evento.",
+        "recipient": "Visitatore (email inserita nel modulo)",
+        "variables": ["nome_cliente", "nome_organizzatore", "titolo_evento", "data_evento", "persone", "link_evento"],
+        "subject": "Abbiamo inoltrato la tua richiesta per {{titolo_evento}}",
+        "body": (
+            "Ciao {{nome_cliente}},\n\n"
+            "abbiamo inoltrato a {{nome_organizzatore}} la tua richiesta di partecipare a {{titolo_evento}}.\n\n"
+            "Data: {{data_evento}}\nPersone: {{persone}}\n\n"
+            "La prenotazione non è ancora confermata: l'organizzatore ti risponderà al tuo indirizzo email.\n\n"
+            "[[Rivedi l'evento|{{link_evento}}]]\n\n"
+            "A presto,\nil team di {{nome_sito}}"
+        ),
+    },
+    "evento_annullato": {
+        "label": "Evento annullato",
+        "description": "A chi aveva chiesto di partecipare, quando l'organizzatore annulla l'evento.",
+        "recipient": "Visitatori che avevano inviato una richiesta",
+        "variables": ["nome_cliente", "nome_organizzatore", "titolo_evento", "data_evento", "motivo", "link_eventi"],
+        "subject": "Evento annullato: {{titolo_evento}}",
+        "body": (
+            "Ciao {{nome_cliente}},\n\n"
+            "ci dispiace: {{nome_organizzatore}} ha annullato l'evento {{titolo_evento}} ({{data_evento}}), "
+            "per cui avevi inviato una richiesta di partecipazione.\n\n"
+            "Motivo: {{motivo}}\n\n"
+            "[[Scopri gli altri eventi in programma|{{link_eventi}}]]\n\n"
+            "Il team di {{nome_sito}}"
+        ),
+    },
 }
 
 COMMON_VARIABLES = ["nome_sito", "link_sito", "anno"]
@@ -178,12 +240,17 @@ SAMPLE_CONTEXT: Dict[str, str] = {
     "messaggio": "Buongiorno, vorrei sapere se il vino è disponibile in cartoni da 6 bottiglie e se spedite in Lombardia.",
     "motivo": "Non produciamo più vino in bottiglia.",
     "minuti_validita": "60",
+    "titolo_evento": "Degustazione in vigna al tramonto",
+    "data_evento": "sabato 18 ottobre 2026, ore 18:00–21:00",
+    "persone": "4",
+    "nome_organizzatore": "Cantina Colle dei Venti",
 }
 
 INQUIRY_TYPES = {
     "INFO_PREZZI": "Informazioni su prezzi e listino",
     "DISPONIBILITA": "Disponibilità e acquisto",
     "VISITA_CANTINA": "Visita in cantina e degustazione",
+    "EVENTO": "Prenotazione a un evento",
     "ALTRO": "Altro",
 }
 
@@ -221,6 +288,9 @@ def sample_context() -> Dict[str, str]:
         "link_richieste": site_url("/dashboard/messaggi"),
         "link_reimposta": site_url("/reimposta-password?token=esempio"),
         "link_accesso": site_url("/login"),
+        "link_evento": site_url("/eventi/degustazione-in-vigna-al-tramonto"),
+        "link_eventi": site_url("/eventi"),
+        "link_gestione_eventi": site_url("/dashboard/eventi"),
     })
     return ctx
 

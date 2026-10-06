@@ -95,6 +95,7 @@ const isMenuOpen = ref(false)
 const links = [
   { label: 'Vini', to: '/vini', match: '/vini' },
   { label: 'Cantine', to: '/produttori', match: '/produttori' },
+  { label: 'Eventi', to: '/eventi', match: '/eventi' },
   { label: 'Mappa', to: '/produttori?view=map', match: 'map' },
   { label: 'Osservatorio', to: '/report', match: '/report' }
 ]

@@ -6,8 +6,19 @@
         Richieste di Contatto Utenti
       </h1>
       <p class="text-xs text-ink-mute mt-1">
-        Messaggi inviati dagli utenti del portale per informazioni su prezzi, disponibilità e degustazioni.
+        Messaggi inviati dagli utenti del portale per informazioni su prezzi, disponibilità, degustazioni ed eventi.
       </p>
+    </div>
+
+    <div class="mb-4 flex flex-wrap items-center gap-2">
+      <button v-for="f in filters" :key="f.value" type="button" :aria-pressed="filter === f.value"
+        :class="['pill h-10', filter === f.value && 'pill-active']" @click="setFilter(f.value)">
+        {{ f.label }}
+      </button>
+      <span v-if="eventFilter" class="inline-flex items-center gap-2 h-10 px-3.5 rounded-xl bg-wine-50 border border-wine-200 text-sm text-wine-900">
+        Evento: <strong>{{ eventFilterTitle }}</strong>
+        <button type="button" class="font-bold" aria-label="Mostra tutte le richieste" @click="clearEvent">✕</button>
+      </span>
     </div>
 
     <div class="bg-white rounded-2xl border border-line shadow-xs overflow-hidden">
@@ -16,9 +27,9 @@
         Caricamento messaggi...
       </div>
 
-      <div v-else-if="inquiries && inquiries.length" class="divide-y divide-stone-100">
+      <div v-else-if="shown.length" class="divide-y divide-stone-100">
         <div 
-          v-for="msg in inquiries" 
+          v-for="msg in shown" 
           :key="msg.id" 
           class="p-6 transition-colors hover:bg-stone-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4"
           :class="{ 'bg-wine-50/20': !msg.is_read }"
@@ -38,7 +49,14 @@
               · {{ typeLabel(msg.message_type) }}
             </p>
 
-            <div class="text-xs font-semibold text-wine-900 flex items-center space-x-1.5">
+            <div v-if="msg.message_type === 'EVENTO'" class="text-xs font-semibold text-wine-900 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <CalendarDays class="w-3.5 h-3.5 text-wine-800" />
+              <NuxtLink v-if="msg.event_slug" :to="`/eventi/${msg.event_slug}`" class="text-wine-900">{{ msg.event_title }}</NuxtLink>
+              <span v-else>{{ msg.event_title }}</span>
+              <span class="text-ink-soft font-normal">· {{ msg.event_date }} · <strong>{{ msg.people }} {{ msg.people === 1 ? 'persona' : 'persone' }}</strong></span>
+              <span v-if="isAdmin && msg.producer_name" class="text-ink-soft font-normal">· {{ msg.producer_name }}</span>
+            </div>
+            <div v-else class="text-xs font-semibold text-wine-900 flex items-center space-x-1.5">
               <Building2 class="w-3.5 h-3.5 text-wine-800" />
               <span>Cantina: {{ msg.producer_name }}</span>
               <span v-if="msg.product_name" class="ml-2 text-ink-soft font-normal">| Vino: <strong>{{ msg.product_name }}</strong></span>
@@ -72,7 +90,7 @@
 
       <div v-else class="p-16 text-center text-ink-mute">
         <MessageSquare class="w-8 h-8 text-stone-400 mx-auto mb-2" />
-        <p class="text-sm font-light">Nessuna richiesta di contatto ricevuta.</p>
+        <p class="text-sm font-light">{{ inquiries.length ? 'Nessuna richiesta con questo filtro.' : 'Nessuna richiesta di contatto ricevuta.' }}</p>
       </div>
 
     </div>
@@ -81,9 +99,12 @@
 </template>
 
 <script setup>
-import { ArrowLeft, Phone, Building2, Mail, CheckCircle, MessageSquare } from 'lucide-vue-next'
+import { ArrowLeft, Phone, Building2, Mail, CheckCircle, MessageSquare, CalendarDays } from 'lucide-vue-next'
 
 const { fetchWithAuth } = useApi()
+const { isAdmin } = useAuth()
+const route = useRoute()
+const router = useRouter()
 
 const { data: inquiries, pending, refresh } = await useAsyncData('user_inquiries', async () => {
   const res = await fetchWithAuth('/inquiries')
@@ -92,7 +113,25 @@ const { data: inquiries, pending, refresh } = await useAsyncData('user_inquiries
 
 const toast = useToast()
 
-const TYPES = { INFO_PREZZI: 'Prezzi e listino', DISPONIBILITA: 'Disponibilità e acquisto', VISITA_CANTINA: 'Visita in cantina', ALTRO: 'Altro' }
+// filtri: tutte, solo eventi, solo messaggi; dalla pagina Eventi si arriva con ?evento=<id>
+const filters = [
+  { value: 'ALL', label: 'Tutte' },
+  { value: 'EVENTS', label: 'Prenotazioni eventi' },
+  { value: 'MESSAGES', label: 'Messaggi' }
+]
+const eventFilter = ref(typeof route.query.evento === 'string' ? route.query.evento : '')
+const filter = ref(eventFilter.value ? 'EVENTS' : 'ALL')
+const setFilter = (value) => { filter.value = value; if (value !== 'EVENTS') clearEvent() }
+const clearEvent = () => { eventFilter.value = ''; router.replace({ query: {} }) }
+const eventFilterTitle = computed(() => (inquiries.value || []).find(m => m.event_id === eventFilter.value)?.event_title || 'selezionato')
+const shown = computed(() => (inquiries.value || []).filter((m) => {
+  if (eventFilter.value) return m.event_id === eventFilter.value
+  if (filter.value === 'EVENTS') return m.message_type === 'EVENTO'
+  if (filter.value === 'MESSAGES') return m.message_type !== 'EVENTO'
+  return true
+}))
+
+const TYPES = { INFO_PREZZI: 'Prezzi e listino', DISPONIBILITA: 'Disponibilità e acquisto', VISITA_CANTINA: 'Visita in cantina', EVENTO: 'Prenotazione evento', ALTRO: 'Altro' }
 const typeLabel = (t) => TYPES[t] || 'Richiesta'
 
 // "oggi alle 15:30", "ieri alle 9:12", oppure la data
@@ -108,6 +147,11 @@ const formatWhen = (value) => {
 }
 
 const replyLink = (msg) => {
+  if (msg.message_type === 'EVENTO') {
+    const subject = `Re: ${msg.event_title} - ${msg.event_date}`
+    const body = `Gentile ${msg.user_name},\n\ngrazie per la richiesta di partecipazione a «${msg.event_title}» (${msg.event_date}, ${msg.people} ${msg.people === 1 ? 'persona' : 'persone'}).\n\n\n---\nLe tue note:\n${msg.message}`
+    return `mailto:${msg.user_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  }
   const subject = msg.product_name
     ? `Re: ${msg.product_name} - ${msg.producer_name}`
     : `Re: la tua richiesta a ${msg.producer_name}`

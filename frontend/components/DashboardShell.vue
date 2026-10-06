@@ -57,7 +57,7 @@
 <script setup>
 import {
   LayoutDashboard, Wine, MessageSquare, Building2, Store, Grape, Utensils, ListChecks,
-  ArrowLeft, LogOut, Menu, X, Mail
+  ArrowLeft, LogOut, Menu, X, Mail, CalendarDays
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -67,6 +67,7 @@ const open = ref(false)
 const mainNav = computed(() => [
   { label: 'Panoramica', to: '/dashboard', icon: LayoutDashboard, exact: true },
   { label: 'Vini', to: '/dashboard/prodotti', icon: Wine },
+  { label: 'Eventi', to: '/dashboard/eventi', icon: CalendarDays },
   { label: 'Richieste', to: '/dashboard/messaggi', icon: MessageSquare },
   ...(isAdmin.value ? [] : [{ label: 'Profilo cantina', to: '/dashboard/profilo', icon: Store }])
 ])

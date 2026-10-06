@@ -73,6 +73,17 @@
           </div>
           <span class="text-[13px] text-ink-mute">Risponde direttamente {{ product.producer_name || 'la cantina' }}, senza intermediari.</span>
         </div>
+
+        <div v-if="wineEvents.length" class="flex flex-col gap-2 p-5 rounded-2xl bg-sand-100 border border-line">
+          <span class="eyebrow-sm">Lo assaggi a</span>
+          <NuxtLink v-for="ev in wineEvents.slice(0, 3)" :key="ev.id" :to="`/eventi/${ev.slug}`" class="flex items-start gap-2.5 text-ink hover:text-wine-800">
+            <CalendarDays class="w-[18px] h-[18px] mt-0.5 shrink-0 text-wine-800" aria-hidden="true" />
+            <span class="flex flex-col leading-snug">
+              <span class="font-bold">{{ ev.title }}</span>
+              <span class="text-[13px] text-ink-mute">{{ (ev.next_date || ev.dates[0]).label }} · {{ placeLabel(ev) }}</span>
+            </span>
+          </NuxtLink>
+        </div>
       </div>
     </section>
 
@@ -144,7 +155,8 @@
 </template>
 
 <script setup>
-import { Pencil, Mail, FileDown, Eye, Droplet, Wine, Leaf } from 'lucide-vue-next'
+import { Pencil, Mail, FileDown, Eye, Droplet, Wine, Leaf, CalendarDays } from 'lucide-vue-next'
+import { placeLabel } from '~/utils/events'
 
 const route = useRoute()
 const { fetchWithAuth, mediaBase } = useApi()
@@ -263,6 +275,11 @@ const pdfUrl = computed(() => {
   const url = product.value.technical_sheet_pdf
   return url.startsWith('http') ? url : `${mediaBase}${url}`
 })
+
+const { data: wineEvents } = await useAsyncData(`wine_events_${route.params.slug}`, async () => {
+  if (!product.value?.id) return []
+  try { return (await fetchWithAuth(`/events?product=${product.value.id}`)) || [] } catch (e) { return [] }
+}, { watch: [product], default: () => [] })
 
 const { data: producer } = await useAsyncData(`wine_producer_${route.params.slug}`, async () => {
   if (!product.value?.producer_slug) return null

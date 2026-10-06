@@ -21,7 +21,7 @@ class InquiryCreate(BaseModel):
 
 class InquiryResponse(BaseModel):
     # Campi non vincolati: i messaggi gia' salvati devono restare leggibili
-    producer_id: str
+    producer_id: Optional[str] = None   # vuoto per le richieste agli eventi del territorio
     product_id: Optional[str] = None
     user_name: str
     user_email: str
@@ -33,3 +33,9 @@ class InquiryResponse(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     producer_name: Optional[str] = None
     product_name: Optional[str] = None
+    # richieste di prenotazione a un evento
+    event_id: Optional[str] = None
+    event_title: Optional[str] = None
+    event_slug: Optional[str] = None
+    event_date: Optional[str] = None
+    people: Optional[int] = None

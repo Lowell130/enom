@@ -98,6 +98,20 @@
       </div>
     </section>
 
+    <!-- EVENTI IN PROGRAMMA -->
+    <section v-if="homeEvents.length" class="page-container pt-14 md:pt-20">
+      <div class="flex flex-wrap items-end justify-between gap-5 mb-7">
+        <div class="flex flex-col gap-2">
+          <span class="eyebrow">In programma</span>
+          <h2 class="title-section">Eventi nelle cantine</h2>
+        </div>
+        <NuxtLink to="/eventi" class="text-[15px] font-bold">Tutti gli eventi →</NuxtLink>
+      </div>
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <EventCard v-for="ev in homeEvents" :key="ev.id" :event="ev" />
+      </div>
+    </section>
+
     <!-- LE CANTINE -->
     <section class="page-container py-14 md:py-20">
       <div class="flex flex-wrap items-end justify-between gap-5 mb-7">
@@ -144,6 +158,7 @@
 <script setup>
 import DenomArt from '~/components/DenomArt.vue'
 import HeroArt from '~/components/HeroArt.vue'
+import EventCard from '~/components/EventCard.vue'
 
 const router = useRouter()
 const { fetchWithAuth } = useApi()
@@ -199,6 +214,10 @@ const { data: products, pending: pendingProducts } = await useAsyncData('home_pr
 const { data: producers, pending: pendingProducers } = await useAsyncData('home_producers', async () => {
   const res = await fetchWithAuth('/producers')
   return res || []
+}, { default: () => [] })
+
+const { data: homeEvents } = await useAsyncData('home_events', async () => {
+  try { return (await fetchWithAuth('/events?limit=3')) || [] } catch (e) { return [] }
 }, { default: () => [] })
 
 const productCount = computed(() => (products.value || []).length)

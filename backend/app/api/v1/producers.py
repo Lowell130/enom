@@ -172,6 +172,9 @@ async def delete_producer(
         await db.password_resets.delete_many({"user_id": {"$in": account_ids}})
         await db.users.delete_many({"_id": {"$in": account_ids}})
     await db.ai_usage.delete_many({"producer_id": {"$in": ids}})
+    # eventi: quelli organizzati dalla cantina spariscono, da quelli del territorio la cantina viene tolta
+    await db.events.delete_many({"producer_id": oid})
+    await db.events.update_many({"participant_ids": oid}, {"$pull": {"participant_ids": oid}})
     return {
         "message": "Cantina eliminata insieme ai suoi vini, alle richieste e agli account di accesso",
         "products_deleted": wines.deleted_count,

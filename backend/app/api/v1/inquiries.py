@@ -63,6 +63,9 @@ async def _notify_inquiry(db, producer: dict, inquiry: dict) -> None:
     if not recipients:
         users = await db.users.find({"producer_id": producer["_id"], "is_active": {"$ne": False}}, {"email": 1}).to_list(5)
         recipients = [u["email"] for u in users if u.get("email")]
+    if not recipients:
+        # cantina senza email (es. inserita dall'amministratore): la richiesta non deve andare persa
+        recipients = await mail.admin_recipients(db)
     ctx = {
         "nome_cantina": producer.get("company_name", ""),
         "nome_cliente": inquiry.get("user_name", ""),
@@ -99,14 +102,20 @@ async def list_inquiries(
     products = await db.products.find({}, {"name": 1}).to_list(1000)
     product_map = {str(p["_id"]): p.get("name", "") for p in products}
 
+    events = await db.events.find({}, {"slug": 1}).to_list(2000)
+    event_slugs = {str(e["_id"]): e.get("slug", "") for e in events}
+
     cursor = db.inquiries.find(query).sort("created_at", -1)
     raw_inquiries = await cursor.to_list(1000)
     
     inquiries = []
     for doc in raw_inquiries:
         doc["id"] = str(doc["_id"])
-        doc["producer_id"] = str(doc["producer_id"])
-        doc["producer_name"] = producer_map.get(doc["producer_id"], "")
+        doc["producer_id"] = str(doc["producer_id"]) if doc.get("producer_id") else None
+        doc["producer_name"] = producer_map.get(doc["producer_id"], "") if doc["producer_id"] else ""
+        if doc.get("event_id"):
+            doc["event_id"] = str(doc["event_id"])
+            doc["event_slug"] = event_slugs.get(doc["event_id"], "")
         
         if doc.get("product_id"):
             doc["product_id"] = str(doc["product_id"])
@@ -133,7 +142,7 @@ async def mark_inquiry_as_read(
     is_admin = current_user.get("role") == "ADMIN"
     user_producer_id = current_user.get("producer_id")
     
-    if not is_admin and str(inquiry["producer_id"]) != str(user_producer_id):
+    if not is_admin and (not inquiry.get("producer_id") or str(inquiry["producer_id"]) != str(user_producer_id)):
         raise HTTPException(status_code=403, detail="Non puoi accedere a questo messaggio")
         
     await db.inquiries.update_one({"_id": ObjectId(inquiry_id)}, {"$set": {"is_read": True}})

@@ -11,6 +11,7 @@
         <span class="font-bold text-[#E2C98F]">Esplora</span>
         <NuxtLink to="/vini" class="text-[#F3E7DF] hover:text-white">Vini</NuxtLink>
         <NuxtLink to="/produttori" class="text-[#F3E7DF] hover:text-white">Cantine</NuxtLink>
+        <NuxtLink to="/eventi" class="text-[#F3E7DF] hover:text-white">Eventi</NuxtLink>
         <NuxtLink to="/produttori?view=map" class="text-[#F3E7DF] hover:text-white">Mappa</NuxtLink>
         <NuxtLink to="/report" class="text-[#F3E7DF] hover:text-white">Osservatorio</NuxtLink>
       </nav>
