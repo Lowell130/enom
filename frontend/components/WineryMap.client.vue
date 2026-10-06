@@ -37,6 +37,7 @@ const props = defineProps({
 })
 
 const { mediaBase } = useApi()
+const { initials } = useProducer()
 const { getWhatsAppUrl } = useWhatsApp()
 
 const mapContainer = ref(null)
@@ -153,9 +154,15 @@ const initMap = async () => {
 
     const marker = L.marker(coords, { icon: createCustomIcon() }).addTo(mapInstance)
 
-    const logo = producer.logo_url 
+    const logo = producer.logo_url
       ? (producer.logo_url.startsWith('http') ? producer.logo_url : `${mediaBase}${producer.logo_url}`)
-      : 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=150&q=80'
+      : ''
+    // Logo standard come nelle schede: le iniziali su fondo bianco; il logo vero, se si apre, le copre
+    const logoBox = `
+      <div style="position: relative; width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; background: #FFFFFF; border: 1px solid #ECE4DA; box-shadow: 0 1px 3px rgba(28,25,23,.08); display: flex; align-items: center; justify-content: center; overflow: hidden;">
+        <span style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; font-weight: 600; color: #6B1D2F; line-height: 1;">${initials(producer.company_name)}</span>
+        ${logo ? `<img src="${logo}" alt="" onerror="this.remove()" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #FFFFFF; padding: 3px;" />` : ''}
+      </div>`
 
     const waUrl = getWhatsAppUrl({
       number: producer.contacts?.whatsapp_number,
@@ -170,7 +177,7 @@ const initMap = async () => {
     const popupHtml = `
       <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 4px; max-width: 240px;">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-          <img src="${logo}" style="width: 40px; height: 40px; border-radius: 6px; object-fit: contain; background: #FFFFFF; padding: 2px; border: 1px solid #ECE4DA;" />
+          ${logoBox}
           <div>
             <strong style="font-size: 13px; color: #1C1917; display: block; leading-height: 1.2;">${producer.company_name}</strong>
             <span style="font-size: 11px; color: #78716C; display: block; margin-top: 2px;">
