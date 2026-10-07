@@ -84,6 +84,18 @@
               <CheckCircle class="w-3.5 h-3.5 text-ink-mute" />
               <span>Segna letto</span>
             </button>
+
+            <button
+              type="button"
+              :disabled="deleting === msg.id"
+              :aria-label="`Elimina il messaggio di ${msg.user_name}`"
+              title="Elimina il messaggio"
+              class="inline-flex items-center space-x-1 px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold border border-rose-200/50 disabled:opacity-50"
+              @click="removeInquiry(msg)"
+            >
+              <Trash2 class="w-3.5 h-3.5" />
+              <span>Elimina</span>
+            </button>
           </div>
         </div>
       </div>
@@ -99,7 +111,7 @@
 </template>
 
 <script setup>
-import { ArrowLeft, Phone, Building2, Mail, CheckCircle, MessageSquare, CalendarDays } from 'lucide-vue-next'
+import { ArrowLeft, Phone, Building2, Mail, CheckCircle, MessageSquare, CalendarDays, Trash2 } from 'lucide-vue-next'
 
 const { fetchWithAuth } = useApi()
 const { isAdmin } = useAuth()
@@ -157,6 +169,22 @@ const replyLink = (msg) => {
     : `Re: la tua richiesta a ${msg.producer_name}`
   const body = `Gentile ${msg.user_name},\n\ngrazie per averci scritto.\n\n\n---\nIl tuo messaggio:\n${msg.message}`
   return `mailto:${msg.user_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
+// eliminazione definitiva, dopo conferma
+const deleting = ref(null)
+const removeInquiry = async (msg) => {
+  if (!window.confirm(`Eliminare definitivamente il messaggio di ${msg.user_name}? Non si potrà recuperare.`)) return
+  deleting.value = msg.id
+  try {
+    await fetchWithAuth(`/inquiries/${msg.id}`, { method: 'DELETE' })
+    toast.success('Messaggio eliminato.')
+    await refresh()
+  } catch (err) {
+    toast.error('Non è stato possibile eliminare il messaggio.')
+  } finally {
+    deleting.value = null
+  }
 }
 
 const markRead = async (id) => {

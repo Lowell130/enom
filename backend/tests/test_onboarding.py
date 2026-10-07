@@ -305,3 +305,23 @@ class CatalogRulesTests(BaseTest):
                                           headers=self.auth(self.admin_token)).status_code, 400)
         self.assertEqual(self.client.post(f"{API}/grapes/{b}/merge", json={"target_id": str(a)},
                                           headers=self.auth(self.p1_token)).status_code, 403)
+
+
+class InquiryDeleteTests(EmailTestBase):
+    def _inquiry(self, producer_id):
+        return run(self.db.inquiries.insert_one({"producer_id": producer_id, "user_name": "Mario", "user_email": "m@example.com",
+                                                 "message": "Ciao", "message_type": "ALTRO", "is_read": False,
+                                                 "created_at": datetime.utcnow()})).inserted_id
+
+    def test_winery_deletes_only_its_own_messages(self):
+        mine, other = self._inquiry(self.p1), self._inquiry(self.p2)
+        self.assertEqual(self.client.delete(f"{API}/inquiries/{other}", headers=self.auth(self.p1_token)).status_code, 403)
+        self.assertEqual(self.client.delete(f"{API}/inquiries/{mine}", headers=self.auth(self.p1_token)).status_code, 200)
+        self.assertIsNone(run(self.db.inquiries.find_one({"_id": mine})))
+        self.assertIsNotNone(run(self.db.inquiries.find_one({"_id": other})))
+
+    def test_admin_deletes_any_message(self):
+        territory = self._inquiry(None)
+        self.assertEqual(self.client.delete(f"{API}/inquiries/{territory}", headers=self.auth(self.p1_token)).status_code, 403)
+        self.assertEqual(self.client.delete(f"{API}/inquiries/{territory}", headers=self.auth(self.admin_token)).status_code, 200)
+        self.assertEqual(self.client.delete(f"{API}/inquiries/{territory}", headers=self.auth(self.admin_token)).status_code, 404)

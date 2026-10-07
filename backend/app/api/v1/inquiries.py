@@ -147,3 +147,22 @@ async def mark_inquiry_as_read(
         
     await db.inquiries.update_one({"_id": ObjectId(inquiry_id)}, {"$set": {"is_read": True}})
     return {"message": "Messaggio segnato come letto"}
+
+
+@router.delete("/{inquiry_id}")
+async def delete_inquiry(
+    inquiry_id: str,
+    current_user: dict = Depends(get_current_user),
+    db=Depends(get_database)
+):
+    """Elimina definitivamente una richiesta (la cantina destinataria o l'amministratore)."""
+    if not ObjectId.is_valid(inquiry_id):
+        raise HTTPException(status_code=400, detail="ID non valido")
+    inquiry = await db.inquiries.find_one({"_id": ObjectId(inquiry_id)})
+    if not inquiry:
+        raise HTTPException(status_code=404, detail="Messaggio non trovato")
+    is_admin = current_user.get("role") == "ADMIN"
+    if not is_admin and (not inquiry.get("producer_id") or str(inquiry["producer_id"]) != str(current_user.get("producer_id"))):
+        raise HTTPException(status_code=403, detail="Puoi eliminare solo i messaggi della tua cantina")
+    await db.inquiries.delete_one({"_id": inquiry["_id"]})
+    return {"message": "Messaggio eliminato"}
