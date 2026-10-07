@@ -9,7 +9,7 @@
         </div>
 
         <div class="flex flex-col gap-3">
-          <div role="group" aria-label="Periodo" class="flex flex-wrap gap-1.5">
+          <div v-if="viewMode !== 'calendar'" role="group" aria-label="Periodo" class="flex flex-wrap gap-1.5">
             <button
               v-for="p in periods"
               :key="p.value"
@@ -49,7 +49,7 @@
                 role="tab"
                 :aria-selected="viewMode === mode.value"
                 :class="['segmented-item', viewMode === mode.value && 'segmented-item-active']"
-                @click="viewMode = mode.value"
+                @click="setView(mode.value)"
               >
                 {{ mode.label }}
               </button>
@@ -60,13 +60,18 @@
     </section>
 
     <section class="page-container pt-8 md:pt-10 pb-16 md:pb-20">
-      <p class="mb-5 text-[15px] text-ink-soft" aria-live="polite">
+      <p v-if="viewMode !== 'calendar'" class="mb-5 text-[15px] text-ink-soft" aria-live="polite">
         <strong class="text-ink">{{ visible.length }}</strong> {{ visible.length === 1 ? 'evento' : 'eventi' }}{{ past ? ' passati' : '' }}
       </p>
 
       <div v-if="pending" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div v-for="i in 6" :key="i" class="h-80 rounded-2xl bg-sand animate-pulse"></div>
       </div>
+
+      <ClientOnly v-else-if="viewMode === 'calendar'">
+        <EventCalendar v-model:month="calendarMonth" :events="visible" />
+        <template #fallback><div class="h-[640px] rounded-2xl bg-sand animate-pulse"></div></template>
+      </ClientOnly>
 
       <div v-else-if="!visible.length" class="card p-10 text-center flex flex-col items-center gap-3">
         <CalendarDays class="w-9 h-9 text-ink-mute" aria-hidden="true" />
@@ -109,6 +114,7 @@
 import { CalendarDays } from 'lucide-vue-next'
 import EventCard from '~/components/EventCard.vue'
 import EventMap from '~/components/EventMap.client.vue'
+import EventCalendar from '~/components/EventCalendar.vue'
 import { EVENT_TYPES, eventWhen, monthTitle } from '~/utils/events'
 
 const { fetchWithAuth } = useApi()
@@ -129,6 +135,7 @@ const periods = [
 ]
 const viewModes = [
   { label: 'Elenco', value: 'list' },
+  { label: 'Calendario', value: 'calendar' },
   { label: 'Mappa', value: 'map' }
 ]
 
@@ -137,23 +144,42 @@ const past = ref(route.query.passati === '1')
 const type = ref(EVENT_TYPES[route.query.tipo] ? route.query.tipo : '')
 const city = ref(typeof route.query.comune === 'string' ? route.query.comune : '')
 const freeOnly = ref(route.query.gratuiti === '1')
-const viewMode = ref('list')
+// nell'indirizzo: ?vista=calendario o ?vista=mappa
+const VIEW_SLUGS = { calendar: 'calendario', map: 'mappa' }
+const viewMode = ref(Object.keys(VIEW_SLUGS).find(k => VIEW_SLUGS[k] === route.query.vista) || 'list')
+const calendarMonth = ref(typeof route.query.mese === 'string' && /^\d{4}-\d{2}$/.test(route.query.mese) ? route.query.mese : '')
+const setView = (mode) => { viewMode.value = mode }
 
-const { data: events, pending } = await useAsyncData('public_events', () => {
+const { data: events, pending } = await useAsyncData('public_events', async () => {
+  // calendario: tutti gli eventi, anche quelli gia' passati (si sfogliano i mesi)
+  if (viewMode.value === 'calendar') {
+    const params = new URLSearchParams()
+    if (type.value) params.set('type', type.value)
+    if (freeOnly.value) params.set('free', 'true')
+    const [upcoming, done] = await Promise.all([
+      fetchWithAuth(`/events?${params.toString()}&limit=300`),
+      fetchWithAuth(`/events?${params.toString()}&past=true&limit=300`)
+    ])
+    const seen = new Set()
+    return [...(upcoming || []), ...(done || [])].filter(e => !seen.has(e.id) && seen.add(e.id))
+  }
   const params = new URLSearchParams()
   if (past.value) params.set('past', 'true')
   else if (period.value) params.set('period', period.value)
   if (type.value) params.set('type', type.value)
   if (freeOnly.value) params.set('free', 'true')
   return fetchWithAuth(`/events?${params.toString()}`)
-}, { default: () => [], watch: [period, past, type, freeOnly] })
+}, { default: () => [], watch: [period, past, type, freeOnly, viewMode] })
 
 // i filtri restano nell'indirizzo: la pagina si puo' condividere gia' filtrata
-watch([period, past, type, city, freeOnly], () => {
+watch([period, past, type, city, freeOnly, viewMode, calendarMonth], () => {
+  const calendar = viewMode.value === 'calendar'
   router.replace({
     query: {
-      periodo: !past.value && period.value ? period.value : undefined,
-      passati: past.value ? '1' : undefined,
+      vista: VIEW_SLUGS[viewMode.value],
+      mese: calendar && calendarMonth.value ? calendarMonth.value : undefined,
+      periodo: !calendar && !past.value && period.value ? period.value : undefined,
+      passati: !calendar && past.value ? '1' : undefined,
       tipo: type.value || undefined,
       comune: city.value || undefined,
       gratuiti: freeOnly.value ? '1' : undefined
@@ -163,7 +189,7 @@ watch([period, past, type, city, freeOnly], () => {
 
 const cities = computed(() => [...new Set((events.value || []).map(e => e.location?.city).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'it')))
 const visible = computed(() => (events.value || []).filter(e => !city.value || (e.location?.city || '').toLowerCase() === city.value.toLowerCase()))
-const hasFilters = computed(() => !!(period.value || type.value || city.value || freeOnly.value))
+const hasFilters = computed(() => !!((viewMode.value !== 'calendar' && period.value) || type.value || city.value || freeOnly.value))
 
 const groups = computed(() => {
   const out = []
