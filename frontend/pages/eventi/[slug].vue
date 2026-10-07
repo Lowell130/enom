@@ -107,11 +107,7 @@
           <h2 class="eyebrow-sm">Dove</h2>
           <p class="m-0 flex items-start gap-2 text-[15px] text-ink">
             <MapPin class="w-4 h-4 mt-1 shrink-0" aria-hidden="true" />
-            <span>
-              <template v-if="event.location.name">{{ event.location.name }}<br /></template>
-              <template v-if="event.location.street">{{ event.location.street }}<br /></template>
-              {{ event.location.city }}<template v-if="event.location.province"> ({{ event.location.province }})</template>
-            </span>
+            <span>{{ fullAddress }}</span>
           </p>
           <a :href="directionsUrl" target="_blank" rel="noopener" class="text-sm font-semibold w-fit">Indicazioni stradali →</a>
         </div>
@@ -189,6 +185,13 @@ const upcoming = computed(() => (event.value?.dates || []).filter(d => !d.is_pas
 const shownDates = computed(() => (upcoming.value.length ? upcoming.value : event.value?.dates || []))
 const bookable = computed(() => event.value && event.value.status === 'PUBLISHED' && !event.value.is_past)
 const related = computed(() => (others.value || []).filter(e => e.id !== event.value?.id).slice(0, 3))
+
+// indirizzo su una sola riga ("Centro storico, Via Roma 1, Larino (CB)"): va a capo solo se non c'e' spazio
+const fullAddress = computed(() => {
+  const loc = event.value?.location || {}
+  const city = loc.city ? `${loc.city}${loc.province ? ` (${loc.province})` : ''}` : ''
+  return [loc.name, loc.street, city].filter(Boolean).join(', ')
+})
 
 const directionsUrl = computed(() => {
   const loc = event.value?.location || {}
