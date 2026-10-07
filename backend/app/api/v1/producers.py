@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.db.mongodb import get_database
-from app.schemas.producer import ProducerCreate, ProducerUpdate, ProducerResponse, DeletionRequest
-from app.api.v1.auth import get_current_user, get_current_admin, get_optional_user, is_admin, owns_producer
+from app.schemas.producer import ProducerCreate, ProducerUpdate, ProducerResponse, DeletionRequest, InviteRequest
+from app.api.v1.auth import get_current_user, get_current_admin, get_optional_user, is_admin, owns_producer, _hash_reset_token
+from app.core.config import settings
+from app.core.security import get_password_hash
 from app.core.utils import slugify, unique_slug
 from bson import ObjectId
 from app.services import email as mail
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timedelta
+from typing import Dict, Optional
+import secrets
 
 router = APIRouter()
 
@@ -40,12 +43,14 @@ async def get_producers(
 
     # 2. Cantine
     query = {} if include_all else {"status": "APPROVED"}
+    accounts = await _account_map(db) if include_all else {}
     producers = []
     async for doc in db.producers.find(query):
         doc["id"] = str(doc["_id"])
         doc["product_count"] = count_map.get(doc["id"], 0)
         if include_all:
             doc["total_product_count"] = total_map.get(doc["id"], 0)
+            doc["account"] = accounts.get(doc["_id"], {"status": "none"})
         else:
             # dati riservati all'area admin
             doc.pop("deletion_requested_at", None)
@@ -237,3 +242,107 @@ async def cancel_deletion_request(current_user: dict = Depends(get_current_user)
         raise HTTPException(status_code=400, detail="Nessuna cantina collegata a questo account")
     await db.producers.update_one({"_id": ObjectId(pid)}, {"$unset": {"deletion_requested_at": "", "deletion_reason": ""}})
     return {"message": "Richiesta di cancellazione annullata."}
+
+
+# ---------------------------------------------------------------------------
+# Accesso delle cantine inserite dall'amministratore: invito via email
+# ---------------------------------------------------------------------------
+
+async def _account_map(db) -> Dict[ObjectId, dict]:
+    """Stato dell'accesso di ogni cantina: none (nessun account), invited, expired (invito scaduto), active."""
+    now = datetime.utcnow()
+    out: Dict[ObjectId, dict] = {}
+    async for u in db.users.find({"role": "PRODUCER", "producer_id": {"$ne": None}},
+                                 {"email": 1, "producer_id": 1, "invited_at": 1, "activated_at": 1, "invite_expires_at": 1}):
+        pid = u.get("producer_id")
+        if not isinstance(pid, ObjectId):
+            pid = ObjectId(pid) if ObjectId.is_valid(str(pid)) else None
+        if pid is None:
+            continue
+        if u.get("activated_at") or not u.get("invited_at"):
+            info = {"status": "active", "email": u.get("email")}
+        else:
+            expired = u.get("invite_expires_at") and u["invite_expires_at"] < now
+            info = {"status": "expired" if expired else "invited", "email": u.get("email"),
+                    "invited_at": u.get("invited_at"), "expires_at": u.get("invite_expires_at")}
+        # se una cantina ha piu' account, conta quello attivo
+        if out.get(pid, {}).get("status") != "active":
+            out[pid] = info
+    return out
+
+
+async def _invite(db, producer: dict, email: Optional[str] = None) -> dict:
+    """Crea (o ritrova) l'account della cantina e manda il link per scegliere la password."""
+    email = (email or (producer.get("contacts") or {}).get("email_contact") or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail=f"{producer.get('company_name')}: manca l'email di contatto nel profilo")
+    now = datetime.utcnow()
+    user = await db.users.find_one({"producer_id": producer["_id"], "role": "PRODUCER"})
+    if user and (user.get("activated_at") or not user.get("invited_at")):
+        raise HTTPException(status_code=400, detail=f"{producer.get('company_name')} ha già un accesso attivo")
+    other = await db.users.find_one({"email": email})
+    if other and (not user or other["_id"] != user["_id"]):
+        raise HTTPException(status_code=400, detail=f"L'email {email} è già usata da un altro account")
+    expires = now + timedelta(days=settings.INVITE_TTL_DAYS)
+    if user:
+        await db.users.update_one({"_id": user["_id"]}, {"$set": {
+            "email": email, "invited_at": now, "invite_expires_at": expires, "is_active": True}})
+        user_id = user["_id"]
+    else:
+        res = await db.users.insert_one({
+            "email": email,
+            # password casuale mai comunicata: si accede solo dopo aver scelto la propria dall'invito
+            "password_hash": get_password_hash(secrets.token_urlsafe(32)),
+            "role": "PRODUCER", "producer_id": producer["_id"], "is_active": True,
+            "created_at": now, "invited_at": now, "invite_expires_at": expires,
+        })
+        user_id = res.inserted_id
+    # i link d'invito precedenti non valgono piu'
+    await db.password_resets.update_many({"user_id": user_id, "used_at": None}, {"$set": {"used_at": now}})
+    token = secrets.token_urlsafe(32)
+    await db.password_resets.insert_one({
+        "user_id": user_id, "token_hash": _hash_reset_token(token), "purpose": "invite",
+        "created_at": now, "expires_at": expires, "used_at": None,
+    })
+    sent = await mail.send_template(db, "invito_cantina", [email], {
+        "nome_cantina": producer.get("company_name", ""),
+        "email": email,
+        "link_attivazione": mail.site_url(f"/attiva-account?token={token}"),
+        "giorni_validita": str(settings.INVITE_TTL_DAYS),
+        "link_pagina_cantina": mail.site_url(f"/produttori/{producer.get('slug', '')}"),
+    }, related={"producer_id": str(producer["_id"]), "user_id": str(user_id)})
+    return {"producer_id": str(producer["_id"]), "company_name": producer.get("company_name", ""), "email": email,
+            "expires_at": expires, "email_status": (sent or {}).get("status", "disattivato")}
+
+
+@router.post("/invite-all")
+async def invite_all(current_admin: dict = Depends(get_current_admin), db=Depends(get_database)):
+    """Invita tutte le cantine che non hanno ancora un accesso (e hanno l'email di contatto)."""
+    accounts = await _account_map(db)
+    invited, skipped = [], []
+    async for producer in db.producers.find({}):
+        if accounts.get(producer["_id"], {}).get("status") not in (None, "none"):
+            continue
+        if not (producer.get("contacts") or {}).get("email_contact"):
+            skipped.append({"company_name": producer.get("company_name", ""), "reason": "manca l'email di contatto"})
+            continue
+        try:
+            invited.append(await _invite(db, producer))
+        except HTTPException as e:
+            skipped.append({"company_name": producer.get("company_name", ""), "reason": e.detail})
+    return {"invited": invited, "skipped": skipped,
+            "message": f"Inviti mandati: {len(invited)}" + (f" · non invitate: {len(skipped)}" if skipped else "")}
+
+
+@router.post("/{producer_id}/invite")
+async def invite_producer(producer_id: str, payload: InviteRequest, current_admin: dict = Depends(get_current_admin),
+                          db=Depends(get_database)):
+    if not ObjectId.is_valid(producer_id):
+        raise HTTPException(status_code=400, detail="ID non valido")
+    producer = await db.producers.find_one({"_id": ObjectId(producer_id)})
+    if not producer:
+        raise HTTPException(status_code=404, detail="Cantina non trovata")
+    result = await _invite(db, producer, str(payload.email) if payload.email else None)
+    result["message"] = f"Invito mandato a {result['email']}"
+    return result
+

@@ -7,10 +7,15 @@
         <p class="text-sm text-ink-soft mt-1.5">Approva le nuove registrazioni, modifica i profili e gestisci le richieste di cancellazione.</p>
       </div>
 
-      <button @click="showAddModal = true" class="inline-flex items-center space-x-1.5 px-6 py-3 bg-wine-800 hover:bg-wine-900 text-white font-semibold text-sm rounded-xl shadow-xs transition-all">
-        <Plus class="w-4 h-4 text-amber-200" />
-        <span>Aggiungi Nuova Cantina</span>
-      </button>
+      <div class="flex flex-wrap items-center gap-2">
+        <button v-if="toInvite.length" type="button" class="btn-ghost btn-sm h-11" @click="inviteAllOpen = true">
+          <Send class="w-4 h-4" aria-hidden="true" /> Invita le cantine senza accesso ({{ toInvite.length }})
+        </button>
+        <button @click="showAddModal = true" class="inline-flex items-center space-x-1.5 px-6 py-3 bg-wine-800 hover:bg-wine-900 text-white font-semibold text-sm rounded-xl shadow-xs transition-all">
+          <Plus class="w-4 h-4 text-amber-200" />
+          <span>Aggiungi Nuova Cantina</span>
+        </button>
+      </div>
     </div>
 
     <!-- Filtro per stato -->
@@ -73,8 +78,11 @@
                 <span v-else class="text-stone-400 font-medium block mt-0.5 text-[11px]">Nessun punto sulla mappa</span>
               </td>
 
-              <!-- Contatti -->
+              <!-- Contatti e accesso -->
               <td class="py-4 px-6 text-xs whitespace-nowrap">
+                <span :class="['inline-flex items-center gap-1 mb-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide', accountBadge(p).cls]" :title="accountBadge(p).title">
+                  {{ accountBadge(p).label }}
+                </span>
                 <span v-if="p.contacts?.email_contact" class="font-medium text-ink-soft block text-xs flex items-center space-x-1">
                   <Mail class="w-3.5 h-3.5 text-stone-400 shrink-0" />
                   <span>{{ p.contacts.email_contact }}</span>
@@ -112,6 +120,9 @@
                   </button>
                   <button v-else-if="p.status === 'SUSPENDED'" type="button" class="btn-outline btn-sm h-8 px-3 text-xs" @click="quickStatus(p, 'APPROVED')">
                     Riattiva
+                  </button>
+                  <button v-if="(p.account?.status || 'none') !== 'active'" type="button" class="btn-ghost btn-sm h-8 px-3 text-xs" :disabled="inviting === p.id" @click="openInvite(p)">
+                    <Send class="w-3.5 h-3.5" aria-hidden="true" /> {{ (p.account?.status || 'none') === 'none' ? 'Invita' : 'Rimanda invito' }}
                   </button>
 
                   <!-- Row 1: Vedi Pagina & Modifica -->
@@ -360,11 +371,55 @@
       </div>
     </div>
 
+    <!-- Invito singolo -->
+    <div v-if="inviteTarget" class="fixed inset-0 z-50 bg-stone-900/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="invito-titolo" @click.self="inviteTarget = null">
+      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-line flex flex-col gap-4">
+        <h3 id="invito-titolo" class="font-sans text-lg font-bold text-ink m-0">Invita {{ inviteTarget.company_name }}</h3>
+        <p class="text-sm text-ink-soft m-0">
+          Mandiamo un'email con un link personale (valido 14 giorni) per scegliere la password e gestire la pagina della cantina.
+          <template v-if="inviteTarget.account?.status && inviteTarget.account.status !== 'none'"> Il link inviato prima non varrà più.</template>
+        </p>
+        <label class="field-label">Email della cantina
+          <input v-model="inviteEmail" type="email" class="input" placeholder="info@cantina.it" />
+          <span class="text-[13px] font-normal text-ink-mute">Sarà anche l'email di accesso.</span>
+        </label>
+        <p v-if="inviteError" role="alert" class="m-0 text-sm font-semibold text-wine-800">{{ inviteError }}</p>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn-ghost btn-sm h-10" @click="inviteTarget = null">Annulla</button>
+          <button type="button" class="btn-primary btn-sm h-10" :disabled="!inviteEmail || inviting" @click="sendInvite">
+            <Send class="w-4 h-4" aria-hidden="true" /> {{ inviting ? 'Invio…' : 'Manda l\'invito' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invito a tutte -->
+    <div v-if="inviteAllOpen" class="fixed inset-0 z-50 bg-stone-900/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="invito-tutte-titolo" @click.self="inviteAllOpen = false">
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-line flex flex-col gap-4">
+        <h3 id="invito-tutte-titolo" class="font-sans text-lg font-bold text-ink m-0">Invitare {{ toInvite.length }} {{ toInvite.length === 1 ? 'cantina' : 'cantine' }}?</h3>
+        <p class="text-sm text-ink-soft m-0">Ognuna riceve all'email di contatto il link per attivare l'accesso. Le cantine con l'accesso attivo o già invitate non vengono toccate.</p>
+        <ul class="list-none m-0 p-0 max-h-[220px] overflow-y-auto text-sm border border-line rounded-xl divide-y divide-stone-100">
+          <li v-for="p in toInvite" :key="p.id" class="px-3 py-2 flex justify-between gap-3"><span class="font-semibold text-ink truncate">{{ p.company_name }}</span><span class="text-ink-mute truncate">{{ p.contacts.email_contact }}</span></li>
+        </ul>
+        <p v-if="withoutEmail.length" class="m-0 text-[13px] text-wine-800">
+          Senza email di contatto, quindi non invitate: {{ withoutEmail.map(p => p.company_name).join(', ') }}.
+        </p>
+        <p v-if="emailMode !== 'smtp'" class="m-0 text-[13px] p-3 rounded-xl bg-[#FBF5E8] border border-[#E8D9B8] text-[#5A4524]">
+          Le email non vengono spedite davvero finché non configuri l'invio (SMTP): le trovi in «Email e testi → Posta in uscita».
+        </p>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn-ghost btn-sm h-10" @click="inviteAllOpen = false">Annulla</button>
+          <button type="button" class="btn-primary btn-sm h-10" :disabled="inviting" @click="sendInviteAll">
+            <Send class="w-4 h-4" aria-hidden="true" /> {{ inviting ? 'Invio…' : 'Manda gli inviti' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { Plus, Pencil, Eye, Trash2, X, Mail, Phone, MessageSquare, Wine, Check } from 'lucide-vue-next'
+import { Plus, Pencil, Eye, Trash2, X, Mail, Phone, MessageSquare, Wine, Check, Send } from 'lucide-vue-next'
 import { apiErrorMessage } from '~/utils/apiError'
 import LocationPicker from '~/components/LocationPicker.client.vue'
 
@@ -413,6 +468,66 @@ const visibleProducers = computed(() => {
 const wineCount = (n) => {
   const count = n || 0
   return count === 1 ? '1 vino' : `${count} vini`
+}
+
+// accesso delle cantine: inviti via email
+const ACCOUNT = {
+  none: { label: 'Nessun accesso', cls: 'bg-stone-100 text-ink-mute' },
+  invited: { label: 'Invito inviato', cls: 'bg-amber-100 text-amber-800' },
+  expired: { label: 'Invito scaduto', cls: 'bg-rose-100 text-rose-800' },
+  active: { label: 'Accesso attivo', cls: 'bg-bio-50 text-bio-900' }
+}
+const fmtDay = (v) => (v ? new Date(String(v).endsWith('Z') ? v : `${v}Z`).toLocaleDateString('it-IT', { day: 'numeric', month: 'long' }) : '')
+const accountBadge = (p) => {
+  const a = p.account || { status: 'none' }
+  const base = ACCOUNT[a.status] || ACCOUNT.none
+  const title = a.status === 'invited' ? `Inviato il ${fmtDay(a.invited_at)} a ${a.email}, scade il ${fmtDay(a.expires_at)}`
+    : a.status === 'expired' ? `Inviato a ${a.email}: il link è scaduto il ${fmtDay(a.expires_at)}`
+    : a.status === 'active' ? `Accede con ${a.email}` : 'La cantina non ha ancora un accesso al sito'
+  return { ...base, title }
+}
+const toInvite = computed(() => (producers.value || []).filter(p => (p.account?.status || 'none') === 'none' && p.contacts?.email_contact))
+const withoutEmail = computed(() => (producers.value || []).filter(p => (p.account?.status || 'none') === 'none' && !p.contacts?.email_contact))
+const inviteTarget = ref(null)
+const inviteEmail = ref('')
+const inviteError = ref('')
+const inviting = ref(null)
+const inviteAllOpen = ref(false)
+const { data: emailStatus } = await useAsyncData('email_status_cantine', () => fetchWithAuth('/emails/status').catch(() => null))
+const emailMode = computed(() => emailStatus.value?.mode || 'outbox')
+
+const openInvite = (p) => {
+  inviteTarget.value = p
+  inviteEmail.value = p.account?.email || p.contacts?.email_contact || ''
+  inviteError.value = ''
+}
+const sendInvite = async () => {
+  const p = inviteTarget.value
+  inviting.value = p.id
+  inviteError.value = ''
+  try {
+    const res = await fetchWithAuth(`/producers/${p.id}/invite`, { method: 'POST', body: { email: inviteEmail.value } })
+    toast.success(res.message || 'Invito mandato.')
+    inviteTarget.value = null
+    await refresh()
+  } catch (err) {
+    inviteError.value = apiErrorMessage(err, 'Invio non riuscito.')
+  } finally {
+    inviting.value = null
+  }
+}
+const sendInviteAll = async () => {
+  inviting.value = 'all'
+  try {
+    const res = await fetchWithAuth('/producers/invite-all', { method: 'POST' })
+    toast.success(res.message)
+    inviteAllOpen.value = false
+    await refresh()
+  } catch (err) {
+    toast.error(apiErrorMessage(err, 'Invio non riuscito.'))
+  } finally {
+    inviting.value = null
+  }
 }
 
 const quickStatus = async (p, status) => {

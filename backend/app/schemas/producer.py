@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -85,6 +85,12 @@ class ProducerResponse(ProducerBase):
     total_product_count: Optional[int] = None
     deletion_requested_at: Optional[datetime] = None
     deletion_reason: Optional[str] = None
+    # accesso della cantina (solo per l'amministratore): none | invited | expired | active
+    account: Optional[dict] = None
+
+
+class InviteRequest(BaseModel):
+    email: Optional[EmailStr] = None   # se vuota: l'email di contatto del profilo
 
 
 class DeletionRequest(BaseModel):

@@ -325,3 +325,89 @@ class InquiryDeleteTests(EmailTestBase):
         self.assertEqual(self.client.delete(f"{API}/inquiries/{territory}", headers=self.auth(self.p1_token)).status_code, 403)
         self.assertEqual(self.client.delete(f"{API}/inquiries/{territory}", headers=self.auth(self.admin_token)).status_code, 200)
         self.assertEqual(self.client.delete(f"{API}/inquiries/{territory}", headers=self.auth(self.admin_token)).status_code, 404)
+
+
+class InviteTests(EmailTestBase):
+    def setUp(self):
+        super().setUp()
+        run(self.db.producers.update_one({"_id": self.p2}, {"$set": {"contacts": {"email_contact": "Info@CantinaDue.it"}}}))
+        # Cantina Due e' stata inserita dall'amministratore: nessun account
+        run(self.db.users.delete_many({"producer_id": self.p2}))
+
+    def invite(self, pid, **body):
+        return self.client.post(f"{API}/producers/{pid}/invite", json=body, headers=self.auth(self.admin_token))
+
+    def token_from_mail(self):
+        mail_doc = self.outbox("invito_cantina")[-1]
+        return re.search(r"attiva-account\?token=([\w-]+)", mail_doc["text"]).group(1)
+
+    def account(self, pid):
+        ps = self.client.get(f"{API}/producers?include_all=true", headers=self.auth(self.admin_token)).json()
+        return next(p for p in ps if p["id"] == str(pid))["account"]
+
+    def test_full_invite_flow(self):
+        self.assertEqual(self.account(self.p2)["status"], "none")
+        r = self.invite(self.p2)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["email"], "info@cantinadue.it")
+        self.assertEqual(self.outbox("invito_cantina")[0]["to"], ["info@cantinadue.it"])
+        self.assertEqual(self.account(self.p2)["status"], "invited")
+        token = self.token_from_mail()
+        # finche' non sceglie la password non si entra
+        r = self.client.post(f"{API}/auth/login", json={"email": "info@cantinadue.it", "password": "qualsiasi"})
+        self.assertEqual(r.status_code, 400)
+        info = self.client.get(f"{API}/auth/invite/{token}").json()
+        self.assertEqual(info["company_name"], "Cantina Due")
+        # privacy obbligatoria
+        r = self.client.post(f"{API}/auth/invite/accept", json={"token": token, "password": "Vigneto2026!"})
+        self.assertEqual(r.status_code, 422)
+        r = self.client.post(f"{API}/auth/invite/accept", json={"token": token, "password": "Vigneto2026!", "privacy_accepted": True})
+        self.assertEqual(r.status_code, 200, r.text)
+        me = self.client.get(f"{API}/auth/me", headers=self.auth(r.json()["access_token"])).json()
+        self.assertEqual(me["producer_id"], str(self.p2))
+        self.assertEqual(self.account(self.p2)["status"], "active")
+        # il link vale una volta sola e non si reinvita una cantina gia' attiva
+        self.assertEqual(self.client.post(f"{API}/auth/invite/accept", json={"token": token, "password": "Altra2026!", "privacy_accepted": True}).status_code, 400)
+        self.assertEqual(self.invite(self.p2).status_code, 400)
+        self.assertEqual(self.client.post(f"{API}/auth/login", json={"email": "info@cantinadue.it", "password": "Vigneto2026!"}).status_code, 200)
+
+    def test_resend_replaces_previous_link(self):
+        self.invite(self.p2)
+        first = self.token_from_mail()
+        self.invite(self.p2)
+        second = self.token_from_mail()
+        self.assertEqual(self.client.get(f"{API}/auth/invite/{first}").status_code, 400)
+        self.assertEqual(self.client.get(f"{API}/auth/invite/{second}").status_code, 200)
+        self.assertEqual(run(self.db.users.count_documents({"producer_id": self.p2})), 1)
+
+    def test_expired_invite(self):
+        self.invite(self.p2)
+        token = self.token_from_mail()
+        run(self.db.password_resets.update_many({}, {"$set": {"expires_at": datetime.utcnow() - timedelta(days=1)}}))
+        run(self.db.users.update_many({"producer_id": self.p2}, {"$set": {"invite_expires_at": datetime.utcnow() - timedelta(days=1)}}))
+        self.assertEqual(self.client.get(f"{API}/auth/invite/{token}").status_code, 400)
+        self.assertEqual(self.account(self.p2)["status"], "expired")
+
+    def test_rules(self):
+        # cantina registrata da sola: ha gia' l'accesso
+        self.assertEqual(self.invite(self.p1).status_code, 400)
+        # email gia' usata da un altro account
+        self.assertEqual(self.invite(self.p2, email="uno@test.it").status_code, 400)
+        # senza email
+        run(self.db.producers.update_one({"_id": self.p2}, {"$set": {"contacts": {}}}))
+        self.assertIn("manca l'email", self.invite(self.p2).json()["detail"])
+        # solo l'amministratore
+        r = self.client.post(f"{API}/producers/{self.p2}/invite", json={}, headers=self.auth(self.p1_token))
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(self.account(self.p1)["status"], "active")
+
+    def test_invite_all(self):
+        p3 = self._producer("Cantina Tre", "cantina-tre")
+        run(self.db.producers.update_one({"_id": p3}, {"$set": {"contacts": {"email_contact": "tre@example.com"}}}))
+        r = self.client.post(f"{API}/producers/invite-all", headers=self.auth(self.admin_token)).json()
+        names = sorted(i["company_name"] for i in r["invited"])
+        self.assertEqual(names, ["Cantina Due", "Cantina Tre"])
+        # la cantina in attesa con account e Cantina Uno (attiva) non vengono toccate
+        self.assertEqual(len(self.outbox("invito_cantina")), 2)
+        again = self.client.post(f"{API}/producers/invite-all", headers=self.auth(self.admin_token)).json()
+        self.assertEqual(again["invited"], [])

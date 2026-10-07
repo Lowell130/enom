@@ -122,6 +122,27 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "Grazie per aver scelto i vini del Molise,\nil team di {{nome_sito}}"
         ),
     },
+    "invito_cantina": {
+        "label": "Invito a una cantina",
+        "description": "Alle cantine inserite dall'amministratore: link per scegliere la password e attivare l'accesso.",
+        "recipient": "Cantina (email di contatto del profilo)",
+        "variables": ["nome_cantina", "email", "link_attivazione", "giorni_validita", "link_pagina_cantina"],
+        "subject": "{{nome_cantina}} è su {{nome_sito}}: attivate il vostro accesso",
+        "body": (
+            "Buongiorno,\n\n"
+            "{{nome_sito}} è il nuovo portale dei vini e delle cantine del Molise: un catalogo dei vini, "
+            "una mappa delle cantine e un calendario degli eventi, con le richieste dei visitatori che arrivano "
+            "direttamente a voi, senza intermediari.\n\n"
+            "Abbiamo già preparato la pagina di {{nome_cantina}} con i vostri vini. Attivando l'accesso, "
+            "gratuito, potete completarla e aggiornarla quando volete: storia, foto e logo, schede dei vini "
+            "(anche caricando i PDF delle schede tecniche), eventi e degustazioni.\n\n"
+            "[[Scegliete la password e accedete|{{link_attivazione}}]]\n\n"
+            "Il vostro accesso sarà {{email}}. Il link è personale e vale {{giorni_validita}} giorni: "
+            "se scade, rispondete a questa email e ve ne mandiamo un altro.\n\n"
+            "[[Guarda la pagina della cantina|{{link_pagina_cantina}}]]\n\n"
+            "Un saluto,\nil team di {{nome_sito}}"
+        ),
+    },
     "recupero_password": {
         "label": "Recupero password",
         "description": "A chi chiede di reimpostare la password dalla pagina di accesso.",
@@ -240,6 +261,7 @@ SAMPLE_CONTEXT: Dict[str, str] = {
     "messaggio": "Buongiorno, vorrei sapere se il vino è disponibile in cartoni da 6 bottiglie e se spedite in Lombardia.",
     "motivo": "Non produciamo più vino in bottiglia.",
     "minuti_validita": "60",
+    "giorni_validita": "14",
     "titolo_evento": "Degustazione in vigna al tramonto",
     "data_evento": "sabato 18 ottobre 2026, ore 18:00–21:00",
     "persone": "4",
@@ -287,6 +309,7 @@ def sample_context() -> Dict[str, str]:
         "link_pagina_cantina": site_url("/produttori/cantina-colle-dei-venti"),
         "link_richieste": site_url("/dashboard/messaggi"),
         "link_reimposta": site_url("/reimposta-password?token=esempio"),
+        "link_attivazione": site_url("/attiva-account?token=esempio"),
         "link_accesso": site_url("/login"),
         "link_evento": site_url("/eventi/degustazione-in-vigna-al-tramonto"),
         "link_eventi": site_url("/eventi"),

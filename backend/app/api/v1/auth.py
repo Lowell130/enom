@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from app.db.mongodb import get_database
-from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, PasswordForgot, PasswordReset
+from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, PasswordForgot, PasswordReset, InviteAccept
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password, create_access_token, decode_token
 from app.core.utils import slugify, unique_slug, rate_limiter, client_ip
@@ -270,9 +270,60 @@ async def reset_password(payload: PasswordReset, request: Request, db=Depends(ge
     await db.users.update_one({"_id": user["_id"]}, {"$set": {
         "password_hash": get_password_hash(payload.password), "password_changed_at": changed_at,
     }})
+    if not user.get("activated_at"):
+        # una cantina invitata che usa "password dimenticata" attiva comunque il proprio accesso
+        await db.users.update_one({"_id": user["_id"]}, {"$set": {"activated_at": now}})
     # il link usato e gli altri ancora aperti per lo stesso account non valgono piu'
     await db.password_resets.update_many({"user_id": user["_id"], "used_at": None}, {"$set": {"used_at": now}})
     await mail.send_template(db, "password_modificata", [user["email"]], {
         "email": user["email"], "data": mail.format_date(now), "link_accesso": mail.site_url("/login"),
     }, related={"user_id": str(user["_id"])})
     return {"message": "Password aggiornata: ora puoi accedere con la nuova password."}
+
+
+# ---------------------------------------------------------------------------
+# Inviti: le cantine inserite dall'amministratore attivano l'accesso scegliendo la propria password
+# ---------------------------------------------------------------------------
+
+async def _valid_invite(db, token: str):
+    now = datetime.utcnow()
+    record = await db.password_resets.find_one({"token_hash": _hash_reset_token(token), "purpose": "invite"})
+    if not record or record.get("used_at") or record.get("expires_at", now) < now:
+        return None, None
+    user = await db.users.find_one({"_id": record["user_id"]})
+    if not user or not user.get("is_active", True):
+        return None, None
+    return record, user
+
+
+@router.get("/invite/{token}")
+async def invite_info(token: str, request: Request, db=Depends(get_database)):
+    """Dati mostrati nella pagina di attivazione (email e nome della cantina)."""
+    rate_limiter.check_and_hit(f"invite:{client_ip(request)}", 30, 3600, "Troppi tentativi. Riprova più tardi.")
+    record, user = await _valid_invite(db, token)
+    if not record:
+        raise HTTPException(status_code=400, detail="L'invito non è valido o è scaduto: chiedine uno nuovo a EnotecaMolise.")
+    producer = await db.producers.find_one({"_id": user.get("producer_id")}) if user.get("producer_id") else None
+    return {"email": user["email"], "company_name": (producer or {}).get("company_name", ""),
+            "expires_at": record["expires_at"]}
+
+
+@router.post("/invite/accept")
+async def accept_invite(payload: InviteAccept, request: Request, db=Depends(get_database)):
+    """La cantina sceglie la password: l'accesso e' attivo e si entra subito nell'area riservata."""
+    rate_limiter.check_and_hit(f"invite:{client_ip(request)}", 30, 3600, "Troppi tentativi. Riprova più tardi.")
+    record, user = await _valid_invite(db, payload.token)
+    if not record:
+        raise HTTPException(status_code=400, detail="L'invito non è valido o è scaduto: chiedine uno nuovo a EnotecaMolise.")
+    now = datetime.utcnow()
+    changed_at = (now - timedelta(seconds=1)).replace(microsecond=0)
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {
+        "password_hash": get_password_hash(payload.password), "password_changed_at": changed_at,
+        "activated_at": now, "privacy_accepted_at": now,
+    }})
+    await db.password_resets.update_many({"user_id": user["_id"], "used_at": None}, {"$set": {"used_at": now}})
+    producer_id = str(user["producer_id"]) if user.get("producer_id") else None
+    token = create_access_token(subject=str(user["_id"]), role=user.get("role", "PRODUCER"), producer_id=producer_id)
+    return {"access_token": token, "token_type": "bearer", "email": user["email"],
+            "message": "Accesso attivato: benvenuto nell'area riservata."}
+
