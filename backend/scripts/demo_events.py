@@ -76,7 +76,9 @@ def choose(wineries, used, grape=None, category=None):
 
 
 async def remove(database) -> None:
-    ids = [e["_id"] async for e in database.events.find({"demo": True}, {"_id": 1})]
+    # anche quelli creati dall'area riservata o dal browser, riconoscibili dalla nota nella descrizione
+    query = {"$or": [{"demo": True}, {"description": {"$regex": "Evento dimostrativo, creato per provare il sito"}}]}
+    ids = [e["_id"] async for e in database.events.find(query, {"_id": 1})]
     if not ids:
         print("Nessun evento demo da rimuovere.")
         return
