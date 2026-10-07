@@ -1,4 +1,4 @@
-"""Testi del sito modificabili dall'area admin (es. informativa privacy)."""
+"""Testi del sito modificabili dall'area admin (informativa privacy e cookie policy)."""
 from datetime import datetime
 from typing import Optional
 
@@ -41,7 +41,39 @@ I dati dell'account restano finché la cantina mantiene il profilo; i messaggi d
 Puoi chiedere in qualsiasi momento l'accesso, la rettifica, la cancellazione o la limitazione dei tuoi dati, opporti al trattamento e chiedere la portabilità, scrivendo a [indirizzo email per la privacy]. Le cantine possono chiedere la cancellazione dell'account anche dall'area riservata. Hai inoltre diritto di proporre reclamo al Garante per la protezione dei dati personali (www.garanteprivacy.it).
 
 ## Cookie
-Il sito usa solo cookie tecnici necessari al funzionamento (ad esempio per mantenere l'accesso all'area riservata). [Aggiornare se verranno aggiunti strumenti di statistica o di terze parti.]
+Il sito usa cookie tecnici necessari al funzionamento (ad esempio per mantenere l'accesso all'area riservata e ricordare le tue scelte sui cookie). Tutti i dettagli sono nella Cookie policy, raggiungibile dal fondo di ogni pagina insieme alle "Preferenze cookie".
+
+Ultimo aggiornamento: [data].""",
+    },
+    "cookie": {
+        "title": "Cookie policy",
+        "body": """Questa pagina spiega quali cookie usa EnotecaMolise, a cosa servono e come puoi gestirli. I cookie sono piccoli file di testo che il sito salva nel tuo browser.
+
+## Titolare del trattamento
+[Nome e cognome o ragione sociale del titolare], [indirizzo], email: [indirizzo email per la privacy].
+
+## Cookie tecnici (sempre attivi)
+Sono necessari al funzionamento del sito e non richiedono il consenso.
+- auth_token: mantiene l'accesso all'area riservata di cantine e amministratori. Si crea solo quando accedi e dura al massimo 3 giorni, o fino a quando esci.
+- em_consenso_cookie: ricorda le scelte fatte nel banner dei cookie, così non te le chiediamo a ogni pagina. Dura 6 mesi, poi ti chiediamo di nuovo.
+
+## Cookie di statistica
+Al momento il sito non usa strumenti di statistica. Se verranno attivati, partiranno solo se li accetti dal banner o dalle "Preferenze cookie", e saranno elencati qui. [Aggiornare se verrà aggiunto uno strumento di statistica.]
+
+## Cookie di profilazione e pubblicità
+Il sito non usa cookie di profilazione né pubblicitari.
+
+## Servizi esterni
+Per mostrare alcuni contenuti il sito carica risorse da servizi esterni, che ricevono l'indirizzo IP del tuo dispositivo per poterle inviare. Questi servizi non vengono usati dal sito per installare cookie.
+- Caratteri tipografici: Google Fonts (Google Ireland Ltd.).
+- Mappe: tessere cartografiche di OpenStreetMap e libreria Leaflet distribuita da unpkg.com.
+[Verificare l'elenco con il consulente prima della messa online.]
+
+## Come cambiare le tue scelte
+Puoi cambiare idea in qualsiasi momento con il link "Preferenze cookie" in fondo a ogni pagina o con il pulsante qui sotto. Puoi anche cancellare i cookie dalle impostazioni del browser: in quel caso il banner comparirà di nuovo alla visita successiva.
+
+## I tuoi diritti
+Per i diritti sui tuoi dati personali vedi l'Informativa sulla privacy.
 
 Ultimo aggiornamento: [data].""",
     },

@@ -30,11 +30,16 @@
     </div>
     <div class="page-container py-5 border-t border-[#4A1A26] text-[13px] text-[#CDB8AE] flex flex-wrap gap-x-5 gap-y-1 justify-between">
       <span>© {{ year }} EnotecaMolise</span>
-      <NuxtLink to="/privacy" class="text-[#CDB8AE] hover:text-white">Informativa privacy</NuxtLink>
+      <div class="flex flex-wrap gap-x-5 gap-y-1">
+        <NuxtLink to="/privacy" class="text-[#CDB8AE] hover:text-white">Informativa privacy</NuxtLink>
+        <NuxtLink to="/cookie" class="text-[#CDB8AE] hover:text-white">Cookie policy</NuxtLink>
+        <button type="button" class="text-[#CDB8AE] hover:text-white" @click="openPreferences">Preferenze cookie</button>
+      </div>
     </div>
   </footer>
 </template>
 
 <script setup>
 const year = new Date().getFullYear()
+const { openPreferences } = useCookieConsent()
 </script>

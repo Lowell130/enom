@@ -3,5 +3,6 @@
   <NuxtLayout>
     <NuxtPage />
     <ToastContainer />
+    <CookieBanner />
   </NuxtLayout>
 </template>

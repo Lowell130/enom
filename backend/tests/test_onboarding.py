@@ -261,6 +261,16 @@ class SitePagesTests(BaseTest):
         self.assertIn("Titolare", self.client.get(f"{API}/site/pages/privacy").json()["body"])
         self.assertEqual(self.client.get(f"{API}/site/pages/inesistente").status_code, 404)
 
+    def test_cookie_page_lists_the_site_cookies(self):
+        r = self.client.get(f"{API}/site/pages/cookie")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()["body"]
+        # i nomi devono restare allineati a useAuth e useCookieConsent del frontend
+        self.assertIn("auth_token", body)
+        self.assertIn("em_consenso_cookie", body)
+        r = self.client.put(f"{API}/site/pages/cookie", json={"title": "Cookie"}, headers=self.auth(self.admin_token))
+        self.assertEqual(r.json()["title"], "Cookie")
+
 
 class CatalogRulesTests(BaseTest):
     def setUp(self):

@@ -161,9 +161,22 @@
     <section v-else-if="tab === 'privacy' && privacy" class="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
       <div class="card p-5 sm:p-6 flex flex-col gap-4">
         <div class="flex flex-col gap-1">
-          <h2 class="font-serif text-2xl font-bold">Informativa sulla privacy</h2>
+          <div role="tablist" aria-label="Pagina da modificare" class="segmented self-start mb-2">
+            <button
+              v-for="pg in sitePages"
+              :key="pg.key"
+              type="button"
+              role="tab"
+              :aria-selected="pageKey === pg.key"
+              :class="['segmented-item', pageKey === pg.key && 'segmented-item-active']"
+              @click="pageKey = pg.key"
+            >
+              {{ pg.label }}
+            </button>
+          </div>
+          <h2 class="font-serif text-2xl font-bold">{{ currentPage.label }}</h2>
           <p class="text-sm text-ink-soft m-0">
-            È la pagina collegata ai consensi di registrazione e contatto. Completa i dati tra [parentesi quadre]
+            {{ currentPage.hint }} Completa i dati tra [parentesi quadre]
             e falla verificare da un consulente prima della messa online.
           </p>
         </div>
@@ -176,7 +189,7 @@
         </label>
         <div class="flex flex-wrap gap-2.5">
           <button type="button" class="btn-primary btn-sm" :disabled="saving" @click="savePrivacy">Salva</button>
-          <NuxtLink to="/privacy" target="_blank" class="btn-ghost btn-sm">Apri la pagina</NuxtLink>
+          <NuxtLink :to="currentPage.path" target="_blank" class="btn-ghost btn-sm">Apri la pagina</NuxtLink>
           <button v-if="privacy.customized" type="button" class="btn-ghost btn-sm" @click="resetPrivacy">Ripristina la bozza iniziale</button>
         </div>
       </div>
@@ -220,7 +233,7 @@ const tabs = [
   { value: 'templates', label: 'Modelli' },
   { value: 'outbox', label: 'Posta in uscita' },
   { value: 'settings', label: 'Impostazioni' },
-  { value: 'privacy', label: 'Privacy' }
+  { value: 'privacy', label: 'Privacy e cookie' }
 ]
 const tab = ref(tabs.some(t => t.value === route.query.tab) ? route.query.tab : 'templates')
 
@@ -374,13 +387,21 @@ const saveSettings = async () => {
   }
 }
 
-const loadPrivacy = async () => { privacy.value = await fetchWithAuth('/site/pages/privacy').catch(() => null) }
+// testi del sito: informativa privacy e cookie policy
+const sitePages = [
+  { key: 'privacy', label: 'Informativa sulla privacy', path: '/privacy', hint: 'È la pagina collegata ai consensi di registrazione e contatto.' },
+  { key: 'cookie', label: 'Cookie policy', path: '/cookie', hint: 'È la pagina collegata al banner dei cookie: se aggiungi statistiche o servizi esterni, elencali qui.' }
+]
+const pageKey = ref('privacy')
+const currentPage = computed(() => sitePages.find(p => p.key === pageKey.value) || sitePages[0])
+const loadPrivacy = async () => { privacy.value = await fetchWithAuth(`/site/pages/${pageKey.value}`).catch(() => null) }
+watch(pageKey, loadPrivacy)
 
 const savePrivacy = async () => {
   saving.value = true
   try {
-    privacy.value = await fetchWithAuth('/site/pages/privacy', { method: 'PUT', body: { title: privacy.value.title, body: privacy.value.body } })
-    toast.success('Informativa salvata.')
+    privacy.value = await fetchWithAuth(`/site/pages/${pageKey.value}`, { method: 'PUT', body: { title: privacy.value.title, body: privacy.value.body } })
+    toast.success(`${currentPage.value.label}: testo salvato.`)
   } catch (err) {
     toast.error(apiErrorMessage(err))
   } finally {
@@ -389,8 +410,8 @@ const savePrivacy = async () => {
 }
 
 const resetPrivacy = async () => {
-  if (!confirm('Tornare alla bozza iniziale dell\'informativa? Il testo attuale andrà perso.')) return
-  privacy.value = await fetchWithAuth('/site/pages/privacy/reset', { method: 'POST' })
+  if (!confirm('Tornare alla bozza iniziale? Il testo attuale andrà perso.')) return
+  privacy.value = await fetchWithAuth(`/site/pages/${pageKey.value}/reset`, { method: 'POST' })
 }
 
 const OPEN = '{' + '{'
