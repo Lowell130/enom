@@ -1,55 +1,55 @@
 <template>
   <div class="pb-6">
-    <!-- INTESTAZIONE CHIARA -->
+    <!-- INTESTAZIONE -->
     <section class="bg-sand border-b border-line">
-      <div class="page-container pt-10 pb-7 flex flex-col gap-6">
-        <div class="flex flex-wrap items-end justify-between gap-5">
-          <div class="flex flex-col gap-2 max-w-[700px]">
-            <span class="eyebrow">Osservatorio · dati aggiornati dal catalogo</span>
-            <h1 class="title-display">Il vino molisano in numeri</h1>
-            <p class="text-[17px] text-ink-soft">Vitigni, denominazioni, zone e tecniche di cantina, calcolati dalle schede dei vini in catalogo.</p>
-            <p class="flex items-start gap-2 mt-1 text-[13px] leading-relaxed text-ink-mute">
-              <Info class="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
-              <span>
-                Dati elaborati dalle schede dei vini pubblicate sul sito, ricavate dalle schede tecniche dei produttori:
-                descrivono il catalogo di EnotecaMolise, non l'intera produzione del Molise.
-                <a href="#fonte-dati" class="font-semibold text-wine-800 underline underline-offset-2 no-print">Da dove vengono i dati</a>
-              </span>
-            </p>
+      <div class="page-container pt-10 md:pt-12 pb-8 flex flex-col gap-7">
+        <div class="flex flex-col gap-3 max-w-[760px]">
+          <span class="eyebrow">Osservatorio</span>
+          <h1 class="title-display">Il vino molisano in numeri</h1>
+          <p class="text-[17px] leading-relaxed text-ink-soft m-0">
+            Vitigni, denominazioni, zone e tecniche di cantina: una fotografia del catalogo, calcolata dalle schede dei vini.
+          </p>
+          <p class="flex items-start gap-2.5 m-0 mt-1 px-3.5 py-2.5 rounded-xl bg-white/70 border border-line text-[13px] leading-relaxed text-ink-soft">
+            <Info class="w-4 h-4 mt-0.5 shrink-0 text-wine-800" aria-hidden="true" />
+            <span>
+              I dati vengono dalle schede pubblicate sul sito, ricavate dalle schede tecniche dei produttori:
+              descrivono il catalogo di EnotecaMolise, non l'intera produzione del Molise.
+              <a href="#fonte-dati" class="font-semibold text-wine-800 underline underline-offset-2 whitespace-nowrap no-print">Come sono calcolati</a>
+            </span>
+          </p>
+        </div>
+
+        <div role="group" aria-labelledby="report-filters-title" class="no-print card p-4 sm:p-5 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-3">
+            <span id="report-filters-title" class="text-[13px] font-bold uppercase tracking-[0.08em] text-ink-mute">Filtra i dati</span>
+            <button v-if="hasActiveFilters" type="button" class="text-sm font-bold text-wine-800 hover:underline underline-offset-2" @click="resetFilters">Azzera filtri</button>
           </div>
-          <div class="flex gap-2.5 no-print">
-            <button type="button" class="btn-ghost btn-sm h-11" @click="printReport">
-              <Printer class="w-4 h-4" aria-hidden="true" /> Stampa / PDF
-            </button>
-            <button type="button" class="btn-ghost btn-sm h-11" :disabled="!reportData" @click="downloadCsv">
-              <Download class="w-4 h-4" aria-hidden="true" /> Esporta CSV
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[repeat(2,minmax(0,240px))_auto] gap-3 items-end">
+            <label class="field-label text-[13px] text-ink-soft">Provincia
+              <select v-model="selectedProvince" class="select h-11 text-sm w-full">
+                <option value="">Campobasso e Isernia</option>
+                <option value="CB">Campobasso (CB)</option>
+                <option value="IS">Isernia (IS)</option>
+              </select>
+            </label>
+            <label class="field-label text-[13px] text-ink-soft">Denominazione
+              <select v-model="selectedDenomination" class="select h-11 text-sm w-full">
+                <option value="">Tutte</option>
+                <option v-for="den in (reportData?.filter_options?.denominations || ['DOC', 'DOP', 'IGP', 'IGT'])" :key="den" :value="den">{{ den }}</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              :aria-pressed="isOrganicOnly"
+              :class="['flex items-center justify-center sm:justify-start gap-2.5 h-11 px-4 rounded-[10px] border text-sm font-semibold transition-colors sm:col-span-2 lg:col-span-1', isOrganicOnly ? 'border-bio bg-bio-50 text-bio-900' : 'border-line-strong bg-white text-ink hover:border-ink-mute']"
+              @click="toggleOrganic"
+            >
+              <Leaf class="w-4 h-4" aria-hidden="true" /> Solo biologici
             </button>
           </div>
         </div>
-        <div class="flex flex-wrap items-end gap-3 no-print">
-          <label class="field-label text-[13px] text-ink-soft">Provincia
-            <select v-model="selectedProvince" class="select h-11 text-sm min-w-[200px]">
-              <option value="">Campobasso e Isernia</option>
-              <option value="CB">Campobasso (CB)</option>
-              <option value="IS">Isernia (IS)</option>
-            </select>
-          </label>
-          <label class="field-label text-[13px] text-ink-soft">Denominazione
-            <select v-model="selectedDenomination" class="select h-11 text-sm min-w-[200px]">
-              <option value="">Tutte</option>
-              <option v-for="den in (reportData?.filter_options?.denominations || ['DOC', 'DOP', 'IGP', 'IGT'])" :key="den" :value="den">{{ den }}</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            :aria-pressed="isOrganicOnly"
-            :class="['flex items-center gap-2.5 h-11 px-3.5 rounded-[10px] border text-sm font-semibold transition-colors', isOrganicOnly ? 'border-bio bg-bio-50 text-bio-900' : 'border-line-strong bg-white text-ink']"
-            @click="toggleOrganic"
-          >
-            <Leaf class="w-4 h-4" aria-hidden="true" /> Solo biologici
-          </button>
-          <button v-if="hasActiveFilters" type="button" class="h-11 px-2 text-sm font-bold text-wine-800" @click="resetFilters">Azzera filtri</button>
-        </div>
+        <!-- in stampa: quali filtri erano attivi -->
+        <p v-if="hasActiveFilters" class="hidden print:block m-0 text-sm text-ink-soft">Filtri: {{ filtersLabel }}</p>
       </div>
     </section>
 
@@ -151,6 +151,27 @@
           </ul>
         </div>
       </section>
+
+      <!-- SCARICA -->
+      <section aria-labelledby="scarica-title" class="page-container pb-8 no-print">
+        <div class="rounded-2xl bg-sand border border-line p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div class="flex flex-col gap-1.5 max-w-[560px]">
+            <h2 id="scarica-title" class="font-serif text-[26px] font-bold leading-tight m-0">Porta con te i dati</h2>
+            <p class="m-0 text-[15px] text-ink-soft">
+              Salva l'Osservatorio in PDF o scarica i numeri in CSV per aprirli con Excel.
+              {{ hasActiveFilters ? `Il file contiene solo i dati filtrati (${filtersLabel}).` : 'Il file contiene tutto il catalogo.' }}
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2.5 shrink-0">
+            <button type="button" class="btn-outline btn-sm h-11" @click="printReport">
+              <Printer class="w-4 h-4" aria-hidden="true" /> Stampa o salva PDF
+            </button>
+            <button type="button" class="btn-primary btn-sm h-11" :disabled="!reportData" @click="downloadCsv">
+              <Download class="w-4 h-4" aria-hidden="true" /> Scarica CSV
+            </button>
+          </div>
+        </div>
+      </section>
     </template>
 
     <div v-else class="page-container py-16 text-center text-ink-soft">I dati dell'Osservatorio non sono disponibili in questo momento.</div>
@@ -180,6 +201,12 @@ const toggleOrganic = () => {
 const hasActiveFilters = computed(() => {
   return Boolean(selectedProvince.value || selectedDenomination.value || isOrganicOnly.value)
 })
+
+const filtersLabel = computed(() => [
+  selectedProvince.value && `provincia di ${selectedProvince.value === 'CB' ? 'Campobasso' : 'Isernia'}`,
+  selectedDenomination.value,
+  isOrganicOnly.value && 'solo biologici'
+].filter(Boolean).join(', '))
 
 const resetFilters = () => {
   selectedProvince.value = ''
@@ -239,38 +266,43 @@ const downloadCsv = () => {
   if (!reportData.value) return
   
   const rows = [
-    ['Osservatorio Enologico Molisano - Report Export'],
-    ['Data estrazione:', new Date().toLocaleDateString('it-IT')],
+    ['Osservatorio EnotecaMolise'],
+    ['Data estrazione', new Date().toLocaleDateString('it-IT')],
+    ['Filtri', filtersLabel.value || 'nessuno'],
+    ['Fonte', 'Schede dei vini pubblicate su EnotecaMolise, ricavate dalle schede tecniche dei produttori. Non sono statistiche ufficiali.'],
     [''],
     ['KPI', 'Valore'],
     ['Totale Prodotti', reportData.value.kpis.total_products],
     ['Totale Cantine', reportData.value.kpis.total_producers],
     ['Totale Vitigni', reportData.value.kpis.total_grapes],
     ['Totale Abbinamenti', reportData.value.kpis.total_pairings],
-    ['Gradazione Alcolica Media', reportData.value.kpis.avg_alcohol_degrees],
+    ['Gradazione Alcolica Media', fmtPct(reportData.value.kpis.avg_alcohol_degrees ?? '')],
     ['Range Annate', `${reportData.value.kpis.min_vintage_year || ''} - ${reportData.value.kpis.max_vintage_year || ''}`],
     [''],
     ['Tipologia', 'Conteggio', 'Percentuale'],
-    ...(reportData.value.category_breakdown || []).map(c => [getCategoryLabel(c.category), c.count, `${c.percentage}%`]),
+    ...(reportData.value.category_breakdown || []).map(c => [getCategoryLabel(c.category), c.count, `${fmtPct(c.percentage)}%`]),
     [''],
     ['Denominazione', 'Conteggio', 'Percentuale'],
-    ...(reportData.value.denomination_breakdown || []).map(d => [d.name, d.count, `${d.percentage}%`]),
+    ...(reportData.value.denomination_breakdown || []).map(d => [d.name, d.count, `${fmtPct(d.percentage)}%`]),
     [''],
-    ['Vitigno', 'Conteggio', 'Percentuale'],
-    ...(reportData.value.top_grapes || []).map(g => [g.name, g.count, `${g.percentage}%`]),
+    ['Vitigno principale', 'Conteggio', 'Percentuale'],
+    ...(reportData.value.top_grapes || []).map(g => [g.name, g.count, `${fmtPct(g.percentage)}%`]),
     [''],
     ['Comune Produzione', 'Conteggio Vini'],
     ...(reportData.value.zone_breakdown || []).map(z => [z.city, z.count])
   ]
 
-  const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.map(cell => `"${cell}"`).join(',')).join('\n')
-  const encodedUri = encodeURI(csvContent)
+  // ";" e BOM: Excel in italiano apre il file con colonne e accenti giusti
+  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const csv = '\uFEFF' + rows.map(r => r.map(cell).join(';')).join('\r\n')
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
   const link = document.createElement('a')
-  link.setAttribute('href', encodedUri)
+  link.setAttribute('href', url)
   link.setAttribute('download', `Osservatorio_EnotecaMolise_${new Date().toISOString().slice(0,10)}.csv`)
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 // Helpers
