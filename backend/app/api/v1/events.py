@@ -95,7 +95,8 @@ def _serialize(event: dict, lookups: Dict[str, Dict], now: datetime, private: bo
             continue
         maker = producers.get(p.get("producer_id")) or {}
         wines.append({"id": str(p["_id"]), "name": p.get("name", ""), "slug": p.get("slug", ""),
-                      "photo": (p.get("photos") or [""])[0], "category": p.get("category", ""),
+                      "photo": "" if maker.get("hide_photos") and not private else (p.get("photos") or [""])[0],
+                      "category": p.get("category", ""),
                       "producer_name": maker.get("company_name", "")})
     participants = [_producer_card(producers.get(pid)) for pid in event.get("participant_ids") or []]
     participants = [p for p in participants if p and (private or p["status"] == "APPROVED")]

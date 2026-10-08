@@ -342,6 +342,31 @@ class InquiryDeleteTests(EmailTestBase):
         self.assertEqual(self.client.delete(f"{API}/inquiries/{territory}", headers=self.auth(self.admin_token)).status_code, 404)
 
 
+class HiddenPhotosTests(EmailTestBase):
+    def setUp(self):
+        super().setUp()
+        run(self.db.products.update_one({"_id": self.pub1}, {"$set": {"photos": ["/uploads/bottiglia.jpg"]}}))
+
+    def photos(self, headers=None):
+        lst = self.client.get(f"{API}/products?producer_id={self.p1}", headers=headers or {}).json()
+        one = self.client.get(f"{API}/products/tintilia-pubblicata", headers=headers or {}).json()
+        return lst[0]["photos"], one["photos"]
+
+    def test_admin_hides_photos_for_visitors_only(self):
+        self.assertEqual(self.photos(), (["/uploads/bottiglia.jpg"], ["/uploads/bottiglia.jpg"]))
+        # la cantina non puo' cambiare l'impostazione da sola
+        self.client.put(f"{API}/producers/{self.p1}", json={"hide_photos": True}, headers=self.auth(self.p1_token))
+        self.assertFalse(run(self.db.producers.find_one({"_id": self.p1})).get("hide_photos"))
+        r = self.client.put(f"{API}/producers/{self.p1}", json={"hide_photos": True}, headers=self.auth(self.admin_token))
+        self.assertTrue(r.json()["hide_photos"])
+        self.assertEqual(self.photos(), ([], []))
+        # admin e cantina continuano a vederle (e la foto resta salvata)
+        self.assertEqual(self.photos(self.auth(self.admin_token)), (["/uploads/bottiglia.jpg"], ["/uploads/bottiglia.jpg"]))
+        self.assertEqual(self.photos(self.auth(self.p1_token)), (["/uploads/bottiglia.jpg"], ["/uploads/bottiglia.jpg"]))
+        self.client.put(f"{API}/producers/{self.p1}", json={"hide_photos": False}, headers=self.auth(self.admin_token))
+        self.assertEqual(self.photos()[0], ["/uploads/bottiglia.jpg"])
+
+
 class InviteTests(EmailTestBase):
     def setUp(self):
         super().setUp()
@@ -377,12 +402,19 @@ class InviteTests(EmailTestBase):
         r = self.client.post(f"{API}/auth/invite/accept", json={"token": token, "password": "Vigneto2026!"})
         self.assertEqual(r.status_code, 422)
         r = self.client.post(f"{API}/auth/invite/accept", json={"token": token, "password": "Vigneto2026!", "privacy_accepted": True})
+        self.assertEqual(r.status_code, 422)  # serve anche l'autorizzazione a pubblicare i contenuti
+        self.assertIn("testi e foto", r.json()["detail"])
+        r = self.client.post(f"{API}/auth/invite/accept", json={"token": token, "password": "Vigneto2026!", "privacy_accepted": True,
+                                                              "content_consent": True})
         self.assertEqual(r.status_code, 200, r.text)
+        producer = run(self.db.producers.find_one({"_id": self.p2}))
+        self.assertIsNotNone(producer.get("content_consent_at"))
+        self.assertEqual(producer["content_consent_by"], "info@cantinadue.it")
         me = self.client.get(f"{API}/auth/me", headers=self.auth(r.json()["access_token"])).json()
         self.assertEqual(me["producer_id"], str(self.p2))
         self.assertEqual(self.account(self.p2)["status"], "active")
         # il link vale una volta sola e non si reinvita una cantina gia' attiva
-        self.assertEqual(self.client.post(f"{API}/auth/invite/accept", json={"token": token, "password": "Altra2026!", "privacy_accepted": True}).status_code, 400)
+        self.assertEqual(self.client.post(f"{API}/auth/invite/accept", json={"token": token, "password": "Altra2026!", "privacy_accepted": True, "content_consent": True}).status_code, 400)
         self.assertEqual(self.invite(self.p2).status_code, 400)
         self.assertEqual(self.client.post(f"{API}/auth/login", json={"email": "info@cantinadue.it", "password": "Vigneto2026!"}).status_code, 200)
 

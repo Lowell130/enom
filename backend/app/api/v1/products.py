@@ -15,6 +15,7 @@ from app.services.catalog import (
     clean_wine_title,
     ensure_unique_product_slug,
     format_product_response,
+    photos_hidden,
     generate_unique_product_slug,
     parse_denominazione_acronym,
     run_products_cleanup_migration,
@@ -119,6 +120,8 @@ async def get_products(
         prod_obj = producer_map.get(doc["producer_id"])
         doc["producer_name"] = prod_obj.get("company_name", "") if prod_obj else ""
         doc["producer_slug"] = prod_obj.get("slug", "") if prod_obj else ""
+        if photos_hidden(prod_obj) and not (admin or owns_producer(current_user, doc["producer_id"])):
+            doc["photos"] = []
         products.append(doc)
     return products
 
@@ -350,9 +353,10 @@ async def get_product_by_slug_or_id(
         raise HTTPException(status_code=404, detail="Prodotto non trovato")
 
     # Bozze e vini di cantine non approvate: visibili solo ad admin e proprietario
-    if not (is_admin(current_user) or owns_producer(current_user, doc.get("producer_id"))):
+    public = not (is_admin(current_user) or owns_producer(current_user, doc.get("producer_id")))
+    if public:
         producer = await db.producers.find_one({"_id": doc.get("producer_id")}, {"status": 1})
         if doc.get("status") != "PUBLISHED" or not producer or producer.get("status", "APPROVED") != "APPROVED":
             raise HTTPException(status_code=404, detail="Prodotto non trovato")
 
-    return await format_product_response(doc, db)
+    return await format_product_response(doc, db, public=public)

@@ -44,6 +44,16 @@ class InviteAccept(BaseModel):
             raise ValueError("Per attivare l'accesso devi accettare l'informativa sulla privacy")
         return v
 
+    # autorizzazione a pubblicare testi, foto e schede dei vini gia' presenti sulla pagina
+    content_consent: bool = Field(default=False, validate_default=True)
+
+    @field_validator("content_consent")
+    @classmethod
+    def must_authorize_content(cls, v):
+        if not v:
+            raise ValueError("Per attivare l'accesso serve l'autorizzazione a pubblicare testi e foto della cantina")
+        return v
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str

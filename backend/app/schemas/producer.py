@@ -71,6 +71,7 @@ class ProducerUpdate(BaseModel):
     address: Optional[AddressSchema] = None
     contacts: Optional[ContactsSchema] = None
     status: Optional[str] = None  # modificabile solo dall'amministratore
+    hide_photos: Optional[bool] = None  # solo amministratore: nasconde le foto dei vini al pubblico
 
     @field_validator("status", mode="before")
     @classmethod
@@ -87,6 +88,10 @@ class ProducerResponse(ProducerBase):
     deletion_reason: Optional[str] = None
     # accesso della cantina (solo per l'amministratore): none | invited | expired | active
     account: Optional[dict] = None
+    # foto dei vini nascoste al pubblico (decisione dell'amministratore)
+    hide_photos: Optional[bool] = False
+    # quando la cantina ha autorizzato la pubblicazione di testi e foto (attivando l'invito)
+    content_consent_at: Optional[datetime] = None
 
 
 class InviteRequest(BaseModel):

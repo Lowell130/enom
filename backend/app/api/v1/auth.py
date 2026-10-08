@@ -322,6 +322,10 @@ async def accept_invite(payload: InviteAccept, request: Request, db=Depends(get_
         "activated_at": now, "privacy_accepted_at": now,
     }})
     await db.password_resets.update_many({"user_id": user["_id"], "used_at": None}, {"$set": {"used_at": now}})
+    if user.get("producer_id"):
+        # traccia del permesso a pubblicare testi, foto e schede gia' presenti
+        await db.producers.update_one({"_id": user["producer_id"]}, {"$set": {
+            "content_consent_at": now, "content_consent_by": user["email"]}})
     producer_id = str(user["producer_id"]) if user.get("producer_id") else None
     token = create_access_token(subject=str(user["_id"]), role=user.get("role", "PRODUCER"), producer_id=producer_id)
     return {"access_token": token, "token_type": "bearer", "email": user["email"],

@@ -131,6 +131,7 @@ async def update_producer(
     # Solo l'amministratore puo' approvare/sospendere una cantina
     if not admin:
         update_data.pop("status", None)
+        update_data.pop("hide_photos", None)
 
     if "company_name" in update_data and update_data["company_name"] != existing.get("company_name"):
         update_data["slug"] = await unique_slug(

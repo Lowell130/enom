@@ -60,6 +60,14 @@
                     <span v-if="p.status && p.status !== 'APPROVED'" :class="['inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide', p.status === 'SUSPENDED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800']">
                       {{ p.status === 'SUSPENDED' ? 'Sospesa' : 'In attesa di approvazione' }}
                     </span>
+                    <span v-if="p.hide_photos" class="inline-block mt-1 mr-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-stone-200 text-ink-soft"
+                          title="Le foto dei vini non sono visibili al pubblico">
+                      Foto nascoste
+                    </span>
+                    <span v-if="p.content_consent_at" class="inline-block mt-1 mr-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-bio-50 text-bio-900"
+                          :title="`Ha autorizzato la pubblicazione di testi e foto il ${fmtDay(p.content_consent_at)}`">
+                      Contenuti autorizzati
+                    </span>
                     <span v-if="p.deletion_requested_at" class="inline-block mt-1 ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-wine-800 text-white"
                           :title="p.deletion_reason ? `Motivo: ${p.deletion_reason}` : 'Nessun motivo indicato'">
                       Chiede la cancellazione
@@ -287,6 +295,18 @@
               <option value="SUSPENDED">Sospesa</option>
             </select>
           </div>
+
+          <label class="flex items-start gap-2.5 p-3 rounded-xl border border-stone-200 cursor-pointer">
+            <input v-model="editProducer.hide_photos" type="checkbox" class="mt-0.5 w-4 h-4 accent-wine-800 shrink-0" />
+            <span class="text-sm">
+              <span class="font-semibold text-ink block">Nascondi le foto dei vini</span>
+              <span class="text-xs text-ink-soft">
+                I visitatori vedono la sagoma della bottiglia al posto delle foto. Le foto restano salvate e la cantina continua a vederle.
+                <template v-if="editProducer.content_consent_at"> La cantina ha autorizzato testi e foto il {{ fmtDay(editProducer.content_consent_at) }}.</template>
+                <template v-else> La cantina non ha ancora autorizzato la pubblicazione (lo fa attivando l'invito).</template>
+              </span>
+            </span>
+          </label>
 
           <div class="grid grid-cols-3 gap-3">
             <div>
@@ -563,6 +583,8 @@ const editProducer = reactive({
   id: '',
   company_name: '',
   status: 'APPROVED',
+  hide_photos: false,
+  content_consent_at: null,
   city: '',
   province: '',
   zip_code: '',
@@ -588,6 +610,8 @@ const openEditModal = (p) => {
   editProducer.id = p.id
   editProducer.company_name = p.company_name
   editProducer.status = p.status || 'APPROVED'
+  editProducer.hide_photos = !!p.hide_photos
+  editProducer.content_consent_at = p.content_consent_at || null
   editProducer.city = p.address?.city || ''
   editProducer.province = p.address?.province || ''
   editProducer.zip_code = p.address?.zip_code || ''
@@ -689,6 +713,7 @@ const handleUpdateProducer = async () => {
       body: {
         company_name: editProducer.company_name,
         status: editProducer.status,
+        hide_photos: editProducer.hide_photos,
         description: editProducer.description,
         logo_url: editProducer.logo_url,
         cover_image_url: editProducer.cover_image_url,

@@ -93,6 +93,9 @@ Il portale è gratuito per i visitatori e per le cantine: nessun abbonamento, ne
 ## Per le cantine
 Ogni cantina del Molise può avere la sua pagina e aggiornarla in autonomia: storia, foto, schede dei vini ed eventi. Se la vostra cantina non c'è ancora potete registrarla dall'area riservata; se c'è già e volete gestirla voi, scriveteci.
 
+## Testi e foto dei vini
+Schede e foto dei vini appartengono alle rispettive cantine: sono pubblicate per far conoscere i loro prodotti e ogni cantina può aggiornarle o toglierle dall'area riservata. Se sei titolare di un contenuto presente sul sito e vuoi che venga modificato o rimosso, scrivici: provvediamo al più presto.
+
 ## Contatti
 Per segnalazioni, correzioni o qualsiasi domanda: info@enotecamolise.it""",
     },

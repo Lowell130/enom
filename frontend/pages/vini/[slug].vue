@@ -31,6 +31,8 @@
           <span v-if="product.is_riserva" class="badge-soft">Riserva</span>
           <span v-if="isOrganicProduct(product)" class="badge-bio"><Leaf class="w-3.5 h-3.5" aria-hidden="true" /> Biologico</span>
         </span>
+        <!-- le foto appartengono alla cantina -->
+        <span v-if="mainImage && product.producer_name" class="absolute bottom-3 right-4 text-[11px] text-ink-mute">Foto © {{ product.producer_name }}</span>
       </div>
 
       <div class="flex flex-col gap-[22px]">

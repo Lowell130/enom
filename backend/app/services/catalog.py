@@ -2,6 +2,7 @@
 e slug, formattazione delle risposte e migrazione di pulizia del catalogo."""
 import re
 from datetime import datetime
+from typing import Optional
 
 from bson import ObjectId
 
@@ -122,14 +123,22 @@ async def ensure_unique_product_slug(db, raw_slug: str, exclude_id=None) -> str:
         candidate = f"{base}-{counter}"
         counter += 1
 
-async def format_product_response(doc: dict, db) -> dict:
+def photos_hidden(producer: Optional[dict]) -> bool:
+    """L'amministratore ha nascosto al pubblico le foto dei vini di questa cantina."""
+    return bool(producer and producer.get("hide_photos"))
+
+
+async def format_product_response(doc: dict, db, public: bool = False) -> dict:
+    """public=True: vista di un visitatore (ne' admin ne' la cantina), rispetta le foto nascoste."""
     doc["id"] = str(doc["_id"])
     doc["producer_id"] = str(doc["producer_id"])
-    
+
     producer = await db.producers.find_one({"_id": ObjectId(doc["producer_id"])})
     if producer:
         doc["producer_name"] = producer.get("company_name", "")
         doc["producer_slug"] = producer.get("slug", "")
+        if public and photos_hidden(producer):
+            doc["photos"] = []
     return doc
 
 async def run_products_cleanup_migration(db) -> int:

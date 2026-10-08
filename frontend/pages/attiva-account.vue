@@ -39,6 +39,10 @@
           <PasswordInput id="invite-password-2" v-model="confirm" autocomplete="new-password" :minlength="8" />
         </div>
         <label class="flex items-start gap-2.5 text-sm text-ink-soft cursor-pointer">
+          <input v-model="consent" type="checkbox" class="mt-0.5 w-4 h-4 accent-wine-800 shrink-0" />
+          <span>Autorizzo EnotecaMolise a pubblicare i testi, le foto e le schede dei vini di <strong class="text-ink">{{ invite.company_name }}</strong> già presenti sulla pagina. Potrò modificarli o toglierli in qualsiasi momento dall'area riservata.</span>
+        </label>
+        <label class="flex items-start gap-2.5 text-sm text-ink-soft cursor-pointer">
           <input v-model="privacy" type="checkbox" class="mt-0.5 w-4 h-4 accent-wine-800 shrink-0" />
           <span>Ho letto l'<NuxtLink to="/privacy" target="_blank" class="font-semibold text-wine-800 underline underline-offset-2">informativa sulla privacy</NuxtLink> e accetto il trattamento dei dati della cantina per l'uso del portale.</span>
         </label>
@@ -68,6 +72,7 @@ const invite = ref(null)
 const password = ref('')
 const confirm = ref('')
 const privacy = ref(false)
+const consent = ref(false)
 const loading = ref(false)
 const error = ref('')
 
@@ -82,12 +87,13 @@ const submit = async () => {
   error.value = ''
   if (password.value.length < 8) { error.value = 'La password deve contenere almeno 8 caratteri.'; return }
   if (password.value !== confirm.value) { error.value = 'Le due password non coincidono.'; return }
+  if (!consent.value) { error.value = 'Per attivare l\'accesso serve l\'autorizzazione a pubblicare testi e foto della cantina. Se preferite di no, scriveteci: toglieremo i vostri contenuti.'; return }
   if (!privacy.value) { error.value = 'Per attivare l\'accesso serve accettare l\'informativa sulla privacy.'; return }
   loading.value = true
   try {
     const res = await fetchWithAuth('/auth/invite/accept', {
       method: 'POST',
-      body: { token, password: password.value, privacy_accepted: true }
+      body: { token, password: password.value, privacy_accepted: true, content_consent: true }
     })
     tokenCookie.value = res.access_token
     await fetchUser(res.access_token)
