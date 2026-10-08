@@ -186,3 +186,67 @@ async def merge_item(
     updated = await merge_into(db, db.attributes, "custom_attributes", source, target)
     return {"message": f"«{source.get('name')}» unito in «{target.get('name')}»", "products_updated": updated,
             "target": {"id": str(target["_id"]), "name": target.get("name")}}
+
+
+# --- Uso dei valori pronti nelle schede dei vini ---
+
+def _key(value) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip().lower()
+
+
+@router.get("/usage")
+async def values_usage(current_admin: dict = Depends(get_current_admin), db=Depends(get_database)):
+    """Per ogni campo: quanti vini usano ciascun valore (confronto senza maiuscole e spazi doppi)."""
+    attrs = await db.attributes.find({}, {"name": 1}).to_list(1000)
+    by_name = {_key(a.get("name")): str(a["_id"]) for a in attrs}
+    usage = {str(a["_id"]): {} for a in attrs}
+    async for p in db.products.find({}, {"custom_attributes": 1}):
+        for ca in p.get("custom_attributes") or []:
+            attr_id = by_name.get(_key(ca.get("name")))
+            value = _key(ca.get("value"))
+            if attr_id and value:
+                usage[attr_id][value] = usage[attr_id].get(value, 0) + 1
+    return usage
+
+
+class UnifyValuesRequest(BaseModel):
+    target: str
+    sources: List[str]
+
+
+@router.post("/{attr_id}/unify-values")
+async def unify_values(attr_id: str, payload: UnifyValuesRequest, current_admin: dict = Depends(get_current_admin),
+                       db=Depends(get_database)):
+    """Valori uguali scritti in modo diverso ("300m slm", "300 m s.l.m."): i vini passano al valore scelto
+    e gli altri spariscono dai valori pronti."""
+    if not ObjectId.is_valid(attr_id):
+        raise HTTPException(status_code=400, detail="ID non valido")
+    attr = await db.attributes.find_one({"_id": ObjectId(attr_id)})
+    if not attr:
+        raise HTTPException(status_code=404, detail="Campo non trovato")
+    target = re.sub(r"\s+", " ", payload.target or "").strip()
+    if not target:
+        raise HTTPException(status_code=400, detail="Scegli il valore da tenere")
+    sources = {_key(s) for s in payload.sources if _key(s)} - {_key(target)}
+    if not sources:
+        raise HTTPException(status_code=400, detail="Nessun valore da unificare")
+
+    name_key = _key(attr.get("name"))
+    updated = 0
+    async for p in db.products.find({}, {"custom_attributes": 1}):
+        changed = False
+        new_list = []
+        for ca in p.get("custom_attributes") or []:
+            if _key(ca.get("name")) == name_key and _key(ca.get("value")) in sources:
+                ca = {**ca, "value": target}
+                changed = True
+            new_list.append(ca)
+        if changed:
+            await db.products.update_one({"_id": p["_id"]}, {"$set": {"custom_attributes": new_list}})
+            updated += 1
+
+    presets = [v for v in attr.get("suggested_values") or [] if _key(v) not in sources]
+    if _key(target) not in {_key(v) for v in presets}:
+        presets.append(target)
+    await db.attributes.update_one({"_id": attr["_id"]}, {"$set": {"suggested_values": presets, "updated_at": datetime.utcnow()}})
+    return {"message": f"Valori unificati in «{target}»", "products_updated": updated, "suggested_values": presets}

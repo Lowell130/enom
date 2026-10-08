@@ -5,7 +5,7 @@
         <h1 class="font-serif text-[40px] font-semibold leading-none text-ink">Campi della scheda tecnica</h1>
         <p class="text-sm text-ink-soft m-0 max-w-[620px]">
           Le voci che compaiono nelle schede dei vini (vinificazione, affinamento, allergeni…) e i valori pronti
-          da scegliere quando si compila una scheda.
+          da scegliere quando si compila una scheda. Il numero accanto a ogni valore dice in quanti vini è usato.
         </p>
       </div>
       <button type="button" class="btn-primary btn-sm h-11 shrink-0" @click="openAdd">
@@ -52,11 +52,39 @@
           </div>
         </header>
 
+        <!-- pulizia: valori non usati e valori uguali scritti in modo diverso -->
+        <div v-if="usageReady && (unused(attr).length || similar(attr).length)" class="flex flex-col gap-3 p-3.5 rounded-xl bg-[#FBF5E8] border border-amber-200/70">
+          <div v-if="unused(attr).length" class="flex flex-wrap items-center justify-between gap-2">
+            <p class="m-0 text-[13px] text-ink-soft">
+              <strong class="text-ink">{{ unused(attr).length }} {{ unused(attr).length === 1 ? 'valore non è usato' : 'valori non sono usati' }}</strong>
+              da nessun vino (bordo tratteggiato).
+            </p>
+            <button type="button" :class="actBtn" :disabled="busy === attr.id" @click="removeUnused(attr)">
+              <Trash2 class="w-3.5 h-3.5" aria-hidden="true" /> Togli i non usati
+            </button>
+          </div>
+          <div v-for="g in similar(attr)" :key="g.key" class="flex flex-col gap-2 pt-3 first:pt-0 border-t first:border-t-0 border-amber-200/70">
+            <p class="m-0 text-[13px] text-ink-soft"><strong class="text-ink">Stesso valore scritto in modi diversi:</strong>
+              <template v-for="(v, i) in g.values" :key="v">{{ i ? ', ' : ' ' }}«{{ v }}» <span class="text-ink-mute">({{ uses(attr, v) }} {{ uses(attr, v) === 1 ? 'vino' : 'vini' }})</span></template>
+            </p>
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="text-[13px] text-ink-soft" :for="`keep-${attr.id}-${g.key}`">Tieni</label>
+              <select :id="`keep-${attr.id}-${g.key}`" :value="keep[`${attr.id}:${g.key}`] || g.values[0]" @change="keep[`${attr.id}:${g.key}`] = $event.target.value" class="select h-9 text-[13px] w-auto min-w-[160px]">
+                <option v-for="v in g.values" :key="v" :value="v">{{ v }}</option>
+              </select>
+              <button type="button" :class="actBtn" :disabled="busy === attr.id" @click="unify(attr, g)">
+                <Merge class="w-3.5 h-3.5" aria-hidden="true" /> Unifica
+              </button>
+            </div>
+          </div>
+        </div>
+
         <template v-if="values(attr).length">
           <!-- valori brevi: etichette affiancate -->
           <ul v-if="!isLong(attr)" class="list-none m-0 p-0 flex flex-wrap gap-1.5">
-            <li v-for="v in shown(attr)" :key="v" :class="valueChip">
+            <li v-for="v in shown(attr)" :key="v" :class="[valueChip, !uses(attr, v) && '!bg-white border border-dashed border-stone-300 !text-ink-mute']" :title="usesTitle(attr, v)">
               <span :class="matches(v) && 'bg-amber-100 rounded px-0.5'">{{ v }}</span>
+              <span :class="countBadge(attr, v)">{{ uses(attr, v) }}</span>
               <button type="button" :class="valueX" :aria-label="`Togli il valore ${v}`" title="Togli questo valore" @click="removeValue(attr, v)">
                 <X class="w-3 h-3" aria-hidden="true" />
               </button>
@@ -64,8 +92,10 @@
           </ul>
           <!-- frasi lunghe: un valore per riga, su due colonne -->
           <ol v-else class="list-none m-0 p-0 grid grid-cols-1 md:grid-cols-2 gap-2">
-            <li v-for="v in shown(attr)" :key="v" class="group flex items-start gap-2 px-3 py-2.5 rounded-xl bg-stone-50 border border-stone-100 text-[13px] leading-snug text-ink-soft">
+            <li v-for="v in shown(attr)" :key="v" :title="usesTitle(attr, v)"
+                :class="['flex items-start gap-2 px-3 py-2.5 rounded-xl border text-[13px] leading-snug', uses(attr, v) ? 'bg-stone-50 border-stone-100 text-ink-soft' : 'bg-white border-dashed border-stone-300 text-ink-mute']">
               <span :class="['flex-1', matches(v) && 'bg-amber-100 rounded px-0.5']">{{ v }}</span>
+              <span :class="[countBadge(attr, v), 'mt-px']">{{ uses(attr, v) }}</span>
               <button type="button" :class="[valueX, 'mt-px']" :aria-label="`Togli il valore ${v}`" title="Togli questo valore" @click="removeValue(attr, v)">
                 <X class="w-3 h-3" aria-hidden="true" />
               </button>
@@ -138,9 +168,41 @@ const expanded = reactive({})
 const form = ref(null)
 const saving = ref(false)
 
-const { data: attributes, pending, refresh } = await useAsyncData('master_attributes', async () => {
+const { data: attributes, pending, refresh: refreshAttrs } = await useAsyncData('master_attributes', async () => {
   return (await fetchWithAuth('/attributes')) || []
 }, { default: () => [] })
+
+// quanti vini usano ciascun valore: { id_campo: { "valore in minuscolo": n } }
+const { data: usage, refresh: refreshUsage } = await useAsyncData('attribute_usage',
+  () => fetchWithAuth('/attributes/usage').catch(() => null), { default: () => null })
+const usageReady = computed(() => !!usage.value)
+const refresh = () => Promise.all([refreshAttrs(), refreshUsage()])
+
+const busy = ref('')
+const keep = reactive({})
+const valueKey = (v) => String(v || '').replace(/\s+/g, ' ').trim().toLowerCase()
+const uses = (attr, v) => usage.value?.[attr.id]?.[valueKey(v)] || 0
+const usesTitle = (attr, v) => {
+  if (!usageReady.value) return ''
+  const n = uses(attr, v)
+  return n ? `Usato in ${n === 1 ? '1 vino' : `${n} vini`}` : 'Nessun vino usa questo valore'
+}
+const countBadge = (attr, v) => ['shrink-0 min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold leading-5 text-center',
+  !usageReady.value ? 'hidden' : uses(attr, v) ? 'bg-white text-wine-800' : 'bg-stone-100 text-stone-400']
+const unused = (attr) => values(attr).filter(v => !uses(attr, v))
+// "300m slm" e "300 m s.l.m." sono lo stesso valore: si confrontano solo lettere e numeri
+const similarKey = (v) => norm(v).replace(/[^a-z0-9]/g, '')
+const similar = (attr) => {
+  const groups = {}
+  for (const v of values(attr)) {
+    const k = similarKey(v)
+    if (k) (groups[k] ||= []).push(v)
+  }
+  return Object.entries(groups).filter(([, vs]) => vs.length > 1).map(([key, vs]) => {
+    const sorted = [...vs].sort((a, b) => uses(attr, b) - uses(attr, a))
+    return { key, values: sorted }
+  })
+}
 
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const values = (attr) => attr.suggested_values || []
@@ -213,6 +275,43 @@ const removeValue = async (attr, value) => {
     await refresh()
   } catch (err) {
     toast.error(err?.data?.detail || 'Operazione non riuscita.')
+  }
+}
+
+const removeUnused = async (attr) => {
+  const drop = unused(attr)
+  if (!confirm(`Togliere ${drop.length === 1 ? 'il valore non usato' : `i ${drop.length} valori non usati`} da "${attr.name}"?\n\n${drop.join('\n')}`)) return
+  busy.value = attr.id
+  try {
+    await fetchWithAuth(`/attributes/${attr.id}`, {
+      method: 'PUT',
+      body: { name: attr.name, unit_or_hint: attr.unit_or_hint || '', suggested_values: values(attr).filter(v => uses(attr, v)) }
+    })
+    toast.success(drop.length === 1 ? 'Tolto 1 valore non usato.' : `Tolti ${drop.length} valori non usati.`)
+    await refresh()
+  } catch (err) {
+    toast.error(err?.data?.detail || 'Operazione non riuscita.')
+  } finally {
+    busy.value = ''
+  }
+}
+
+const unify = async (attr, group) => {
+  const target = keep[`${attr.id}:${group.key}`] || group.values[0]
+  const others = group.values.filter(v => v !== target)
+  const moved = others.reduce((n, v) => n + uses(attr, v), 0)
+  if (!confirm(`Tenere «${target}» e togliere ${others.map(v => `«${v}»`).join(', ')}?${moved ? `\n\n${moved === 1 ? '1 vino passerà' : `${moved} vini passeranno`} a «${target}».` : ''}`)) return
+  busy.value = attr.id
+  try {
+    const res = await fetchWithAuth(`/attributes/${attr.id}/unify-values`, { method: 'POST', body: { target, sources: others } })
+    const n = res?.products_updated || 0
+    toast.success(n ? `Unificato in «${target}»: aggiornati ${n === 1 ? '1 vino' : `${n} vini`}.` : `Unificato in «${target}».`)
+    delete keep[`${attr.id}:${group.key}`]
+    await refresh()
+  } catch (err) {
+    toast.error(err?.data?.detail || 'Operazione non riuscita.')
+  } finally {
+    busy.value = ''
   }
 }
 
