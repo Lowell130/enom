@@ -17,5 +17,5 @@ import RichText from '~/components/RichText.vue'
 const { fetchWithAuth } = useApi()
 const { data: page } = await useAsyncData('site_page_privacy', () => fetchWithAuth('/site/pages/privacy').catch(() => null))
 
-useSeoMeta({ title: 'Informativa sulla privacy - EnotecaMolise' })
+useSeoMeta({ title: 'Informativa sulla privacy - EnotecaMolise', robots: 'noindex' })
 </script>

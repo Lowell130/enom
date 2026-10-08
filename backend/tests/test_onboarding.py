@@ -261,6 +261,11 @@ class SitePagesTests(BaseTest):
         self.assertIn("Titolare", self.client.get(f"{API}/site/pages/privacy").json()["body"])
         self.assertEqual(self.client.get(f"{API}/site/pages/inesistente").status_code, 404)
 
+    def test_about_page_exists(self):
+        r = self.client.get(f"{API}/site/pages/chi-siamo")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["title"], "Chi siamo")
+
     def test_cookie_page_lists_the_site_cookies(self):
         r = self.client.get(f"{API}/site/pages/cookie")
         self.assertEqual(r.status_code, 200)

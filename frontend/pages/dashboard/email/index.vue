@@ -176,8 +176,7 @@
           </div>
           <h2 class="font-serif text-2xl font-bold">{{ currentPage.label }}</h2>
           <p class="text-sm text-ink-soft m-0">
-            {{ currentPage.hint }} Completa i dati tra [parentesi quadre]
-            e falla verificare da un consulente prima della messa online.
+            {{ currentPage.hint }}
           </p>
         </div>
         <label class="field-label">Titolo
@@ -233,7 +232,7 @@ const tabs = [
   { value: 'templates', label: 'Modelli' },
   { value: 'outbox', label: 'Posta in uscita' },
   { value: 'settings', label: 'Impostazioni' },
-  { value: 'privacy', label: 'Privacy e cookie' }
+  { value: 'privacy', label: 'Pagine del sito' }
 ]
 const tab = ref(tabs.some(t => t.value === route.query.tab) ? route.query.tab : 'templates')
 
@@ -387,10 +386,11 @@ const saveSettings = async () => {
   }
 }
 
-// testi del sito: informativa privacy e cookie policy
+// testi del sito: informativa privacy, cookie policy e chi siamo
 const sitePages = [
-  { key: 'privacy', label: 'Informativa sulla privacy', path: '/privacy', hint: 'È la pagina collegata ai consensi di registrazione e contatto.' },
-  { key: 'cookie', label: 'Cookie policy', path: '/cookie', hint: 'È la pagina collegata al banner dei cookie: se aggiungi statistiche o servizi esterni, elencali qui.' }
+  { key: 'privacy', label: 'Informativa sulla privacy', path: '/privacy', hint: 'È la pagina collegata ai consensi di registrazione e contatto. Completa i dati tra [parentesi quadre] e falla verificare da un consulente prima della messa online. Non compare nei motori di ricerca.' },
+  { key: 'cookie', label: 'Cookie policy', path: '/cookie', hint: 'È la pagina collegata al banner dei cookie: se aggiungi statistiche o servizi esterni, elencali qui. Completa i dati tra [parentesi quadre] e falla verificare da un consulente prima della messa online. Non compare nei motori di ricerca.' },
+  { key: 'chi-siamo', label: 'Chi siamo', path: '/chi-siamo', hint: 'Presenta il progetto a visitatori e cantine. Non compare nei motori di ricerca.' }
 ]
 const pageKey = ref('privacy')
 const currentPage = computed(() => sitePages.find(p => p.key === pageKey.value) || sitePages[0])

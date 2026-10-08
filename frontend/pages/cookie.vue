@@ -32,5 +32,5 @@ const choiceLabel = computed(() => {
 })
 const { data: page } = await useAsyncData('site_page_cookie', () => fetchWithAuth('/site/pages/cookie').catch(() => null))
 
-useSeoMeta({ title: 'Cookie policy - EnotecaMolise' })
+useSeoMeta({ title: 'Cookie policy - EnotecaMolise', robots: 'noindex' })
 </script>

@@ -1,4 +1,4 @@
-"""Testi del sito modificabili dall'area admin (informativa privacy e cookie policy)."""
+"""Testi del sito modificabili dall'area admin (chi siamo, informativa privacy e cookie policy)."""
 from datetime import datetime
 from typing import Optional
 
@@ -18,7 +18,7 @@ DEFAULT_PAGES = {
         "body": """Questa informativa descrive come EnotecaMolise tratta i dati personali di chi visita il sito, di chi contatta una cantina e delle cantine che si registrano, ai sensi del Regolamento (UE) 2016/679 (GDPR).
 
 ## Titolare del trattamento
-[Nome e cognome o ragione sociale del titolare], [indirizzo], email: [indirizzo email per la privacy].
+EnotecaMolise è un progetto personale, gratuito e senza scopo di lucro. Titolare del trattamento è il gestore del sito, [Nome e cognome], persona fisica. Per qualsiasi richiesta sui dati personali puoi scrivere a info@enotecamolise.it.
 
 ## Quali dati raccogliamo
 - Cantine registrate: nome della cantina, email e password di accesso (conservata in forma cifrata), dati del profilo pubblico (indirizzo, contatti, testi e immagini) e schede dei vini.
@@ -38,7 +38,7 @@ I messaggi inviati tramite il modulo di contatto sono inoltrati esclusivamente a
 I dati dell'account restano finché la cantina mantiene il profilo; i messaggi dei visitatori per [indicare il periodo, es. 24 mesi]; i dati tecnici per il tempo strettamente necessario.
 
 ## I tuoi diritti
-Puoi chiedere in qualsiasi momento l'accesso, la rettifica, la cancellazione o la limitazione dei tuoi dati, opporti al trattamento e chiedere la portabilità, scrivendo a [indirizzo email per la privacy]. Le cantine possono chiedere la cancellazione dell'account anche dall'area riservata. Hai inoltre diritto di proporre reclamo al Garante per la protezione dei dati personali (www.garanteprivacy.it).
+Puoi chiedere in qualsiasi momento l'accesso, la rettifica, la cancellazione o la limitazione dei tuoi dati, opporti al trattamento e chiedere la portabilità, scrivendo a info@enotecamolise.it. Le cantine possono chiedere la cancellazione dell'account anche dall'area riservata. Hai inoltre diritto di proporre reclamo al Garante per la protezione dei dati personali (www.garanteprivacy.it).
 
 ## Cookie
 Il sito usa cookie tecnici necessari al funzionamento (ad esempio per mantenere l'accesso all'area riservata e ricordare le tue scelte sui cookie). Tutti i dettagli sono nella Cookie policy, raggiungibile dal fondo di ogni pagina insieme alle "Preferenze cookie".
@@ -50,7 +50,7 @@ Ultimo aggiornamento: [data].""",
         "body": """Questa pagina spiega quali cookie usa EnotecaMolise, a cosa servono e come puoi gestirli. I cookie sono piccoli file di testo che il sito salva nel tuo browser.
 
 ## Titolare del trattamento
-[Nome e cognome o ragione sociale del titolare], [indirizzo], email: [indirizzo email per la privacy].
+Il sito è gestito da EnotecaMolise, progetto personale e senza scopo di lucro: i dati del titolare sono indicati nell'Informativa sulla privacy. Contatti: info@enotecamolise.it.
 
 ## Cookie tecnici (sempre attivi)
 Sono necessari al funzionamento del sito e non richiedono il consenso.
@@ -76,6 +76,25 @@ Puoi cambiare idea in qualsiasi momento con il link "Preferenze cookie" in fondo
 Per i diritti sui tuoi dati personali vedi l'Informativa sulla privacy.
 
 Ultimo aggiornamento: [data].""",
+    },
+    "chi-siamo": {
+        "title": "Chi siamo",
+        "body": """EnotecaMolise è un progetto indipendente e senza scopo di lucro, nato per far conoscere i vini e le cantine del Molise: una regione piccola, con vitigni autoctoni come la Tintilia e denominazioni che meritano di essere scoperte.
+
+## Cosa trovi sul sito
+- Il catalogo dei vini molisani, con schede tecniche, vitigni e abbinamenti.
+- Le cantine, con la mappa per trovarle e i contatti per scrivere direttamente ai produttori.
+- Gli eventi: degustazioni, visite in vigna, cene e feste del vino.
+- L'Osservatorio, con i numeri del vino molisano.
+
+## Gratuito, senza intermediari
+Il portale è gratuito per i visitatori e per le cantine: nessun abbonamento, nessuna commissione, nessuna pubblicità. Le richieste dei visitatori arrivano direttamente alla cantina, che risponde e si accorda con loro. Il sito non vende vino e non gestisce pagamenti.
+
+## Per le cantine
+Ogni cantina del Molise può avere la sua pagina e aggiornarla in autonomia: storia, foto, schede dei vini ed eventi. Se la vostra cantina non c'è ancora potete registrarla dall'area riservata; se c'è già e volete gestirla voi, scriveteci.
+
+## Contatti
+Per segnalazioni, correzioni o qualsiasi domanda: info@enotecamolise.it""",
     },
 }
 
