@@ -8,6 +8,14 @@
             <span class="eyebrow">Osservatorio · dati aggiornati dal catalogo</span>
             <h1 class="title-display">Il vino molisano in numeri</h1>
             <p class="text-[17px] text-ink-soft">Vitigni, denominazioni, zone e tecniche di cantina, calcolati dalle schede dei vini in catalogo.</p>
+            <p class="flex items-start gap-2 mt-1 text-[13px] leading-relaxed text-ink-mute">
+              <Info class="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+              <span>
+                Dati elaborati dalle schede dei vini pubblicate sul sito, ricavate dalle schede tecniche dei produttori:
+                descrivono il catalogo di EnotecaMolise, non l'intera produzione del Molise.
+                <a href="#fonte-dati" class="font-semibold text-wine-800 underline underline-offset-2 no-print">Da dove vengono i dati</a>
+              </span>
+            </p>
           </div>
           <div class="flex gap-2.5 no-print">
             <button type="button" class="btn-ghost btn-sm h-11" @click="printReport">
@@ -123,8 +131,24 @@
           <div class="flex flex-col gap-3.5 text-base text-ink-soft">
             <p><strong class="text-ink">La Tintilia come segno distintivo.</strong> È il vitigno autoctono che identifica il Molise: la sua quota nel catalogo racconta il legame con la biodiversità locale.</p>
             <p><strong class="text-ink">Microclimi diversi.</strong> Dalle colline di Campomarino vicine al mare alle quote di Castropignano e Isernia, l'escursione termica dà acidità e profumi caratteristici.</p>
-            <p class="text-[13px] text-ink-mute">I conteggi per comune si riferiscono alla zona di produzione o alla sede della cantina.</p>
           </div>
+        </div>
+      </section>
+
+      <!-- FONTE DEI DATI -->
+      <section id="fonte-dati" aria-labelledby="fonte-dati-title" class="page-container pt-10 md:pt-12 pb-6 scroll-mt-24">
+        <div class="card p-6 md:p-8 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-6 lg:gap-10">
+          <div class="flex flex-col gap-2">
+            <span class="eyebrow">Nota sui dati</span>
+            <h2 id="fonte-dati-title" class="font-serif text-[28px] font-bold leading-tight m-0">Da dove vengono i numeri</h2>
+          </div>
+          <ul class="m-0 pl-5 list-disc flex flex-col gap-2.5 text-[15px] leading-relaxed text-ink-soft marker:text-wine-800">
+            <li><strong class="text-ink">Fonte.</strong> Le statistiche sono calcolate in automatico dalle schede dei vini presenti su EnotecaMolise, compilate dalle cantine o ricavate dalle schede tecniche che i produttori pubblicano sui propri siti.</li>
+            <li><strong class="text-ink">Cosa descrivono.</strong> Contano solo i vini e le cantine in catalogo: non sono statistiche ufficiali e non riguardano superfici vitate, bottiglie prodotte o vendite.</li>
+            <li><strong class="text-ink">Possibili differenze.</strong> Le schede possono essere incomplete o non aggiornate e i numeri cambiano ogni volta che il catalogo si aggiorna. Prezzi e temperature sono quelli indicati dai produttori.</li>
+            <li><strong class="text-ink">Come si contano.</strong> Ogni vino conta una volta, per il suo vitigno principale (quello con la percentuale più alta). I conteggi per comune si riferiscono alla zona di produzione o alla sede della cantina.</li>
+            <li><strong class="text-ink">Hai notato un errore?</strong> Scrivici a <a href="mailto:info@enotecamolise.it" class="font-semibold text-wine-800 underline underline-offset-2">info@enotecamolise.it</a>: le cantine possono anche correggere le proprie schede dall'area riservata.</li>
+          </ul>
         </div>
       </section>
     </template>
@@ -134,7 +158,7 @@
 </template>
 
 <script setup>
-import { Printer, Download, Leaf } from 'lucide-vue-next'
+import { Printer, Download, Leaf, Info } from 'lucide-vue-next'
 
 const { fetchWithAuth } = useApi()
 
