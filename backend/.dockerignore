@@ -1,0 +1,10 @@
+# mai nell'immagine: segreti, file caricati (stanno nel bucket), test e ambienti locali
+.env
+*.env
+uploads/
+tests/
+__pycache__/
+*.pyc
+venv/
+.venv/
+requirements-dev.txt

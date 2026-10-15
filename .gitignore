@@ -78,3 +78,6 @@ backend/uploads/*
 
 # Il progetto usa yarn: niente lockfile npm
 frontend/package-lock.json
+
+# variabili compilate per Cloud Run (contengono segreti)
+deploy/cloudrun.env.yaml
