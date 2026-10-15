@@ -1,9 +1,10 @@
 <template>
   <!-- Caricamento di un'immagine o di un PDF con anteprima, sostituzione e rimozione (anche trascinando il file) -->
-  <div class="flex flex-col gap-2">
+  <!-- h-full + flex-1: affiancati in una griglia, i riquadri hanno la stessa altezza -->
+  <div class="flex flex-col gap-2 h-full">
     <span class="text-sm font-semibold text-ink">{{ label }}</span>
     <div
-      :class="['flex items-center gap-4 p-3 rounded-xl border bg-white transition-colors',
+      :class="['flex-1 flex items-center gap-4 p-3 rounded-xl border bg-white transition-colors',
                dragging ? 'border-wine-800 bg-wine-50' : 'border-line-input border-dashed']"
       @dragover.prevent="dragging = true"
       @dragleave.prevent="dragging = false"
