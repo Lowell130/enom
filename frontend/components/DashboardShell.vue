@@ -18,18 +18,18 @@
 
     <aside
       id="menu-area-riservata"
-      :class="['bg-cream border-r border-line px-3.5 py-5 flex-col gap-6 md:flex md:sticky md:top-0 md:h-screen', open ? 'flex' : 'hidden']"
+      :class="['bg-cream border-r border-line px-3.5 py-5 flex-col gap-5 md:flex md:sticky md:top-0 md:h-screen md:overflow-y-auto no-scrollbar', open ? 'flex' : 'hidden']"
     >
       <NuxtLink to="/dashboard" class="hidden md:block px-2.5" aria-label="Area riservata"><AppLogo subtitle="Area riservata" /></NuxtLink>
 
-      <nav aria-label="Area riservata" class="flex flex-col gap-0.5 overflow-y-auto">
+      <nav aria-label="Area riservata" class="flex flex-col gap-0.5">
         <NuxtLink v-for="item in mainNav" :key="item.to" :to="item.to" :class="itemClass(item)" :aria-current="isActive(item) ? 'page' : undefined">
           <component :is="item.icon" class="w-[18px] h-[18px] shrink-0" aria-hidden="true" />
           <span class="flex-1">{{ item.label }}</span>
         </NuxtLink>
 
         <template v-if="isAdmin">
-          <span class="mt-5 mb-1.5 px-3 text-[11px] font-bold uppercase tracking-[0.14em] text-gold-600">Amministrazione</span>
+          <span class="mt-4 mb-1 px-3 text-[11px] font-bold uppercase tracking-[0.14em] text-gold-600">Amministrazione</span>
           <NuxtLink v-for="item in adminNav" :key="item.to" :to="item.to" :class="itemClass(item)" :aria-current="isActive(item) ? 'page' : undefined">
             <component :is="item.icon" class="w-[18px] h-[18px] shrink-0" aria-hidden="true" />
             <span class="flex-1">{{ item.label }}</span>
@@ -79,14 +79,14 @@ const adminNav = [
   { label: 'Cantine', to: '/dashboard/cantine', icon: Building2 },
   { label: 'Vitigni', to: '/dashboard/vitigni', icon: Grape },
   { label: 'Abbinamenti', to: '/dashboard/abbinamenti', icon: Utensils },
-  { label: 'Campi scheda tecnica', to: '/dashboard/attributi', icon: ListChecks },
+  { label: 'Scheda tecnica', to: '/dashboard/attributi', icon: ListChecks },
   { label: 'Email e testi', to: '/dashboard/email', icon: Mail }
 ]
 
 const isActive = (item) => (item.exact ? route.path === item.to : route.path.startsWith(item.to))
 
 const itemClass = (item) => [
-  'flex items-center gap-3 min-h-[40px] px-3 rounded-[10px] font-semibold transition-colors',
+  'flex items-center gap-3 min-h-[38px] px-3 rounded-[10px] font-semibold transition-colors',
   isActive(item) ? 'bg-sand-100 text-wine-900' : 'text-ink-soft hover:bg-sand-100/60 hover:text-ink'
 ]
 

@@ -124,3 +124,13 @@
     @apply input pr-8;
   }
 }
+
+/* scorrimento senza barra visibile (barra laterale dell'area riservata) */
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
