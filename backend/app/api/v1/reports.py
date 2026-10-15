@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.db.mongodb import get_database
 from app.api.v1.auth import get_current_user, is_admin
 from app.services import insights
+from app.services.pdf_importer import NOT_ORGANIC_RE
 from typing import Dict, Any, Optional
 import re
 import asyncio
@@ -23,6 +24,9 @@ def check_is_organic(p: dict) -> bool:
             continue
         name = str(attr.get("name")).lower().strip()
         value = str(attr.get("value")).lower().strip()
+        # "in conversione al biologico" non e' un vino biologico: niente badge ne' filtro
+        if NOT_ORGANIC_RE.search(value):
+            continue
 
         # 1. Attribute name is 'tipo' or 'tipo vino'
         if (name in ['tipo', 'tipo vino'] or ('tipo' in name and name != 'biotipo')) and 'biolog' not in name:

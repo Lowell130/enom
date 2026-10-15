@@ -75,6 +75,7 @@
           </div>
           <span class="text-[13px] text-ink-mute">Risponde direttamente {{ product.producer_name || 'la cantina' }}, senza intermediari.</span>
         </div>
+        <p v-if="!displaySpecs.length" class="m-0 text-[13px] leading-relaxed text-ink-mute">{{ sourceNote }}</p>
 
         <div v-if="wineEvents.length" class="flex flex-col gap-2 p-5 rounded-2xl bg-sand-100 border border-line">
           <span class="eyebrow-sm">Lo assaggi a</span>
@@ -121,6 +122,10 @@
           <dd class="font-semibold text-right">{{ item.value }}</dd>
         </div>
       </dl>
+      <p class="m-0 flex items-start gap-2 text-[13px] leading-relaxed text-ink-mute max-w-[760px]">
+        <Info class="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+        <span>{{ sourceNote }}</span>
+      </p>
     </section>
 
     <!-- ALTRI VINI DELLA CANTINA -->
@@ -157,7 +162,7 @@
 </template>
 
 <script setup>
-import { Pencil, Mail, FileDown, Eye, Droplet, Wine, Leaf, CalendarDays } from 'lucide-vue-next'
+import { Pencil, Mail, FileDown, Eye, Droplet, Wine, Leaf, CalendarDays, Info } from 'lucide-vue-next'
 import { placeLabel } from '~/utils/events'
 import { grapesLabel } from '~/utils/grapes'
 
@@ -272,6 +277,11 @@ const mainImage = computed(() => {
   }
   return ''
 })
+
+// chi dichiara i dati: la cantina. EnotecaMolise li riporta senza modificarne il significato
+const sourceNote = computed(() =>
+  `Informazioni fornite da ${product.value?.producer_name || 'la cantina'} o tratte dalla sua scheda tecnica. ` +
+  'Per annata, gradazione, ingredienti e allergeni fa fede l\'etichetta della bottiglia.')
 
 const pdfUrl = computed(() => {
   if (!product.value?.technical_sheet_pdf) return '#'

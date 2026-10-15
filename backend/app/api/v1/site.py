@@ -56,6 +56,7 @@ Il sito è gestito da EnotecaMolise, progetto personale e senza scopo di lucro: 
 Sono necessari al funzionamento del sito e non richiedono il consenso.
 - auth_token: mantiene l'accesso all'area riservata di cantine e amministratori. Si crea solo quando accedi e dura al massimo 3 giorni, o fino a quando esci.
 - em_consenso_cookie: ricorda le scelte fatte nel banner dei cookie, così non te le chiediamo a ogni pagina. Dura 6 mesi, poi ti chiediamo di nuovo.
+- em_maggiore_eta: ricorda che hai confermato di avere almeno 18 anni, così la domanda non compare a ogni visita. Dura 12 mesi.
 
 ## Cookie di statistica
 Al momento il sito non usa strumenti di statistica. Se verranno attivati, partiranno solo se li accetti dal banner o dalle "Preferenze cookie", e saranno elencati qui. [Aggiornare se verrà aggiunto uno strumento di statistica.]

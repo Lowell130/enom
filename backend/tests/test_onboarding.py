@@ -273,6 +273,7 @@ class SitePagesTests(BaseTest):
         # i nomi devono restare allineati a useAuth e useCookieConsent del frontend
         self.assertIn("auth_token", body)
         self.assertIn("em_consenso_cookie", body)
+        self.assertIn("em_maggiore_eta", body)
         r = self.client.put(f"{API}/site/pages/cookie", json={"title": "Cookie"}, headers=self.auth(self.admin_token))
         self.assertEqual(r.json()["title"], "Cookie")
 

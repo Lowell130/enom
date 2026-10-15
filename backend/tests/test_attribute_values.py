@@ -32,3 +32,15 @@ class AttributeValuesTests(BaseTest):
         self.assertEqual(attr["suggested_values"], ["300 m s.l.m.", "500 m s.l.m."])
         usage = self.client.get(f"{API}/attributes/usage", headers=self.auth(self.admin_token)).json()
         self.assertEqual(usage[str(self.attr)], {"300 m s.l.m.": 2})
+
+
+class OrganicRuleTests(BaseTest):
+    def test_conversion_is_not_organic(self):
+        from app.api.v1.reports import check_is_organic
+        ok = lambda n, v: check_is_organic({"custom_attributes": [{"name": n, "value": v}]})
+        self.assertTrue(ok("Tipo Vino", "Biologico"))
+        self.assertTrue(ok("Certificazione", "Biologico ICEA"))
+        self.assertTrue(ok("Agricoltura", "biologica"))
+        self.assertFalse(ok("Agricoltura", "In conversione al biologico"))
+        self.assertFalse(ok("Coltivazione", "Conversione biologica non certificata"))
+        self.assertFalse(ok("Tipo Vino", "Non biologico"))

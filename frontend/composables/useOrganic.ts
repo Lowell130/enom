@@ -1,3 +1,6 @@
+// "Biologico" e' una menzione regolamentata: senza certificazione niente badge
+const NOT_ORGANIC = /\bin conversione\b|\bconversione (?:al|a|verso il) biologic|\bnon (?:e |è )?biologic|\bnon bio\b|\bnon certificat/i
+
 export const useOrganic = () => {
   const isOrganicProduct = (product: any): boolean => {
     if (!product) return false
@@ -7,6 +10,8 @@ export const useOrganic = () => {
         if (!attr || !attr.name || !attr.value) return false
         const name = String(attr.name).toLowerCase().trim()
         const value = String(attr.value).toLowerCase().trim()
+        // "in conversione al biologico" non e' un vino biologico certificato (stessa regola del backend)
+        if (NOT_ORGANIC.test(value)) return false
 
         // 1. Attribute name is 'tipo' or 'tipo vino' (or contains 'tipo' without being 'biotipo') and value mentions biologico/bio
         if ((name === 'tipo' || name === 'tipo vino' || (name.includes('tipo') && name !== 'biotipo')) && !name.includes('biolog')) {

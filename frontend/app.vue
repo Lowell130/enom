@@ -4,5 +4,6 @@
     <NuxtPage />
     <ToastContainer />
     <CookieBanner />
+    <AgeGate />
   </NuxtLayout>
 </template>

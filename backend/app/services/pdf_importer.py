@@ -115,7 +115,7 @@ ORGANIC_RE = re.compile(
     r"|\bit[- ]bio[- ]\d{3}\b"
 )
 # "in conversione al biologico" non e' ancora un vino biologico certificato
-NOT_ORGANIC_RE = re.compile(r"\bin conversione\b|\bnon (?:e |è )?biologic|\bnon bio\b")
+NOT_ORGANIC_RE = re.compile(r"\bin conversione\b|\bconversione (?:al|a|verso il) biologic|\bnon (?:e |è )?biologic|\bnon bio\b|\bnon certificat")
 # Unico modo in cui il catalogo registra un vino biologico (stesso formato dei vini inseriti a mano)
 ORGANIC_ATTRIBUTE_NAME = "Tipo Vino"
 ORGANIC_ATTRIBUTE_VALUE = "Biologico"

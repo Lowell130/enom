@@ -94,7 +94,9 @@ const prefs = computed(() => prefsMode.value || panelOpen.value)
 // solo nel browser: niente banner nell'HTML generato dal server (e niente sfarfallio per chi ha gia' scelto)
 const mounted = ref(false)
 onMounted(() => { mounted.value = true })
-const visible = computed(() => mounted.value && (!decided.value || panelOpen.value))
+// prima la conferma dei 18 anni, poi il banner dei cookie
+const ageGateOpen = useState('age_gate_open', () => false)
+const visible = computed(() => mounted.value && !ageGateOpen.value && (!decided.value || panelOpen.value))
 
 watch(panelOpen, (open) => {
   if (open) choices.statistiche = !!consent.value?.statistiche
