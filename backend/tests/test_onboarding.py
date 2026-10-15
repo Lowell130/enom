@@ -459,3 +459,23 @@ class InviteTests(EmailTestBase):
         self.assertEqual(len(self.outbox("invito_cantina")), 2)
         again = self.client.post(f"{API}/producers/invite-all", headers=self.auth(self.admin_token)).json()
         self.assertEqual(again["invited"], [])
+
+
+class PasswordChangeTests(EmailTestBase):
+    def test_change_password(self):
+        url = f"{API}/auth/password/change"
+        old_token = self.p1_token
+        r = self.client.post(url, json={"current_password": "sbagliata", "new_password": "NuovaPass2026"}, headers=self.auth(old_token))
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("attuale", r.json()["detail"])
+        r = self.client.post(url, json={"current_password": "Password123!", "new_password": "AdminPass2026!"}, headers=self.auth(old_token))
+        self.assertIn("pubblicata", r.json()["detail"])
+        r = self.client.post(url, json={"current_password": "Password123!", "new_password": "NuovaPass2026"}, headers=self.auth(old_token))
+        self.assertEqual(r.status_code, 200, r.text)
+        new_token = r.json()["access_token"]
+        # la sessione nuova vale, il login con la nuova password funziona
+        self.assertEqual(self.client.get(f"{API}/auth/me", headers=self.auth(new_token)).status_code, 200)
+        self.assertEqual(self.client.post(f"{API}/auth/login", json={"email": "uno@test.it", "password": "NuovaPass2026"}).status_code, 200)
+        self.assertEqual(self.outbox("password_modificata")[0]["to"], ["uno@test.it"])
+        # senza accesso non si puo'
+        self.assertEqual(self.client.post(url, json={"current_password": "x", "new_password": "NuovaPass2027"}).status_code, 401)

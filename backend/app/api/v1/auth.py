@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from app.db.mongodb import get_database
-from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, PasswordForgot, PasswordReset, InviteAccept
+from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, PasswordForgot, PasswordReset, PasswordChange, InviteAccept
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password, create_access_token, decode_token
 from app.core.utils import slugify, unique_slug, rate_limiter, client_ip
@@ -279,6 +279,42 @@ async def reset_password(payload: PasswordReset, request: Request, db=Depends(ge
         "email": user["email"], "data": mail.format_date(now), "link_accesso": mail.site_url("/login"),
     }, related={"user_id": str(user["_id"])})
     return {"message": "Password aggiornata: ora puoi accedere con la nuova password."}
+
+
+# Password pubblicate in versioni precedenti del codice: non si possono piu' scegliere.
+LEAKED_DEFAULT_PASSWORDS = ("AdminPass2026!", "CantinaPass2026!")
+
+
+@router.post("/password/change")
+async def change_password(payload: PasswordChange, current_user: dict = Depends(get_current_user),
+                          db=Depends(get_database)):
+    """Cambio password dall'area riservata: serve quella attuale. Le altre sessioni aperte decadono."""
+    rate_limiter.check_and_hit(f"pwchange:{current_user['id']}", 10, 3600, "Troppi tentativi. Riprova più tardi.")
+    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    try:
+        current_ok = verify_password(payload.current_password, user.get("password_hash", ""))
+    except Exception:
+        current_ok = False
+    if not current_ok:
+        raise HTTPException(status_code=400, detail="La password attuale non è corretta.")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(status_code=400, detail="La nuova password deve essere diversa da quella attuale.")
+    if payload.new_password in LEAKED_DEFAULT_PASSWORDS:
+        raise HTTPException(status_code=400, detail="Questa password è pubblicata in rete: scegline un'altra.")
+
+    now = datetime.utcnow()
+    changed_at = (now - timedelta(seconds=1)).replace(microsecond=0)
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {
+        "password_hash": get_password_hash(payload.new_password), "password_changed_at": changed_at,
+    }})
+    await db.password_resets.update_many({"user_id": user["_id"], "used_at": None}, {"$set": {"used_at": now}})
+    await mail.send_template(db, "password_modificata", [user["email"]], {
+        "email": user["email"], "data": mail.format_date(now), "link_accesso": mail.site_url("/login"),
+    }, related={"user_id": str(user["_id"])})
+    # nuovo token per questa sessione: le altre (altri dispositivi) devono rifare l'accesso
+    producer_id = str(user["producer_id"]) if user.get("producer_id") else None
+    token = create_access_token(subject=str(user["_id"]), role=user.get("role", "PRODUCER"), producer_id=producer_id)
+    return {"access_token": token, "message": "Password cambiata. Sugli altri dispositivi dovrai accedere di nuovo."}
 
 
 # ---------------------------------------------------------------------------

@@ -23,7 +23,7 @@ logger = logging.getLogger("enotecamolise")
 mimetypes.add_type("image/webp", ".webp")
 
 # Password pubblicate in versioni precedenti del codice: se ancora in uso vanno cambiate.
-LEAKED_DEFAULT_PASSWORDS = ("AdminPass2026!", "CantinaPass2026!")
+from app.api.v1.auth import LEAKED_DEFAULT_PASSWORDS  # noqa: E402
 
 
 def _safe_verify(password: str, hashed: str) -> bool:

@@ -39,6 +39,9 @@
 
       <div class="mt-auto flex flex-col gap-0.5 border-t border-line pt-3.5">
         <span v-if="user?.email" class="px-3 pb-2 text-xs text-ink-mute truncate">{{ user.email }}</span>
+        <NuxtLink to="/dashboard/account" :class="itemClass({ to: '/dashboard/account' })">
+          <KeyRound class="w-[18px] h-[18px]" aria-hidden="true" /> Account e password
+        </NuxtLink>
         <NuxtLink to="/" class="flex items-center gap-3 min-h-[40px] px-3 rounded-[10px] text-ink-soft font-semibold hover:bg-sand-100">
           <ArrowLeft class="w-[18px] h-[18px]" aria-hidden="true" /> Torna al sito
         </NuxtLink>
@@ -57,7 +60,7 @@
 <script setup>
 import {
   LayoutDashboard, Wine, MessageSquare, Building2, Store, Grape, Utensils, ListChecks,
-  ArrowLeft, LogOut, Menu, X, Mail, CalendarDays
+  ArrowLeft, LogOut, Menu, X, Mail, CalendarDays, KeyRound
 } from 'lucide-vue-next'
 
 const route = useRoute()
