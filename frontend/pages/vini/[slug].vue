@@ -25,14 +25,46 @@
 
     <!-- PRODOTTO -->
     <section class="page-container pt-6 pb-14 md:pb-16 grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-start">
-      <div class="relative rounded-[22px] bg-sand min-h-[420px] lg:min-h-[600px] flex items-center justify-center lg:sticky lg:top-24">
-        <SafeImg :src="mainImage" :alt="product.name" class="bottle-photo max-h-[540px] w-full object-contain p-8"><BottleIcon :size="256" /></SafeImg>
+      <div class="flex flex-col gap-3 lg:sticky lg:top-24">
+      <div
+        class="relative rounded-[22px] bg-sand min-h-[420px] lg:min-h-[600px] flex items-center justify-center"
+        :tabindex="photos.length > 1 ? 0 : undefined"
+        :aria-label="photos.length > 1 ? `Foto ${activePhoto + 1} di ${photos.length}: usa le frecce per cambiarla` : undefined"
+        @keydown.left.prevent="showPhoto(activePhoto - 1)"
+        @keydown.right.prevent="showPhoto(activePhoto + 1)"
+      >
+        <SafeImg :key="mainImage" :src="mainImage" :alt="photos.length > 1 ? `${product.name}, foto ${activePhoto + 1} di ${photos.length}` : product.name" class="bottle-photo max-h-[540px] w-full object-contain p-8"><BottleIcon :size="256" /></SafeImg>
+        <template v-if="photos.length > 1">
+          <button type="button" class="absolute top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 border border-line shadow-sm flex items-center justify-center text-ink hover:bg-white hover:text-wine-800 left-3" aria-label="Foto precedente" @click="showPhoto(activePhoto - 1)">
+            <ChevronLeft class="w-5 h-5" aria-hidden="true" />
+          </button>
+          <button type="button" class="absolute top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 border border-line shadow-sm flex items-center justify-center text-ink hover:bg-white hover:text-wine-800 right-3" aria-label="Foto successiva" @click="showPhoto(activePhoto + 1)">
+            <ChevronRight class="w-5 h-5" aria-hidden="true" />
+          </button>
+          <span class="absolute top-4 right-4 px-2 py-0.5 rounded-full bg-white/80 text-[12px] font-semibold text-ink-soft" aria-hidden="true">{{ activePhoto + 1 }} / {{ photos.length }}</span>
+        </template>
         <span class="absolute top-4 left-4 flex flex-wrap gap-1.5">
           <span v-if="product.is_riserva" class="badge-soft">Riserva</span>
           <span v-if="isOrganicProduct(product)" class="badge-bio"><Leaf class="w-3.5 h-3.5" aria-hidden="true" /> Biologico</span>
         </span>
         <!-- le foto appartengono alla cantina -->
         <span v-if="mainImage && product.producer_name" class="absolute bottom-3 right-4 text-[11px] text-ink-mute">Foto © {{ product.producer_name }}</span>
+      </div>
+      <!-- miniature: tutte le foto caricate per il vino -->
+      <ul v-if="photos.length > 1" class="list-none m-0 p-0 flex flex-wrap gap-2" aria-label="Foto del vino">
+        <li v-for="(url, i) in photos" :key="url">
+          <button
+            type="button"
+            :aria-label="`Mostra la foto ${i + 1} di ${photos.length}`"
+            :aria-current="i === activePhoto ? 'true' : undefined"
+            :class="['w-[68px] h-[84px] rounded-xl bg-sand overflow-hidden border-2 transition-colors flex items-center justify-center',
+                     i === activePhoto ? 'border-wine-800' : 'border-transparent hover:border-line-strong']"
+            @click="showPhoto(i)"
+          >
+            <SafeImg :src="url" alt="" class="bottle-photo w-full h-full object-contain p-1.5"><BottleIcon :size="40" /></SafeImg>
+          </button>
+        </li>
+      </ul>
       </div>
 
       <div class="flex flex-col gap-[22px]">
@@ -162,7 +194,7 @@
 </template>
 
 <script setup>
-import { Pencil, Mail, FileDown, Eye, Droplet, Wine, Leaf, CalendarDays, Info } from 'lucide-vue-next'
+import { Pencil, Mail, FileDown, Eye, Droplet, Wine, Leaf, CalendarDays, Info, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { placeLabel } from '~/utils/events'
 import { grapesLabel } from '~/utils/grapes'
 
@@ -270,13 +302,20 @@ const displaySpecs = computed(() => {
   return list
 })
 
-const mainImage = computed(() => {
-  if (product.value?.photos && product.value.photos.length > 0) {
-    const url = product.value.photos[0]
-    return url.startsWith('http') ? url : `${mediaBase}${url}`
-  }
-  return ''
+// tutte le foto del vino (senza doppioni), la prima e' quella principale
+const photos = computed(() => {
+  const seen = new Set()
+  return (product.value?.photos || [])
+    .filter(u => u && !seen.has(u) && seen.add(u))
+    .map(u => (u.startsWith('http') ? u : `${mediaBase}${u}`))
 })
+const activePhoto = ref(0)
+watch(() => product.value?.id, () => { activePhoto.value = 0 })
+const showPhoto = (i) => {
+  const n = photos.value.length
+  if (n) activePhoto.value = (i + n) % n
+}
+const mainImage = computed(() => photos.value[activePhoto.value] || photos.value[0] || '')
 
 // chi dichiara i dati: la cantina. EnotecaMolise li riporta senza modificarne il significato
 const sourceNote = computed(() =>
