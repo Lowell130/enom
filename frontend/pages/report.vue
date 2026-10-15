@@ -41,7 +41,7 @@
             <button
               type="button"
               :aria-pressed="isOrganicOnly"
-              :class="['flex items-center justify-center sm:justify-start gap-2.5 h-11 px-4 rounded-[10px] border text-sm font-semibold transition-colors sm:col-span-2 lg:col-span-1', isOrganicOnly ? 'border-bio bg-bio-50 text-bio-900' : 'border-line-strong bg-white text-ink hover:border-ink-mute']"
+              :class="['flex items-center gap-2.5 h-11 px-4 rounded-[10px] border text-sm font-semibold transition-colors justify-self-start sm:col-span-2 lg:col-span-1', isOrganicOnly ? 'border-bio bg-bio-50 text-bio-900' : 'border-line-strong bg-white text-ink hover:border-ink-mute']"
               @click="toggleOrganic"
             >
               <Leaf class="w-4 h-4" aria-hidden="true" /> Solo biologici
