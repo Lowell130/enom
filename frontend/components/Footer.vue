@@ -29,9 +29,11 @@
         <NuxtLink to="/login" class="text-[#F3E7DF] hover:text-white">Area riservata</NuxtLink>
       </nav>
     </div>
-    <p class="page-container m-0 pb-5 text-[13px] text-[#E2C98F] font-semibold">
-      Il consumo di alcol è vietato ai minori di 18 anni. Bevi responsabilmente.
-    </p>
+    <div class="page-container pb-5">
+      <p class="m-0 text-center text-[13px] text-[#E2C98F] font-semibold">
+        Il consumo di alcol è vietato ai minori di 18 anni. Bevi responsabilmente.
+      </p>
+    </div>
     <div class="page-container py-5 border-t border-[#4A1A26] text-[13px] text-[#CDB8AE] flex flex-wrap gap-x-5 gap-y-1 justify-between">
       <span>© {{ year }} EnotecaMolise</span>
       <div class="flex flex-wrap gap-x-5 gap-y-1">
