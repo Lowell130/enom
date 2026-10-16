@@ -109,7 +109,7 @@
                         <p class="text-xs text-stone-500 font-medium truncate mt-0.5">
                           <span v-if="prod.producer_name" class="text-wine-800 font-semibold">{{ prod.producer_name }}</span>
                           <span v-if="prod.denominazione"> • {{ prod.denominazione }}</span>
-                          <span v-if="prod.vintage_year"> ({{ prod.vintage_year }})</span>
+                          
                         </p>
                       </div>
 
@@ -256,7 +256,6 @@ const matchProductWithSearch = (p, rawQuery) => {
     p.denominazione || '',
     p.category || '',
     p.description || '',
-    p.vintage_year ? String(p.vintage_year) : '',
     p.is_riserva ? 'riserva' : '',
     (p.grape_varieties || []).join(' '),
     isOrganicProduct(p) ? 'biologico bio organic' : '',

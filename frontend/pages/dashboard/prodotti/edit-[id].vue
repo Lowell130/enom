@@ -176,6 +176,7 @@
                   placeholder="es. 2022" 
                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-wine-800 focus:outline-none"
                 />
+                <p class="text-[11px] text-ink-mute mt-1">Resta solo nell'area riservata: sul sito l'annata non compare, perché cambia ogni anno.</p>
               </div>
 
               <div class="flex items-center space-x-2 pt-1 sm:pt-5">
@@ -208,7 +209,7 @@
             <h3 class="font-sans text-lg font-bold text-wine-900">
               Scheda Tecnica Dettagliata (Caratteristiche Extra)
             </h3>
-            <p class="text-xs text-ink-mute mt-0.5">I campi principali (Denominazione, Uvaggio, Annata, Gradazione Alcolica, Temperatura e Prezzo) vengono inclusi automaticamente nella Scheda Tecnica del vino. Qui sotto puoi aggiungere caratteristiche aggiuntive (es. Vinificazione, Affinamento, Allergeni, Altitudine).</p>
+            <p class="text-xs text-ink-mute mt-0.5">I campi principali (Denominazione, Uvaggio, Gradazione Alcolica, Temperatura e Prezzo) vengono inclusi automaticamente nella Scheda Tecnica del vino. Qui sotto puoi aggiungere caratteristiche aggiuntive (es. Vinificazione, Affinamento, Allergeni, Altitudine).</p>
           </div>
 
           <button 

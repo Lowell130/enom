@@ -82,7 +82,6 @@
           <div class="flex flex-wrap gap-1.5">
             <span v-if="product.denominazione" class="badge-denom text-xs px-2.5 py-1">{{ product.denominazione }}</span>
             <span class="badge-soft text-xs px-2.5 py-1">{{ formatCategory(product.category) }}</span>
-            <span v-if="product.vintage_year" class="badge-soft text-xs px-2.5 py-1">Annata {{ product.vintage_year }}</span>
           </div>
           <h1 class="font-serif font-semibold text-ink text-[42px] md:text-[60px] leading-none">{{ product.name }}</h1>
         </div>
@@ -320,7 +319,7 @@ const mainImage = computed(() => photos.value[activePhoto.value] || photos.value
 // chi dichiara i dati: la cantina. EnotecaMolise li riporta senza modificarne il significato
 const sourceNote = computed(() =>
   `Informazioni fornite da ${product.value?.producer_name || 'la cantina'} o tratte dalla sua scheda tecnica. ` +
-  'Per annata, gradazione, ingredienti e allergeni fa fede l\'etichetta della bottiglia.')
+  'Gradazione, ingredienti e allergeni possono cambiare da un\'annata all\'altra: fa fede l\'etichetta della bottiglia.')
 
 const pdfUrl = computed(() => {
   if (!product.value?.technical_sheet_pdf) return '#'

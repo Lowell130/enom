@@ -277,7 +277,6 @@ const downloadCsv = () => {
     ['Totale Vitigni', reportData.value.kpis.total_grapes],
     ['Totale Abbinamenti', reportData.value.kpis.total_pairings],
     ['Gradazione Alcolica Media', fmtPct(reportData.value.kpis.avg_alcohol_degrees ?? '')],
-    ['Range Annate', `${reportData.value.kpis.min_vintage_year || ''} - ${reportData.value.kpis.max_vintage_year || ''}`],
     [''],
     ['Tipologia', 'Conteggio', 'Percentuale'],
     ...(reportData.value.category_breakdown || []).map(c => [getCategoryLabel(c.category), c.count, `${fmtPct(c.percentage)}%`]),

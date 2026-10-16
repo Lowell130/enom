@@ -236,7 +236,6 @@ const matchProductWithSearch = (p, searchQuery) => {
     p.denominazione || '',
     p.category || '',
     p.description || '',
-    p.vintage_year ? String(p.vintage_year) : '',
     p.is_riserva ? 'riserva' : '',
     (p.grape_varieties || []).join(' '),
     pairingsText,
