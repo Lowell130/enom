@@ -73,6 +73,8 @@ class Settings(BaseSettings):
     PASSWORD_RESET_TTL_MINUTES: int = 60
     # validita' del link d'invito mandato alle cantine inserite dall'amministratore
     INVITE_TTL_DAYS: int = 14
+    # le email registrate (con i dati di chi scrive alle cantine) si cancellano da sole dopo questi giorni
+    EMAIL_LOG_RETENTION_DAYS: int = 180
 
     # Importazione IA delle schede: limite giornaliero di file per ogni cantina
     PRODUCER_AI_FILES_PER_DAY: int = 20

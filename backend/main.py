@@ -48,6 +48,8 @@ async def ensure_indexes(db):
         (db.events, "slug", {"unique": True}),
         (db.events, "ends_at", {}),
         (db.events, "producer_id", {}),
+        # registro delle email: MongoDB cancella da solo quelle piu' vecchie del periodo di conservazione
+        (db.email_outbox, "created_at", {"expireAfterSeconds": max(1, settings.EMAIL_LOG_RETENTION_DAYS) * 86400}),
     ]
     for collection, field, kwargs in indexes_to_create:
         try:

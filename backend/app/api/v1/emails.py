@@ -54,6 +54,7 @@ async def email_status(current_admin: dict = Depends(get_current_admin), db=Depe
         "site_url": settings.SITE_URL,
         "outbox_count": await db.email_outbox.count_documents({}),
         "errors_count": await db.email_outbox.count_documents({"status": "error"}),
+        "retention_days": settings.EMAIL_LOG_RETENTION_DAYS,
     }
 
 

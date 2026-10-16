@@ -425,7 +425,7 @@
           Senza email di contatto, quindi non invitate: {{ withoutEmail.map(p => p.company_name).join(', ') }}.
         </p>
         <p v-if="emailMode !== 'smtp'" class="m-0 text-[13px] p-3 rounded-xl bg-[#FBF5E8] border border-[#E8D9B8] text-[#5A4524]">
-          Le email non vengono spedite davvero finché non configuri l'invio (SMTP): le trovi in «Email e testi → Posta in uscita».
+          Le email non vengono spedite davvero finché non configuri l'invio (SMTP): le trovi in «Email e testi → Email inviate».
         </p>
         <div class="flex justify-end gap-3">
           <button type="button" class="btn-ghost btn-sm h-10" @click="inviteAllOpen = false">Annulla</button>

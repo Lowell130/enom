@@ -170,7 +170,7 @@ const shortcuts = computed(() => {
       { to: '/dashboard/vitigni', icon: Grape, title: 'Vitigni', text: 'Elenco ufficiale dei vitigni usati nelle schede.' },
       { to: '/dashboard/abbinamenti', icon: Utensils, title: 'Abbinamenti', text: 'Le categorie di abbinamento gastronomico.' },
       { to: '/dashboard/attributi', icon: ListChecks, title: 'Campi scheda tecnica', text: 'I campi disponibili nella scheda tecnica dei vini.' },
-      { to: '/dashboard/email', icon: Mail, title: 'Email e testi', text: 'Modelli delle email, posta in uscita e informativa privacy.' }
+      { to: '/dashboard/email', icon: Mail, title: 'Email e testi', text: 'Modelli delle email, email inviate e pagine del sito.' }
     )
   }
   return list

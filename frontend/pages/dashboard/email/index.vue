@@ -9,12 +9,12 @@
     <div v-if="status" :class="['p-4 rounded-xl border text-sm flex flex-col gap-1', status.mode === 'smtp' ? 'border-bio/30 bg-bio-50 text-bio-900' : 'border-[#E8D9B8] bg-[#FBF5E8] text-[#5A4524]']" role="status">
       <template v-if="status.mode === 'smtp'">
         <strong>Invio attivo</strong>
-        <span>Le email partono davvero tramite {{ status.smtp_host }}. Restano comunque registrate nella Posta in uscita.</span>
+        <span>Le email partono davvero tramite {{ status.smtp_host }}. Una copia resta in «Email inviate» per {{ status.retention_days || 180 }} giorni, poi si cancella da sola.</span>
       </template>
       <template v-else>
         <strong>Modalità sviluppo: le email non vengono spedite</strong>
         <span>
-          Ogni email viene salvata nella <button type="button" class="underline font-semibold" @click="tab = 'outbox'">Posta in uscita</button>,
+          Ogni email viene salvata in <button type="button" class="underline font-semibold" @click="tab = 'outbox'">Email inviate</button>,
           dove puoi leggerla esattamente come la riceverebbe il destinatario. Quando avrai il dominio, basterà inserire i dati SMTP nel file
           <code class="font-mono text-[13px]">backend/.env</code> (EMAIL_MODE=smtp) e riavviare il backend.
           <span v-if="status.requested_mode === 'smtp' && !status.smtp_configured"> Attenzione: EMAIL_MODE è "smtp" ma manca SMTP_HOST.</span>
@@ -104,7 +104,7 @@
           <option value="error">Con errore</option>
         </select>
         <button type="button" class="btn-ghost btn-sm h-10" @click="loadOutbox"><RefreshCw class="w-4 h-4" aria-hidden="true" /> Aggiorna</button>
-        <button v-if="outbox.length" type="button" class="btn-ghost btn-sm h-10 text-wine-800 ml-auto" @click="clearOutbox">Svuota la posta in uscita</button>
+        <button v-if="outbox.length" type="button" class="btn-ghost btn-sm h-10 text-wine-800 ml-auto" @click="clearOutbox">Svuota l'elenco</button>
       </div>
       <div class="card overflow-x-auto">
         <table v-if="outbox.length" class="w-full text-left text-sm">
@@ -238,7 +238,7 @@ const route = useRoute()
 
 const tabs = [
   { value: 'templates', label: 'Modelli' },
-  { value: 'outbox', label: 'Posta in uscita' },
+  { value: 'outbox', label: 'Email inviate' },
   { value: 'settings', label: 'Impostazioni' },
   { value: 'privacy', label: 'Pagine del sito' }
 ]
@@ -342,7 +342,7 @@ const sendTest = async () => {
   try {
     const res = await fetchWithAuth(`/emails/templates/${selectedKey.value}/test`, { method: 'POST', body: { to: testTo.value.trim() } })
     if (res.status === 'error') toast.error(`Invio non riuscito: ${res.error}`)
-    else if (res.mode === 'outbox') toast.success(`Prova salvata nella Posta in uscita (destinatario: ${res.to.join(', ')}).`)
+    else if (res.mode === 'outbox') toast.success(`Invio non attivo: prova salvata in «Email inviate» (destinatario: ${res.to.join(', ')}).`)
     else toast.success(`Email di prova inviata a ${res.to.join(', ')}.`)
     loadStatus()
   } catch (err) {
@@ -363,10 +363,10 @@ const openEmail = async (id) => {
 }
 
 const clearOutbox = async () => {
-  if (!confirm('Eliminare tutte le email della posta in uscita?')) return
+  if (!confirm('Eliminare tutte le email dell\'elenco? Le email già spedite non vengono richiamate.')) return
   await fetchWithAuth('/emails/outbox', { method: 'DELETE' })
   await Promise.all([loadOutbox(), loadStatus()])
-  toast.success('Posta in uscita svuotata.')
+  toast.success('Elenco svuotato.')
 }
 
 // destinatario della prova: di partenza il primo indirizzo delle notifiche admin (una casella vera)
