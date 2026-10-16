@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.core.config import settings
 from app.services.catalog import migrate_ascii_slugs
@@ -269,7 +270,14 @@ async def security_headers(request: Request, call_next):
         # I file caricati non possono eseguire script anche se aperti direttamente
         response.headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+    if request.url.path.startswith("/uploads/") and response.status_code == 200:
+        # nomi casuali e mai riscritti: il browser puo' tenerli in cache per un anno
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
+
+
+# risposte JSON compresse: Cloud Run non lo fa da solo
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
