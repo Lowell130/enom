@@ -3,10 +3,12 @@ from app.core.config import settings
 from app.api.v1.auth import get_current_user
 import os
 import uuid
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 import io
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
@@ -16,6 +18,7 @@ ALLOWED_IMAGE_EXTENSIONS = {".webp", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".
 MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
 MAX_DOC_SIZE_BYTES = 15 * 1024 * 1024   # 15MB
 MAX_IMAGE_PIXELS = 40_000_000           # protezione da "decompression bomb"
+MAX_IMAGE_SIDE = 2400                   # lato lungo massimo dopo il ridimensionamento
 
 
 async def _read_limited(file: UploadFile, limit: int, label: str) -> bytes:
@@ -47,19 +50,35 @@ async def upload_image(
         if image.width * image.height > MAX_IMAGE_PIXELS:
             raise HTTPException(status_code=400, detail="Immagine con risoluzione troppo elevata")
         image.load()
-        if image.mode in ("P", "PA", "LA", "1", "I", "I;16", "F"):
-            image = image.convert("RGBA")
-        elif image.mode == "CMYK":
-            image = image.convert("RGB")
+        image = _normalize_image(image)
+        buffer = io.BytesIO()
+        image.save(buffer, "WEBP", quality=85, method=4)
     except HTTPException:
         raise
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
         raise HTTPException(status_code=400, detail="Il file non è un'immagine valida o il formato non è supportato")
+    except Exception:
+        logger.exception("Conversione immagine non riuscita (%s)", file.filename)
+        raise HTTPException(status_code=400, detail="Non è stato possibile elaborare l'immagine: prova a salvarla in PNG o JPG e ricaricala")
 
     filename = f"{uuid.uuid4().hex}.webp"
     file_path = os.path.join(settings.UPLOAD_DIR, filename)
-    image.save(file_path, "WEBP", quality=85, optimize=True)
+    with open(file_path, "wb") as f:
+        f.write(buffer.getvalue())
     return {"url": f"/uploads/{filename}", "filename": filename}
+
+
+def _normalize_image(image: Image.Image) -> Image.Image:
+    """Prepara l'immagine per il WebP: orientamento corretto, colori in RGB/RGBA,
+    lato lungo entro MAX_IMAGE_SIDE (il WebP non accetta oltre 16383 px e il sito
+    non mostra mai immagini piu' grandi)."""
+    image = ImageOps.exif_transpose(image)
+    if image.mode not in ("RGB", "RGBA"):
+        has_alpha = image.mode in ("P", "PA", "LA", "La", "RGBa") or "transparency" in image.info
+        image = image.convert("RGBA" if has_alpha else "RGB")
+    if max(image.size) > MAX_IMAGE_SIDE:
+        image.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE), Image.LANCZOS)
+    return image
 
 
 @router.post("/document")

@@ -163,7 +163,7 @@
     </section>
 
     <!-- Error / Missing Profile State -->
-    <div v-else class="bg-white rounded-2xl p-8 border border-line shadow-xs text-center py-12 space-y-4">
+    <div v-if="!pending && !form" class="bg-white rounded-2xl p-8 border border-line shadow-xs text-center py-12 space-y-4">
       <Building2 class="w-12 h-12 text-stone-300 mx-auto" />
       <h3 class="font-serif text-xl font-bold text-stone-800">Profilo Cantina non Disponibile</h3>
       <p class="text-sm text-ink-mute max-w-md mx-auto font-light">
