@@ -77,7 +77,11 @@
 
         <div class="flex flex-wrap gap-2.5">
           <button type="button" class="btn-primary btn-sm" :disabled="saving" @click="saveTemplate">{{ saving ? 'Salvataggio…' : 'Salva' }}</button>
-          <button type="button" class="btn-ghost btn-sm" :disabled="saving" @click="sendTest">Invia una prova a me</button>
+          <span class="flex items-center gap-2">
+            <label class="sr-only" for="test-to">Invia la prova a</label>
+            <input id="test-to" v-model="testTo" type="email" placeholder="email per la prova" class="input h-10 w-[230px] text-sm" />
+            <button type="button" class="btn-ghost btn-sm" :disabled="saving || !testTo" @click="sendTest">Invia una prova</button>
+          </span>
           <button v-if="current.customized" type="button" class="btn-ghost btn-sm" :disabled="saving" @click="resetTemplate">Ripristina il testo originale</button>
           <span v-if="dirty" class="self-center text-[13px] text-wine-800 font-semibold">Modifiche non salvate</span>
         </div>
@@ -147,13 +151,17 @@
       </div>
       <div><button type="button" class="btn-primary btn-sm" :disabled="saving" @click="saveSettings">Salva</button></div>
 
+      <p class="m-0 text-[13px] text-ink-mute">
+        Usa indirizzi di caselle vere: l'email del mittente deve essere la stessa casella usata per l'invio (SMTP),
+        le notifiche admin arrivano agli indirizzi indicati qui (se vuoto, all'email di accesso degli amministratori).
+      </p>
       <details class="mt-2 text-sm text-ink-soft">
-        <summary class="cursor-pointer font-semibold text-ink">Come attivare l'invio reale quando avrai il dominio</summary>
-        <ol class="mt-3 pl-5 flex flex-col gap-1.5">
-          <li>Scegli un servizio di invio (quello del tuo hosting, oppure Brevo, Mailgun, Amazon SES…) e verifica il dominio (record SPF e DKIM).</li>
-          <li>Nel file <code class="font-mono">backend/.env</code> imposta <code class="font-mono">EMAIL_MODE=smtp</code>, <code class="font-mono">SMTP_HOST</code>, <code class="font-mono">SMTP_PORT</code>, <code class="font-mono">SMTP_USER</code>, <code class="font-mono">SMTP_PASSWORD</code> e <code class="font-mono">SITE_URL</code> con l'indirizzo del sito.</li>
-          <li>Riavvia il backend e usa "Invia una prova a me" da un modello.</li>
-        </ol>
+        <summary class="cursor-pointer font-semibold text-ink">Dove si configura l'invio</summary>
+        <p class="mt-3 mb-0">
+          Server, utente e password SMTP sono variabili del backend (sul server online: Cloud Run, con la password in Secret Manager;
+          in sviluppo: il file <code class="font-mono">backend/.env</code>). Modalità attuale:
+          <strong>{{ status?.mode === 'smtp' ? 'invio reale' : 'posta in uscita, nessun invio' }}</strong>.
+        </p>
       </details>
     </section>
 
@@ -332,7 +340,7 @@ const sendTest = async () => {
   if (dirty.value) await saveTemplate()
   saving.value = true
   try {
-    const res = await fetchWithAuth(`/emails/templates/${selectedKey.value}/test`, { method: 'POST', body: {} })
+    const res = await fetchWithAuth(`/emails/templates/${selectedKey.value}/test`, { method: 'POST', body: { to: testTo.value.trim() } })
     if (res.status === 'error') toast.error(`Invio non riuscito: ${res.error}`)
     else if (res.mode === 'outbox') toast.success(`Prova salvata nella Posta in uscita (destinatario: ${res.to.join(', ')}).`)
     else toast.success(`Email di prova inviata a ${res.to.join(', ')}.`)
@@ -359,6 +367,13 @@ const clearOutbox = async () => {
   await fetchWithAuth('/emails/outbox', { method: 'DELETE' })
   await Promise.all([loadOutbox(), loadStatus()])
   toast.success('Posta in uscita svuotata.')
+}
+
+// destinatario della prova: di partenza il primo indirizzo delle notifiche admin (una casella vera)
+const testTo = ref('')
+const loadTestTo = async () => {
+  const cfg = await fetchWithAuth('/emails/settings').catch(() => null)
+  testTo.value = (cfg?.admin_recipients || [])[0] || (cfg?.effective_admin_recipients || [])[0] || ''
 }
 
 const loadSettings = async () => {
@@ -433,5 +448,6 @@ watch(tab, (t) => {
 onMounted(() => {
   loadStatus()
   loadTemplates()
+  loadTestTo()
 })
 </script>

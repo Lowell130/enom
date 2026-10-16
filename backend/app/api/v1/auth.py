@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from app.db.mongodb import get_database
-from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, PasswordForgot, PasswordReset, PasswordChange, InviteAccept
+from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, PasswordForgot, PasswordReset, PasswordChange, EmailChange, InviteAccept
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password, create_access_token, decode_token
 from app.core.utils import slugify, unique_slug, rate_limiter, client_ip
@@ -315,6 +315,31 @@ async def change_password(payload: PasswordChange, current_user: dict = Depends(
     producer_id = str(user["producer_id"]) if user.get("producer_id") else None
     token = create_access_token(subject=str(user["_id"]), role=user.get("role", "PRODUCER"), producer_id=producer_id)
     return {"access_token": token, "message": "Password cambiata. Sugli altri dispositivi dovrai accedere di nuovo."}
+
+
+@router.post("/email/change")
+async def change_email(payload: EmailChange, current_user: dict = Depends(get_current_user),
+                       db=Depends(get_database)):
+    """Cambio dell'email di accesso (serve la password attuale). Avvisa il vecchio e il nuovo indirizzo."""
+    rate_limiter.check_and_hit(f"emailchange:{current_user['id']}", 10, 3600, "Troppi tentativi. Riprova più tardi.")
+    user = await db.users.find_one({"_id": ObjectId(current_user["id"])})
+    try:
+        ok = verify_password(payload.current_password, user.get("password_hash", ""))
+    except Exception:
+        ok = False
+    if not ok:
+        raise HTTPException(status_code=400, detail="La password attuale non è corretta.")
+    new_email = payload.new_email.lower()
+    if new_email == user["email"]:
+        raise HTTPException(status_code=400, detail="È già l'email con cui accedi.")
+    if await db.users.find_one({"email": new_email, "_id": {"$ne": user["_id"]}}):
+        raise HTTPException(status_code=400, detail="Questa email è già usata da un altro account.")
+    old_email = user["email"]
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"email": new_email, "updated_at": datetime.utcnow()}})
+    # i link di recupero password mandati al vecchio indirizzo non valgono piu'
+    await db.password_resets.update_many({"user_id": user["_id"], "used_at": None}, {"$set": {"used_at": datetime.utcnow()}})
+    logger.info("Email di accesso cambiata: %s -> %s", old_email, new_email)
+    return {"email": new_email, "message": f"Da ora accedi con {new_email}."}
 
 
 # ---------------------------------------------------------------------------

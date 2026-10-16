@@ -479,3 +479,17 @@ class PasswordChangeTests(EmailTestBase):
         self.assertEqual(self.outbox("password_modificata")[0]["to"], ["uno@test.it"])
         # senza accesso non si puo'
         self.assertEqual(self.client.post(url, json={"current_password": "x", "new_password": "NuovaPass2027"}).status_code, 401)
+
+
+class EmailChangeTests(EmailTestBase):
+    def test_change_login_email(self):
+        url = f"{API}/auth/email/change"
+        h = self.auth(self.p1_token)
+        self.assertEqual(self.client.post(url, json={"current_password": "x", "new_email": "nuova@cantina.it"}, headers=h).status_code, 400)
+        r = self.client.post(url, json={"current_password": "Password123!", "new_email": "admin@test.it"}, headers=h)
+        self.assertIn("già usata", r.json()["detail"])
+        r = self.client.post(url, json={"current_password": "Password123!", "new_email": "Nuova@Cantina.it"}, headers=h)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(self.client.get(f"{API}/auth/me", headers=h).json()["email"], "nuova@cantina.it")
+        self.assertEqual(self.client.post(f"{API}/auth/login", json={"email": "nuova@cantina.it", "password": "Password123!"}).status_code, 200)
+        self.assertNotEqual(self.client.post(f"{API}/auth/login", json={"email": "uno@test.it", "password": "Password123!"}).status_code, 200)

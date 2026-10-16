@@ -43,12 +43,12 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "variables": ["nome_cantina", "email", "link_area_riservata"],
         "subject": "Benvenuta su {{nome_sito}}, {{nome_cantina}}",
         "body": (
-            "Ciao,\n\n"
+            "Buongiorno,\n\n"
             "abbiamo ricevuto la registrazione di {{nome_cantina}} su {{nome_sito}}, il portale dei vini e delle cantine del Molise.\n\n"
-            "Il profilo pubblico sarà attivato dopo una breve verifica da parte del nostro team: riceverai un'email appena la cantina sarà online.\n\n"
-            "Nel frattempo puoi già completare il profilo (storia, logo, foto, indirizzo e contatti) e inserire le schede dei tuoi vini.\n\n"
-            "[[Vai alla tua area riservata|{{link_area_riservata}}]]\n\n"
-            "Accedi sempre con l'indirizzo {{email}}.\n\n"
+            "Il profilo pubblico sarà attivato dopo una breve verifica: riceverete un'email appena la cantina sarà online.\n\n"
+            "Nel frattempo potete già completare il profilo (storia, logo, foto, indirizzo e contatti) e inserire le schede dei vostri vini.\n\n"
+            "[[Vai all'area riservata|{{link_area_riservata}}]]\n\n"
+            "Per accedere usate sempre l'indirizzo {{email}}.\n\n"
             "A presto,\nil team di {{nome_sito}}"
         ),
     },
@@ -71,10 +71,10 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "variables": ["nome_cantina", "link_pagina_cantina", "link_area_riservata"],
         "subject": "{{nome_cantina}} è online su {{nome_sito}}",
         "body": (
-            "Ciao,\n\n"
+            "Buongiorno,\n\n"
             "buone notizie: il profilo di {{nome_cantina}} è stato approvato ed è ora visibile a tutti i visitatori di {{nome_sito}}, insieme ai vini pubblicati.\n\n"
             "[[Guarda la pagina della cantina|{{link_pagina_cantina}}]]\n\n"
-            "Le richieste dei clienti ti arriveranno via email e le troverai anche nell'area riservata, alla voce Richieste.\n\n"
+            "Le richieste dei visitatori vi arriveranno via email e le troverete anche nell'area riservata, alla voce Richieste.\n\n"
             "Buon lavoro,\nil team di {{nome_sito}}"
         ),
     },
@@ -85,9 +85,9 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "variables": ["nome_cantina", "link_area_riservata"],
         "subject": "Il profilo di {{nome_cantina}} è stato sospeso",
         "body": (
-            "Ciao,\n\n"
+            "Buongiorno,\n\n"
             "il profilo di {{nome_cantina}} è stato temporaneamente sospeso e al momento non è visibile sul sito.\n\n"
-            "Per informazioni rispondi a questa email.\n\n"
+            "Per informazioni rispondete a questa email.\n\n"
             "Il team di {{nome_sito}}"
         ),
     },
@@ -99,12 +99,12 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
                       "nome_vino", "messaggio", "link_richieste"],
         "subject": "Nuova richiesta da {{nome_cliente}}: {{tipo_richiesta}}",
         "body": (
-            "Ciao {{nome_cantina}},\n\n"
-            "hai ricevuto una nuova richiesta tramite {{nome_sito}}.\n\n"
+            "Buongiorno {{nome_cantina}},\n\n"
+            "avete ricevuto una nuova richiesta tramite {{nome_sito}}.\n\n"
             "Da: {{nome_cliente}} ({{email_cliente}})\nTelefono: {{telefono_cliente}}\n"
             "Tipo di richiesta: {{tipo_richiesta}}\nVino: {{nome_vino}}\n\n"
             "Messaggio:\n{{messaggio}}\n\n"
-            "Per rispondere scrivi direttamente a {{email_cliente}}.\n\n"
+            "Per rispondere scrivete direttamente a {{email_cliente}}.\n\n"
             "[[Apri le richieste nell'area riservata|{{link_richieste}}]]"
         ),
     },
@@ -208,12 +208,12 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
                       "email_cliente", "telefono_cliente", "messaggio", "link_richieste"],
         "subject": "Richiesta di prenotazione: {{titolo_evento}} ({{persone}} persone)",
         "body": (
-            "Ciao {{nome_organizzatore}},\n\n"
-            "hai ricevuto una richiesta di prenotazione tramite {{nome_sito}}.\n\n"
+            "Buongiorno {{nome_organizzatore}},\n\n"
+            "avete ricevuto una richiesta di prenotazione tramite {{nome_sito}}.\n\n"
             "Evento: {{titolo_evento}}\nData: {{data_evento}}\nPersone: {{persone}}\n\n"
             "Da: {{nome_cliente}} ({{email_cliente}})\nTelefono: {{telefono_cliente}}\n\n"
             "Note:\n{{messaggio}}\n\n"
-            "La prenotazione non è ancora confermata: rispondi direttamente a {{email_cliente}} per confermarla.\n\n"
+            "La prenotazione non è ancora confermata: rispondete direttamente a {{email_cliente}} per confermarla.\n\n"
             "[[Apri le richieste nell'area riservata|{{link_richieste}}]]"
         ),
     },
