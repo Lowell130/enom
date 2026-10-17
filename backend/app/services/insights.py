@@ -247,16 +247,98 @@ def harvest_calendar(products: Iterable[dict], top_grapes: int = 8) -> Dict[str,
 # 2. Comuni di produzione (per la mappa)
 # ---------------------------------------------------------------------------
 
-_ZONE_RE = re.compile(r"([A-Za-zÀ-ÿ'’\s]+?)\s*\((CB|IS)\)", re.IGNORECASE)
+# Comuni del Molise: servono a riconoscere il comune anche quando la scheda lo scrive in modo
+# diverso ("S. Martino in Pensilis", "MONTENERO DI BISACCIA e zone limitrofe", "Macchia D’Isernia").
+MOLISE_TOWNS = [
+    # provincia di Campobasso
+    "Acquaviva Collecroce", "Baranello", "Bojano", "Bonefro", "Busso", "Campobasso", "Campochiaro", "Campodipietra",
+    "Campolieto", "Campomarino", "Casacalenda", "Casalciprano", "Castelbottaccio", "Castellino del Biferno",
+    "Castelmauro", "Castropignano", "Cercemaggiore", "Cercepiccola", "Civitacampomarano", "Colle d'Anchise",
+    "Colletorto", "Duronia", "Ferrazzano", "Fossalto", "Gambatesa", "Gildone", "Guardialfiera", "Guardiaregia",
+    "Guglionesi", "Jelsi", "Larino", "Limosano", "Lucito", "Lupara", "Macchia Valfortore", "Mafalda", "Matrice",
+    "Mirabello Sannitico", "Monacilioni", "Montagano", "Montecilfone", "Montefalcone nel Sannio", "Montelongo",
+    "Montemitro", "Montenero di Bisaccia", "Montorio nei Frentani", "Morrone del Sannio", "Oratino", "Palata",
+    "Petacciato", "Petrella Tifernina", "Pietracatella", "Pietracupa", "Portocannone", "Provvidenti", "Riccia",
+    "Ripabottoni", "Ripalimosani", "Roccavivara", "Rotello", "Salcito", "San Biase", "San Felice del Molise",
+    "San Giacomo degli Schiavoni", "San Giovanni in Galdo", "San Giuliano del Sannio", "San Giuliano di Puglia",
+    "San Martino in Pensilis", "San Massimo", "San Polo Matese", "Santa Croce di Magliano", "Sant'Angelo Limosano",
+    "Sant'Elia a Pianisi", "Sepino", "Spinete", "Tavenna", "Termoli", "Torella del Sannio", "Toro", "Trivento",
+    "Tufara", "Ururi", "Vinchiaturo",
+    # provincia di Isernia
+    "Acquaviva d'Isernia", "Agnone", "Bagnoli del Trigno", "Belmonte del Sannio", "Cantalupo nel Sannio",
+    "Capracotta", "Carovilli", "Carpinone", "Castel del Giudice", "Castel San Vincenzo", "Castelpetroso",
+    "Castelpizzuto", "Castelverrino", "Cerro al Volturno", "Chiauci", "Civitanova del Sannio", "Colli a Volturno",
+    "Conca Casale", "Filignano", "Forlì del Sannio", "Fornelli", "Frosolone", "Isernia", "Longano",
+    "Macchia d'Isernia", "Macchiagodena", "Miranda", "Montaquila", "Montenero Val Cocchiara", "Monteroduni",
+    "Pesche", "Pescolanciano", "Pescopennataro", "Pettoranello del Molise", "Pietrabbondante", "Pizzone",
+    "Poggio Sannita", "Pozzilli", "Rionero Sannitico", "Roccamandolfi", "Roccasicura", "Rocchetta a Volturno",
+    "San Pietro Avellana", "Sant'Agapito", "Sant'Angelo del Pesco", "Sant'Elena Sannita", "Santa Maria del Molise",
+    "Scapoli", "Sessano del Molise", "Sesto Campano", "Vastogirardi", "Venafro",
+]
+# (il comune "Molise" e' escluso apposta: la parola compare in quasi ogni scheda)
+
+_LETTER = "a-zà-ÿ"
+
+
+def _town_pattern(name: str) -> "re.Pattern[str]":
+    words = name.lower().split(" ")
+    body = r"\s+".join(re.escape(w).replace("'", "['’`]\\s*") for w in words)
+    # "San Martino" / "S. Martino" / "S.Martino", "Santa Croce" / "S. Croce", "Sant'Elia" / "S. Elia"
+    m = re.match(r"^(santa|sant'|san)\s*(.*)$", name.lower())
+    if m:
+        rest = r"\s+".join(re.escape(w).replace("'", "['’`]\\s*") for w in m.group(2).split(" "))
+        body = rf"(?:{body}|s\.?\s*{rest})"
+    return re.compile(rf"(?<![{_LETTER}]){body}(?![{_LETTER}])", re.IGNORECASE)
+
+
+_TOWN_PATTERNS = [(name, _town_pattern(name)) for name in MOLISE_TOWNS]
+
+
+def find_town(text: Optional[str]) -> Optional[str]:
+    """Primo comune molisano citato nel testo (a parita' di posizione il nome piu' lungo)."""
+    if not text:
+        return None
+    best = None
+    for name, pattern in _TOWN_PATTERNS:
+        m = pattern.search(text)
+        if m and (best is None or m.start() < best[0] or (m.start() == best[0] and len(name) > len(best[1]))):
+            best = (m.start(), name)
+    return best[1] if best else None
+
+
+# testo generico "Nome comune (CB)" per i comuni che non fossero nell'elenco
+_ZONE_RE = re.compile(r"([A-Za-zÀ-ÿ'’.\s]+?)\s*\((CB|IS)\)", re.IGNORECASE)
+_SMALL_WORDS = {"in", "di", "del", "della", "dei", "degli", "delle", "nel", "nei", "a", "al", "e"}
+
+
+def town_name(raw: Optional[str]) -> Optional[str]:
+    """Nome di comune scritto sempre allo stesso modo, anche se non e' nell'elenco."""
+    if not raw:
+        return None
+    known = find_town(raw)
+    if known:
+        return known
+    t = re.sub(r"\s+", " ", str(raw).replace("’", "'")).strip(" .,-")
+    if not t:
+        return None
+    words = []
+    for i, w in enumerate(t.split(" ")):
+        lw = w.lower()
+        words.append(lw if i > 0 and lw in _SMALL_WORDS else lw[:1].upper() + lw[1:])
+    return " ".join(words)
 
 
 def production_town(product: dict, producer_city: Optional[str]) -> Optional[str]:
+    """Comune di produzione: quello citato nella zona di produzione della scheda, altrimenti quello della cantina."""
     zona = attr_value(product, "zona di produzione")
     if zona:
+        known = find_town(zona)
+        if known:
+            return known
         m = _ZONE_RE.search(zona)
         if m:
-            return m.group(1).strip().title()
-    return producer_city
+            return town_name(m.group(1))
+    return town_name(producer_city)
 
 
 def towns_breakdown(products: Iterable[dict], producer_city: Dict[str, str], producer_info: Dict[str, dict]) -> List[Dict[str, Any]]:

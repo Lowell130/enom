@@ -171,5 +171,6 @@ class ProductResponse(ProductBase):
     producer_id: str
     producer_name: Optional[str] = None
     producer_slug: Optional[str] = None
+    production_town: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -38,6 +38,7 @@ const props = defineProps({
 const router = useRouter()
 const max = computed(() => Math.max(1, ...props.towns.map((t) => t.count)))
 
-const townLink = (town) => `/vini?search=${encodeURIComponent(town.city)}`
+// filtro per comune: stessa regola dell'Osservatorio (zona della scheda, altrimenti comune della cantina)
+const townLink = (town) => ({ path: '/vini', query: { comune: town.city } })
 const openTown = (town) => router.push(townLink(town))
 </script>

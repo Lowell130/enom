@@ -44,3 +44,27 @@ class OrganicRuleTests(BaseTest):
         self.assertFalse(ok("Agricoltura", "In conversione al biologico"))
         self.assertFalse(ok("Coltivazione", "Conversione biologica non certificata"))
         self.assertFalse(ok("Tipo Vino", "Non biologico"))
+
+
+class ProductionTownTests(BaseTest):
+    def test_town_is_recognised_however_it_is_written(self):
+        from app.services.insights import production_town
+
+        def town(zona, city="Campobasso"):
+            return production_town({"custom_attributes": [{"name": "Zona di produzione", "value": zona}]}, city)
+
+        self.assertEqual(town("S. Martino in Pensilis (CB)"), "San Martino in Pensilis")
+        self.assertEqual(town("San Martino in Pensilis (cb)"), "San Martino in Pensilis")
+        self.assertEqual(town("Montenero di Bisaccia e zone limitrofe"), "Montenero di Bisaccia")
+        self.assertEqual(town("Macchia D’Isernia"), "Macchia d'Isernia")
+        self.assertEqual(town("Vigneti in agro di Larino (CB)"), "Larino")
+        self.assertEqual(town("S.Croce di Magliano"), "Santa Croce di Magliano")
+        # nessun comune nella zona: vale quello della cantina
+        self.assertEqual(town("Colline Terresacre", "baranello"), "Baranello")
+        self.assertEqual(production_town({}, "Baranello"), "Baranello")
+
+    def test_catalog_returns_the_same_town_used_by_the_observatory(self):
+        r = self.client.get(f"{API}/products")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.json())
+        self.assertIn("production_town", r.json()[0])

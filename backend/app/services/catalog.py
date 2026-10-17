@@ -7,6 +7,7 @@ from typing import Optional
 from bson import ObjectId
 
 from app.core.utils import slugify
+from app.services.insights import production_town
 
 
 def parse_denominazione_acronym(denom: str) -> str:
@@ -137,6 +138,8 @@ async def format_product_response(doc: dict, db, public: bool = False) -> dict:
     if producer:
         doc["producer_name"] = producer.get("company_name", "")
         doc["producer_slug"] = producer.get("slug", "")
+        # stesso comune usato dall'Osservatorio: serve al filtro "comune" del catalogo
+        doc["production_town"] = production_town(doc, (producer.get("address") or {}).get("city"))
         if public and photos_hidden(producer):
             doc["photos"] = []
     return doc

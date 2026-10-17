@@ -197,7 +197,8 @@ const filters = reactive({
   denominazione: '',
   organic: '',
   grape: '',
-  producer: ''
+  producer: '',
+  comune: ''
 })
 
 const syncFiltersFromRoute = () => {
@@ -264,6 +265,7 @@ const passes = (p, skip = '') => {
   // il vino rientra nel vitigno principale (quello con la percentuale piu' alta)
   if (skip !== 'grape' && filters.grape && primaryGrape(p).toLowerCase() !== filters.grape.toLowerCase()) return false
   if (skip !== 'producer' && filters.producer && p.producer_name !== filters.producer) return false
+  if (skip !== 'comune' && filters.comune && (p.production_town || '').toLowerCase() !== filters.comune.toLowerCase()) return false
   if (skip !== 'search' && filters.search && !matchProductWithSearch(p, filters.search)) return false
   return true
 }
@@ -318,6 +320,7 @@ const activeFilters = computed(() => {
   if (filters.grape) list.push({ key: 'grape', label: filters.grape, clear: () => { filters.grape = '' } })
   if (filters.organic) list.push({ key: 'organic', label: 'Biologici', clear: () => { filters.organic = '' } })
   if (filters.producer) list.push({ key: 'producer', label: filters.producer, clear: () => { filters.producer = '' } })
+  if (filters.comune) list.push({ key: 'comune', label: `Prodotti a ${filters.comune}`, clear: () => { filters.comune = ''; router.replace({ query: { ...route.query, comune: undefined } }) } })
   return list
 })
 </script>
