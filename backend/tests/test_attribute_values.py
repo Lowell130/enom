@@ -64,7 +64,11 @@ class ProductionTownTests(BaseTest):
         self.assertEqual(production_town({}, "Baranello"), "Baranello")
 
     def test_catalog_returns_the_same_town_used_by_the_observatory(self):
-        r = self.client.get(f"{API}/products")
-        self.assertEqual(r.status_code, 200)
-        self.assertTrue(r.json())
-        self.assertIn("production_town", r.json()[0])
+        run(self.db.products.update_one({"_id": self.pub1}, {"$set": {"custom_attributes": [
+            {"name": "Zona di produzione", "value": "S. Martino in Pensilis (CB)"}]}}))
+        for url in (f"{API}/products", f"{API}/products/{self.pub1}"):
+            r = self.client.get(url)
+            self.assertEqual(r.status_code, 200)
+            items = r.json() if isinstance(r.json(), list) else [r.json()]
+            wine = next(p for p in items if p["id"] == str(self.pub1))
+            self.assertEqual(wine["production_town"], "San Martino in Pensilis", url)

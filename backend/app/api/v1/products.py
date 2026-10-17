@@ -20,6 +20,7 @@ from app.services.catalog import (
     parse_denominazione_acronym,
     run_products_cleanup_migration,
 )
+from app.services.insights import production_town
 from app.services.taxonomy import (
     sync_custom_attributes_with_master,
     sync_grapes_with_master,
@@ -120,6 +121,8 @@ async def get_products(
         prod_obj = producer_map.get(doc["producer_id"])
         doc["producer_name"] = prod_obj.get("company_name", "") if prod_obj else ""
         doc["producer_slug"] = prod_obj.get("slug", "") if prod_obj else ""
+        # stesso comune dell'Osservatorio: serve al filtro "comune" del catalogo
+        doc["production_town"] = production_town(doc, ((prod_obj or {}).get("address") or {}).get("city"))
         if photos_hidden(prod_obj) and not (admin or owns_producer(current_user, doc["producer_id"])):
             doc["photos"] = []
         products.append(doc)
