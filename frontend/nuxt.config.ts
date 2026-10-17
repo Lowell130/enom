@@ -12,6 +12,15 @@ export default defineNuxtConfig({
       mediaBase: process.env.NUXT_PUBLIC_MEDIA_BASE || 'http://127.0.0.1:8000'
     }
   },
+  // pagine con i dati del gestore o riservate: fuori dai motori di ricerca anche
+  // tramite intestazione HTTP (oltre al meta robots nella pagina)
+  routeRules: {
+    '/privacy': { headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },
+    '/cookie': { headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },
+    '/chi-siamo': { headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },
+    '/dashboard/**': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
+    '/attiva-account': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } }
+  },
   app: {
     head: {
       title: 'EnotecaMolise - I Grandi Vini del Molise',

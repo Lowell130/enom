@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.gzip import GZipMiddleware
@@ -270,10 +271,19 @@ async def security_headers(request: Request, call_next):
         # I file caricati non possono eseguire script anche se aperti direttamente
         response.headers["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+    if request.url.path.startswith("/api/"):
+        # le risposte dell'API (testi delle pagine legali compresi) non vanno nei motori di ricerca
+        response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
     if request.url.path.startswith("/uploads/") and response.status_code == 200:
         # nomi casuali e mai riscritti: il browser puo' tenerli in cache per un anno
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    # l'API non si indicizza: i motori di ricerca non leggono nemmeno i testi delle pagine legali
+    return PlainTextResponse("User-agent: *\nDisallow: /api/\nDisallow: /docs\nDisallow: /openapi.json\n")
 
 
 # risposte JSON compresse: Cloud Run non lo fa da solo

@@ -21,5 +21,5 @@ import RichText from '~/components/RichText.vue'
 const { fetchWithAuth } = useApi()
 const { data: page } = await useAsyncData('site_page_chi_siamo', () => fetchWithAuth('/site/pages/chi-siamo').catch(() => null))
 
-useSeoMeta({ title: 'Chi siamo - EnotecaMolise', robots: 'noindex' })
+useSeoMeta({ title: 'Chi siamo - EnotecaMolise', robots: 'noindex, nofollow, noarchive' })
 </script>
