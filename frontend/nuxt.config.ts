@@ -9,7 +9,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000/api/v1',
-      mediaBase: process.env.NUXT_PUBLIC_MEDIA_BASE || 'http://127.0.0.1:8000'
+      mediaBase: process.env.NUXT_PUBLIC_MEDIA_BASE || 'http://127.0.0.1:8000',
+      // indirizzo pubblico del sito, usato da sitemap.xml e robots.txt
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'https://www.enotecamolise.it'
     }
   },
   // pagine con i dati del gestore o riservate: fuori dai motori di ricerca anche

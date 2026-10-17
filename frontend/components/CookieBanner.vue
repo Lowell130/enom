@@ -36,9 +36,10 @@
         </div>
 
         <p id="cookie-text" class="text-sm text-ink-soft leading-relaxed m-0">
-          Usiamo cookie tecnici, necessari al funzionamento del sito. Con il tuo consenso potremmo usare anche
-          cookie di statistica, per capire in forma aggregata quali pagine sono più utili. Puoi cambiare idea
-          quando vuoi da "Preferenze cookie" in fondo alla pagina.
+          Usiamo cookie tecnici, necessari al funzionamento del sito.
+          <template v-if="gaId">Con il tuo consenso usiamo anche Google Analytics, per contare in forma aggregata le visite e capire quali pagine sono più utili: niente pubblicità né profilazione.</template>
+          <template v-else>Con il tuo consenso potremmo usare anche cookie di statistica, per capire in forma aggregata quali pagine sono più utili.</template>
+          Puoi cambiare idea quando vuoi da "Preferenze cookie" in fondo alla pagina.
           <NuxtLink to="/cookie" class="font-semibold text-wine-800 underline underline-offset-2">Cookie policy</NuxtLink>
         </p>
 
@@ -82,10 +83,17 @@ import { Cookie, X } from 'lucide-vue-next'
 
 const { consent, decided, panelOpen, acceptAll, rejectAll, save } = useCookieConsent()
 
-const categories = [
+const gaId = useAnalyticsId()
+const categories = computed(() => [
   { key: 'necessari', label: 'Necessari', locked: true, description: 'Tengono attivo l\'accesso all\'area riservata e ricordano queste scelte. Senza, il sito non funziona.' },
-  { key: 'statistiche', label: 'Statistiche', description: 'Misurano in forma anonima e aggregata le visite alle pagine. Al momento il sito non ne usa: se verranno attivati, partiranno solo con il tuo consenso.' }
-]
+  {
+    key: 'statistiche',
+    label: 'Statistiche',
+    description: gaId.value
+      ? 'Google Analytics (Google Ireland Ltd.) conta in forma aggregata le visite alle pagine. Nessun uso pubblicitario; i cookie _ga durano al massimo 13 mesi.'
+      : 'Misurano in forma anonima e aggregata le visite alle pagine. Al momento il sito non ne usa: se verranno attivati, partiranno solo con il tuo consenso.'
+  }
+])
 
 const choices = reactive({ statistiche: false })
 const prefsMode = ref(false)

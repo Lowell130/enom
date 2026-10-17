@@ -1,4 +1,5 @@
 """Testi del sito modificabili dall'area admin (chi siamo, informativa privacy e cookie policy)."""
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -58,8 +59,11 @@ Sono necessari al funzionamento del sito e non richiedono il consenso.
 - em_consenso_cookie: ricorda le scelte fatte nel banner dei cookie, così non te le chiediamo a ogni pagina. Dura 6 mesi, poi ti chiediamo di nuovo.
 - em_maggiore_eta: ricorda che hai confermato di avere almeno 18 anni, così la domanda non compare a ogni visita. Dura 12 mesi.
 
-## Cookie di statistica
-Al momento il sito non usa strumenti di statistica. Se verranno attivati, partiranno solo se li accetti dal banner o dalle "Preferenze cookie", e saranno elencati qui. [Aggiornare se verrà aggiunto uno strumento di statistica.]
+## Cookie di statistica (solo con il tuo consenso)
+Se li accetti dal banner o dalle "Preferenze cookie", il sito usa Google Analytics 4 (Google Ireland Ltd.) per contare in forma aggregata le visite e capire quali pagine sono più utili. Non usiamo questi dati per pubblicità né per profilare i visitatori: la condivisione con altri servizi Google (Google Signals e annunci personalizzati) è disattivata e Google Analytics 4 non registra l'indirizzo IP completo.
+- _ga: distingue in forma anonima un browser dall'altro. Dura al massimo 13 mesi.
+- _ga_<ID>: mantiene lo stato della visita. Dura al massimo 13 mesi.
+Se rifiuti o revochi il consenso, Google Analytics non viene caricato e i cookie _ga vengono cancellati. Google può trattare i dati anche negli Stati Uniti, con le garanzie dell'EU-US Data Privacy Framework. Informativa di Google: policies.google.com/privacy.
 
 ## Cookie di profilazione e pubblicità
 Il sito non usa cookie di profilazione né pubblicitari.
@@ -135,6 +139,50 @@ async def update_page(key: str, payload: PageUpdate, current_admin: dict = Depen
     update.update({"key": key, "updated_at": datetime.utcnow()})
     await db.site_pages.update_one({"key": key}, {"$set": update}, upsert=True)
     return await get_page(db, key)
+
+
+# --- Statistiche (Google Analytics 4) -------------------------------------------------
+# Si salva solo l'ID di misurazione (G-XXXXXXX), mai uno script: il codice di Google lo
+# carica il sito stesso, e solo dopo il consenso ai cookie di statistica.
+GA_ID_RE = re.compile(r"\bG-[A-Z0-9]{4,20}\b")
+
+
+class AnalyticsUpdate(BaseModel):
+    ga_measurement_id: str = Field(default="", max_length=5000)  # ID oppure lo snippet incollato da Google
+
+
+async def get_analytics(db) -> dict:
+    doc = await db.site_settings.find_one({"_id": "analytics"}) or {}
+    return {"ga_measurement_id": doc.get("ga_measurement_id", ""), "updated_at": doc.get("updated_at")}
+
+
+@router.get("/analytics")
+async def read_analytics(db=Depends(get_database)):
+    data = await get_analytics(db)
+    return {"ga_measurement_id": data["ga_measurement_id"]}
+
+
+@router.get("/analytics/admin")
+async def read_analytics_admin(current_admin: dict = Depends(get_current_admin), db=Depends(get_database)):
+    return await get_analytics(db)
+
+
+@router.put("/analytics")
+async def update_analytics(payload: AnalyticsUpdate, current_admin: dict = Depends(get_current_admin),
+                           db=Depends(get_database)):
+    raw = (payload.ga_measurement_id or "").strip()
+    ga_id = ""
+    if raw:
+        match = GA_ID_RE.search(raw.upper())
+        if not match:
+            raise HTTPException(status_code=400, detail="Codice non riconosciuto: serve l'ID di misurazione di Google Analytics 4, che inizia con G- (es. G-AB12CD34EF)")
+        ga_id = match.group(0)
+    await db.site_settings.update_one(
+        {"_id": "analytics"},
+        {"$set": {"ga_measurement_id": ga_id, "updated_at": datetime.utcnow()}},
+        upsert=True,
+    )
+    return await get_analytics(db)
 
 
 @router.post("/pages/{key}/reset")

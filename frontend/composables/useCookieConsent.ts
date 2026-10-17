@@ -6,7 +6,8 @@
 // allows('statistiche') e' vero; cambiando le categorie si alza CONSENT_VERSION e la domanda
 // viene riproposta a tutti.
 
-export const CONSENT_VERSION = 1
+// 2: arrivo di Google Analytics, la domanda viene riproposta a chi aveva gia' scelto
+export const CONSENT_VERSION = 2
 export const CONSENT_COOKIE = 'em_consenso_cookie'
 const SIX_MONTHS = 60 * 60 * 24 * 180
 

@@ -278,6 +278,33 @@ class SitePagesTests(BaseTest):
         self.assertEqual(r.json()["title"], "Cookie")
 
 
+class AnalyticsSettingsTests(BaseTest):
+    def test_only_admin_sets_the_id_and_snippet_is_reduced_to_the_id(self):
+        self.assertEqual(self.client.get(f"{API}/site/analytics").json(), {"ga_measurement_id": ""})
+        url = f"{API}/site/analytics"
+        self.assertEqual(self.client.put(url, json={"ga_measurement_id": "G-ABC1234"}, headers=self.auth(self.p1_token)).status_code, 403)
+        self.assertEqual(self.client.get(f"{API}/site/analytics/admin", headers=self.auth(self.p1_token)).status_code, 403)
+        snippet = ('<script async src="https://www.googletagmanager.com/gtag/js?id=G-ab12CD34EF"></script>'
+                   "<script>window.dataLayer=[];gtag('config', 'G-AB12CD34EF');alert(1)</script>")
+        r = self.client.put(url, json={"ga_measurement_id": snippet}, headers=self.auth(self.admin_token))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["ga_measurement_id"], "G-AB12CD34EF")
+        self.assertEqual(self.client.get(url).json(), {"ga_measurement_id": "G-AB12CD34EF"})
+
+    def test_wrong_code_is_rejected_and_empty_turns_it_off(self):
+        url = f"{API}/site/analytics"
+        self.assertEqual(self.client.put(url, json={"ga_measurement_id": "UA-12345-1"}, headers=self.auth(self.admin_token)).status_code, 400)
+        self.client.put(url, json={"ga_measurement_id": "G-ABC1234"}, headers=self.auth(self.admin_token))
+        r = self.client.put(url, json={"ga_measurement_id": ""}, headers=self.auth(self.admin_token))
+        self.assertEqual(r.json()["ga_measurement_id"], "")
+
+    def test_api_is_not_indexed(self):
+        r = self.client.get(f"{API}/site/pages/privacy")
+        self.assertIn("noindex", r.headers.get("x-robots-tag", ""))
+        r = self.client.get("/robots.txt")
+        self.assertIn("Disallow: /api/", r.text)
+
+
 class CatalogRulesTests(BaseTest):
     def setUp(self):
         super().setUp()

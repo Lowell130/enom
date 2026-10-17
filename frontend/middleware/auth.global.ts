@@ -1,6 +1,6 @@
 // Protegge le pagine riservate: /dashboard richiede l'accesso,
 // alcune sezioni sono riservate all'amministratore.
-const ADMIN_ONLY = ['/dashboard/cantine', '/dashboard/attributi', '/dashboard/vitigni', '/dashboard/abbinamenti', '/dashboard/email']
+const ADMIN_ONLY = ['/dashboard/cantine', '/dashboard/attributi', '/dashboard/vitigni', '/dashboard/abbinamenti', '/dashboard/email', '/dashboard/statistiche']
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (!to.path.startsWith('/dashboard')) return
