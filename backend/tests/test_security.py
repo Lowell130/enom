@@ -261,6 +261,25 @@ class UploadTests(BaseTest):
         self.assertEqual(r.status_code, 200, r.text)
         self.assertTrue(r.json()["url"].endswith(".webp"))
 
+    def test_big_jpeg_logo_is_reduced(self):
+        # come il logo di una cantina: JPG 8000x3836, deve uscire a 2400 px senza esaurire la memoria
+        from PIL import Image
+        from app.core.config import settings as cfg
+        buf = io.BytesIO()
+        Image.new("RGB", (8000, 3836), "white").save(buf, "JPEG", quality=80)
+        r = self.client.post(f"{API}/uploads/image", files={"file": ("logo.jpg", buf.getvalue(), "image/jpeg")}, headers=self.auth(self.p1_token))
+        self.assertEqual(r.status_code, 200, r.text)
+        with Image.open(os.path.join(cfg.UPLOAD_DIR, r.json()["filename"])) as out:
+            self.assertEqual(out.size, (2400, 1151))
+
+    def test_huge_png_is_refused_with_a_message(self):
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new("L", (5000, 4000), 255).save(buf, "PNG")
+        r = self.client.post(f"{API}/uploads/image", files={"file": ("x.png", buf.getvalue(), "image/png")}, headers=self.auth(self.p1_token))
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("troppo grande", r.json()["detail"])
+
     def test_fake_pdf_rejected(self):
         r = self.client.post(f"{API}/uploads/document", files={"file": ("x.pdf", b"not a pdf", "application/pdf")}, headers=self.auth(self.p1_token))
         self.assertEqual(r.status_code, 400)
