@@ -37,6 +37,38 @@
     <!-- Form State -->
     <form v-else-if="form" @submit.prevent="handleSubmit" class="flex flex-col gap-8 card p-6 sm:p-8">
 
+      <!-- Solo amministratore: pubblicazione e foto -->
+      <section v-if="isAdmin" class="flex flex-col gap-4 p-4 sm:p-5 -m-1 rounded-xl bg-sand-100/60 border border-line" aria-labelledby="sez-admin">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="sez-admin" class="font-serif text-2xl font-bold text-ink m-0">Gestione</h2>
+          <span class="text-[12px] font-bold text-ink-mute">Visibile solo all'amministratore</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label class="field-label">Stato della pagina
+            <select v-model="form.status" class="select">
+              <option value="APPROVED">Approvata (visibile al pubblico)</option>
+              <option value="PENDING_APPROVAL">In attesa di approvazione</option>
+              <option value="SUSPENDED">Sospesa (nascosta)</option>
+            </select>
+          </label>
+          <div class="field-label">
+            <span>Accesso della cantina</span>
+            <span class="text-sm font-normal text-ink-soft min-h-[44px] flex items-center">{{ accountLabel }}</span>
+          </div>
+        </div>
+        <label class="flex items-start gap-2.5 p-3 rounded-xl border border-line bg-white cursor-pointer">
+          <input v-model="form.hide_photos" type="checkbox" class="mt-0.5 w-4 h-4 accent-wine-800 shrink-0" />
+          <span class="text-sm">
+            <span class="font-semibold text-ink block">Nascondi le foto dei vini</span>
+            <span class="text-[13px] text-ink-soft">
+              I visitatori vedono la sagoma della bottiglia al posto delle foto. Le foto restano salvate e la cantina continua a vederle.
+              <template v-if="form.content_consent_at"> La cantina ha autorizzato testi e foto il {{ formatDate(form.content_consent_at) }}.</template>
+              <template v-else> La cantina non ha ancora autorizzato la pubblicazione (lo fa attivando l'invito).</template>
+            </span>
+          </span>
+        </label>
+      </section>
+
       <!-- Dati e indirizzo -->
       <section class="flex flex-col gap-4" aria-labelledby="sez-dati">
         <h2 id="sez-dati" class="font-serif text-2xl font-bold text-ink">Dati della cantina e posizione</h2>
@@ -128,7 +160,7 @@
           <Trash2 class="w-4 h-4" aria-hidden="true" /> Elimina la cantina
         </button>
         <div class="flex items-center gap-3 ml-auto">
-          <NuxtLink to="/dashboard" class="btn-ghost">Annulla</NuxtLink>
+          <NuxtLink :to="isAdmin ? '/dashboard/cantine' : '/dashboard'" class="btn-ghost">Annulla</NuxtLink>
           <button type="submit" :disabled="submitting" class="btn-primary">
             {{ submitting ? 'Salvataggio…' : 'Salva il profilo' }}
           </button>
@@ -222,7 +254,16 @@ const onPickLocation = ({ lat, lng }) => {
   form.value.lng = lng ?? ''
 }
 
-const formatDate = (d) => new Date(d).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
+const formatDate = (d) => new Date(String(d).endsWith('Z') || String(d).includes('+') ? d : `${d}Z`).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
+
+const accountLabel = computed(() => {
+  const a = form.value?.account
+  if (!a || !a.status || a.status === 'none') return 'Nessun accesso: invitala dall\'elenco Cantine.'
+  if (a.status === 'active') return `Accesso attivo (${a.email})`
+  if (a.status === 'invited') return `Invito inviato a ${a.email}, in attesa di attivazione`
+  if (a.status === 'expired') return `Invito scaduto (${a.email}): rimandalo dall'elenco Cantine`
+  return a.status
+})
 const selectedAdminProducerId = ref('')
 
 const currentProducerId = computed(() => {
@@ -279,7 +320,12 @@ const loadProfile = async () => {
         website: p.contacts?.website || '',
         logo_url: p.logo_url || '',
         cover_image_url: p.cover_image_url || '',
-        description: p.description || ''
+        description: p.description || '',
+        status: p.status || 'APPROVED',
+        hide_photos: !!p.hide_photos,
+        content_consent_at: p.content_consent_at || null,
+        // lo stato dell'accesso arriva con l'elenco admin delle cantine
+        account: producersList.value.find(x => x.id === p.id)?.account || p.account || null
       }
     }
   } catch (err) {
@@ -339,12 +385,14 @@ const handleSubmit = async () => {
           phone: form.value.phone,
           whatsapp_number: form.value.whatsapp_number,
           website: form.value.website
-        }
+        },
+        ...(isAdmin.value ? { status: form.value.status, hide_photos: form.value.hide_photos } : {})
       }
     })
     toast.success('Profilo salvato.')
     await fetchUser()
-    navigateTo('/dashboard')
+    // l'amministratore torna all'elenco delle cantine, la cantina alla sua panoramica
+    navigateTo(isAdmin.value ? '/dashboard/cantine' : '/dashboard')
   } catch (err) {
     toast.error(apiErrorMessage(err, 'Errore durante il salvataggio del profilo.'))
   } finally {
@@ -360,9 +408,7 @@ const handleDeleteProducer = async () => {
   try {
     await fetchWithAuth(`/producers/${targetId}`, { method: 'DELETE' })
     toast.success('Scheda cantina eliminata con successo!')
-    await fetchUser()
-    form.value = null
-    loadProfile()
+    navigateTo('/dashboard/cantine')
   } catch (err) {
     toast.error('Errore durante l\'eliminazione della cantina.')
   }

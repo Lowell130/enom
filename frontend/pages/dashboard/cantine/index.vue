@@ -145,13 +145,13 @@
                       <span>Vedi</span>
                     </NuxtLink>
 
-                    <button 
-                      @click="openEditModal(p)" 
+                    <NuxtLink
+                      :to="{ path: '/dashboard/profilo', query: { producer_id: p.id } }"
                       class="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-semibold transition-all inline-flex items-center space-x-1 border border-line"
                     >
                       <Pencil class="w-3.5 h-3.5 text-ink-mute" />
                       <span>Modifica</span>
-                    </button>
+                    </NuxtLink>
                   </div>
 
                   <!-- Row 2: Elimina -->
@@ -271,126 +271,6 @@
       </div>
     </div>
 
-    <!-- MODAL MODIFICA CANTINA -->
-    <div v-if="showEditModal" class="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div class="bg-white rounded-2xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto border border-stone-100">
-        <div class="flex items-center justify-between mb-4 border-b border-stone-100 pb-3">
-          <h3 class="font-sans text-xl font-bold text-ink">Modifica Cantina: {{ editProducer.company_name }}</h3>
-          <button @click="showEditModal = false" class="text-stone-400 hover:text-ink-soft p-1">
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <form @submit.prevent="handleUpdateProducer" class="space-y-4">
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Nome Cantina / Azienda *</label>
-            <input v-model="editProducer.company_name" type="text" required class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Stato pubblicazione</label>
-            <select v-model="editProducer.status" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm bg-white">
-              <option value="APPROVED">Approvata (visibile al pubblico)</option>
-              <option value="PENDING_APPROVAL">In attesa di approvazione</option>
-              <option value="SUSPENDED">Sospesa</option>
-            </select>
-          </div>
-
-          <label class="flex items-start gap-2.5 p-3 rounded-xl border border-stone-200 cursor-pointer">
-            <input v-model="editProducer.hide_photos" type="checkbox" class="mt-0.5 w-4 h-4 accent-wine-800 shrink-0" />
-            <span class="text-sm">
-              <span class="font-semibold text-ink block">Nascondi le foto dei vini</span>
-              <span class="text-xs text-ink-soft">
-                I visitatori vedono la sagoma della bottiglia al posto delle foto. Le foto restano salvate e la cantina continua a vederle.
-                <template v-if="editProducer.content_consent_at"> La cantina ha autorizzato testi e foto il {{ fmtDay(editProducer.content_consent_at) }}.</template>
-                <template v-else> La cantina non ha ancora autorizzato la pubblicazione (lo fa attivando l'invito).</template>
-              </span>
-            </span>
-          </label>
-
-          <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-ink-soft mb-1">Città *</label>
-              <input v-model="editProducer.city" type="text" required class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-ink-soft mb-1">CAP</label>
-              <input v-model="editProducer.zip_code" type="text" placeholder="86010" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-ink-soft mb-1">Provincia</label>
-              <input v-model="editProducer.province" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Indirizzo (Via/Contrada)</label>
-            <input v-model="editProducer.street" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
-          </div>
-
-          <!-- Posizione sulla mappa -->
-          <ClientOnly>
-            <LocationPicker :lat="editProducer.lat" :lng="editProducer.lng" :town="editProducer.city"
-              @update="({ lat, lng }) => { editProducer.lat = lat ?? ''; editProducer.lng = lng ?? '' }" />
-          </ClientOnly>
-          <div class="grid grid-cols-2 gap-3 bg-stone-50 p-3 rounded-xl border border-line">
-            <div>
-              <label class="block text-[11px] font-semibold text-ink-soft mb-1">Latitudine GPS (es. 41,6147818)</label>
-              <input v-model="editProducer.lat" type="text" placeholder="41,6147818" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
-            </div>
-            <div>
-              <label class="block text-[11px] font-semibold text-ink-soft mb-1">Longitudine GPS (es. 14,5462307)</label>
-              <input v-model="editProducer.lng" type="text" placeholder="14,5462307" class="w-full bg-white border border-stone-200 rounded-lg px-3 py-1.5 text-xs font-mono" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-ink-soft mb-1">Email Contatto</label>
-              <input v-model="editProducer.email_contact" type="email" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-ink-soft mb-1">Telefono</label>
-              <input v-model="editProducer.phone" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-ink-soft mb-1">WhatsApp (es. 393331234567)</label>
-              <input v-model="editProducer.whatsapp_number" type="text" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-ink-soft mb-1">Sito Web</label>
-              <input v-model="editProducer.website" type="text" placeholder="https://..." class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">URL Logo Cantina</label>
-            <input v-model="editProducer.logo_url" type="text" placeholder="https://... o carica" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm mb-1" />
-            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'logo', 'edit')" class="text-xs text-ink-mute" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">URL Foto Copertina Cantina</label>
-            <input v-model="editProducer.cover_image_url" type="text" placeholder="https://... o carica" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm mb-1" />
-            <input type="file" accept="image/*" @change="e => handleUploadMedia(e, 'cover', 'edit')" class="text-xs text-ink-mute" />
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-ink-soft mb-1">Descrizione / Storia Cantina</label>
-            <textarea v-model="editProducer.description" rows="4" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm"></textarea>
-          </div>
-
-          <div class="pt-4 flex justify-end space-x-3 border-t border-stone-100">
-            <button type="button" @click="showEditModal = false" class="px-4 py-2.5 text-sm text-ink-soft font-semibold hover:bg-stone-50 rounded-xl">Annulla</button>
-            <button type="submit" class="px-6 py-2.5 bg-wine-800 text-white rounded-xl text-sm font-semibold shadow-xs hover:bg-wine-900">Salva Modifiche</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
     <!-- Invito singolo -->
     <div v-if="inviteTarget" class="fixed inset-0 z-50 bg-stone-900/40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="invito-titolo" @click.self="inviteTarget = null">
       <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-line flex flex-col gap-4">
@@ -441,13 +321,11 @@
 <script setup>
 import { Plus, Pencil, Eye, Trash2, X, Mail, Phone, MessageSquare, Wine, Check, Send } from 'lucide-vue-next'
 import { apiErrorMessage } from '~/utils/apiError'
-import LocationPicker from '~/components/LocationPicker.client.vue'
 
 const { fetchWithAuth, mediaBase } = useApi()
 const toast = useToast()
 
 const showAddModal = ref(false)
-const showEditModal = ref(false)
 
 const { data: producers, pending, refresh } = await useAsyncData('admin_producers_manage', async () => {
   const res = await fetchWithAuth('/producers?include_all=true')
@@ -579,56 +457,12 @@ const newProducer = reactive({
   description: ''
 })
 
-const editProducer = reactive({
-  id: '',
-  company_name: '',
-  status: 'APPROVED',
-  hide_photos: false,
-  content_consent_at: null,
-  city: '',
-  province: '',
-  zip_code: '',
-  street: '',
-  lat: '',
-  lng: '',
-  email_contact: '',
-  phone: '',
-  whatsapp_number: '',
-  website: '',
-  logo_url: '',
-  cover_image_url: '',
-  description: ''
-})
-
 const getLogo = (p) => {
   if (!p.logo_url) return ''
   return p.logo_url.startsWith('http') ? p.logo_url : `${mediaBase}${p.logo_url}`
 }
 
-const openEditModal = (p) => {
-  const pGeo = p.address?.geo_coordinates || {}
-  editProducer.id = p.id
-  editProducer.company_name = p.company_name
-  editProducer.status = p.status || 'APPROVED'
-  editProducer.hide_photos = !!p.hide_photos
-  editProducer.content_consent_at = p.content_consent_at || null
-  editProducer.city = p.address?.city || ''
-  editProducer.province = p.address?.province || ''
-  editProducer.zip_code = p.address?.zip_code || ''
-  editProducer.street = p.address?.street || ''
-  editProducer.lat = pGeo.lat || ''
-  editProducer.lng = pGeo.lng || ''
-  editProducer.email_contact = p.contacts?.email_contact || ''
-  editProducer.phone = p.contacts?.phone || ''
-  editProducer.whatsapp_number = p.contacts?.whatsapp_number || ''
-  editProducer.website = p.contacts?.website || ''
-  editProducer.logo_url = p.logo_url || ''
-  editProducer.cover_image_url = p.cover_image_url || ''
-  editProducer.description = p.description || ''
-  showEditModal.value = true
-}
-
-const handleUploadMedia = async (event, type, target = 'edit') => {
+const handleUploadMedia = async (event, type, target = 'new') => {
   const file = event.target.files[0]
   if (!file) return
 
@@ -640,7 +474,7 @@ const handleUploadMedia = async (event, type, target = 'edit') => {
       method: 'POST',
       body: formData
     })
-    const targetObj = target === 'new' ? newProducer : editProducer
+    const targetObj = newProducer
     if (type === 'logo') targetObj.logo_url = res.url
     if (type === 'cover') targetObj.cover_image_url = res.url
     toast.success('Immagine caricata con successo!')
@@ -700,43 +534,6 @@ const handleAddProducer = async () => {
     await refresh()
   } catch (err) {
     toast.error('Errore durante la creazione della cantina.')
-  }
-}
-
-const handleUpdateProducer = async () => {
-  try {
-    const latNum = parseCoordInput(editProducer.lat)
-    const lngNum = parseCoordInput(editProducer.lng)
-    const geo = (latNum !== null && lngNum !== null) ? { lat: latNum, lng: lngNum } : null
-    await fetchWithAuth(`/producers/${editProducer.id}`, {
-      method: 'PUT',
-      body: {
-        company_name: editProducer.company_name,
-        status: editProducer.status,
-        hide_photos: editProducer.hide_photos,
-        description: editProducer.description,
-        logo_url: editProducer.logo_url,
-        cover_image_url: editProducer.cover_image_url,
-        address: {
-          street: editProducer.street,
-          city: editProducer.city,
-          province: editProducer.province,
-          zip_code: editProducer.zip_code,
-          geo_coordinates: geo
-        },
-        contacts: {
-          email_contact: editProducer.email_contact,
-          phone: editProducer.phone,
-          whatsapp_number: editProducer.whatsapp_number,
-          website: editProducer.website
-        }
-      }
-    })
-    toast.success('Cantina aggiornata con successo!')
-    showEditModal.value = false
-    await refresh()
-  } catch (err) {
-    toast.error('Errore durante l\'aggiornamento della cantina.')
   }
 }
 
