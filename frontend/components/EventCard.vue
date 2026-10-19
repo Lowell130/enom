@@ -4,6 +4,7 @@
       :to="url"
       tabindex="-1"
       aria-hidden="true"
+      @mousedown.prevent
       :class="['relative block overflow-hidden shrink-0', compact ? 'w-[120px] sm:w-[160px]' : 'h-[170px]']"
       :style="{ background: tone(event.title) }"
     >

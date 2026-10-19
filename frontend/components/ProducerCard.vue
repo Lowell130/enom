@@ -4,6 +4,7 @@
       :to="detailUrl"
       tabindex="-1"
       aria-hidden="true"
+      @mousedown.prevent
       class="relative block h-[170px] overflow-hidden"
       :style="{ background: tone(producer.company_name) }"
     >

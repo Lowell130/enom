@@ -1,7 +1,8 @@
 <template>
   <article class="card overflow-hidden flex flex-col group">
     <!-- Immagine cliccabile verso la scheda del vino -->
-    <NuxtLink :to="detailUrl" tabindex="-1" aria-hidden="true" class="relative block h-[240px] bg-sand overflow-hidden">
+    <!-- doppione del link sul titolo: fuori da tastiera e lettori di schermo; @mousedown.prevent evita che il clic gli dia il focus -->
+    <NuxtLink :to="detailUrl" tabindex="-1" aria-hidden="true" @mousedown.prevent class="relative block h-[240px] bg-sand overflow-hidden">
       <SafeImg
         :src="productImage"
         :alt="product.name"

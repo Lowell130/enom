@@ -127,7 +127,7 @@
               <!-- Foto e nome (link alla scheda), con modifica veloce del nome -->
               <td class="py-4 px-6 min-w-[320px]">
                 <div class="flex items-center gap-3.5">
-                  <NuxtLink :to="`/vini/${prod.slug || prod.id}`" target="_blank" tabindex="-1" aria-hidden="true" class="group w-12 h-14 shrink-0 bg-white rounded-xl border border-line p-1 flex items-center justify-center hover:border-wine-300 transition-colors">
+                  <NuxtLink :to="`/vini/${prod.slug || prod.id}`" target="_blank" tabindex="-1" aria-hidden="true" @mousedown.prevent class="group w-12 h-14 shrink-0 bg-white rounded-xl border border-line p-1 flex items-center justify-center hover:border-wine-300 transition-colors">
                     <img :src="getProductImage(prod)" alt="" class="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform" />
                   </NuxtLink>
 
