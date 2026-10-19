@@ -260,6 +260,8 @@ const clearPoint = () => {
 
 onMounted(async () => {
   L = await loadLeaflet()
+  // la pagina puo' essere stata lasciata mentre Leaflet si caricava
+  if (!mapEl.value) return
   loading.value = false
   const start = hasPoint.value ? current.value : (townCoords.value || MOLISE_CENTER)
   map = L.map(mapEl.value, { scrollWheelZoom: false }).setView(start, hasPoint.value ? 15 : (townCoords.value ? 13 : 9))

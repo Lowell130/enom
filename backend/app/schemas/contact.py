@@ -17,7 +17,7 @@ class ContactCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     email: EmailStr
     reason: ContactReason = "ALTRO"
-    message: str = Field(min_length=5, max_length=5000)
+    message: str = Field(min_length=2, max_length=5000)
     privacy_accepted: bool = Field(default=False, validate_default=True)
     # campo trappola: invisibile alle persone, i programmi di spam lo compilano
     website: Optional[str] = Field(default="", max_length=500)

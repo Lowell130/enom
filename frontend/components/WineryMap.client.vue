@@ -87,6 +87,8 @@ const loadLeafletAssets = () => {
 const initMap = async () => {
   if (!mapContainer.value) return
   const L = await loadLeafletAssets()
+  // la pagina puo' essere stata lasciata mentre Leaflet si caricava
+  if (!mapContainer.value) return
   loadingMap.value = false
 
   if (mapInstance) {

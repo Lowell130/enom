@@ -109,8 +109,12 @@ const sentTo = ref('')
 
 const submit = async () => {
   error.value = ''
-  if (!form.name.trim() || !form.email.trim() || form.message.trim().length < 5) {
-    error.value = 'Compila nome, email e messaggio.'
+  const missing = []
+  if (!form.name.trim()) missing.push('il nome')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) missing.push('un indirizzo email valido')
+  if (form.message.trim().length < 2) missing.push('il messaggio')
+  if (missing.length) {
+    error.value = `Manca ${missing.join(', ').replace(/, ([^,]*)$/, ' e $1')}.`
     return
   }
   if (!form.privacy_accepted) {

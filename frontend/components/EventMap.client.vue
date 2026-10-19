@@ -57,6 +57,8 @@ const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&a
 const draw = async () => {
   if (!mapContainer.value) return
   const L = await loadLeaflet()
+  // la pagina puo' essere stata lasciata mentre Leaflet si caricava
+  if (!mapContainer.value) return
   loading.value = false
   if (!map) {
     map = L.map(mapContainer.value, { center: [41.7, 14.6], zoom: 9, scrollWheelZoom: false })
