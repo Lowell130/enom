@@ -15,6 +15,7 @@
         <NuxtLink to="/produttori?view=map" class="text-[#F3E7DF] hover:text-white">Mappa</NuxtLink>
         <NuxtLink to="/report" class="text-[#F3E7DF] hover:text-white">Osservatorio</NuxtLink>
         <NuxtLink to="/chi-siamo" class="text-[#F3E7DF] hover:text-white">Chi siamo</NuxtLink>
+        <NuxtLink to="/contatti" class="text-[#F3E7DF] hover:text-white">Contatti</NuxtLink>
       </nav>
       <nav aria-label="Denominazioni" class="flex flex-col gap-2 text-sm">
         <span class="font-bold text-[#E2C98F]">Denominazioni</span>

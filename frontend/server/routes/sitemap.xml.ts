@@ -7,7 +7,8 @@ const STATIC_PAGES = [
   { path: '/vini', priority: '0.9', changefreq: 'daily' },
   { path: '/produttori', priority: '0.9', changefreq: 'weekly' },
   { path: '/eventi', priority: '0.8', changefreq: 'daily' },
-  { path: '/report', priority: '0.6', changefreq: 'weekly' }
+  { path: '/report', priority: '0.6', changefreq: 'weekly' },
+  { path: '/contatti', priority: '0.4', changefreq: 'yearly' }
 ]
 
 const xmlEscape = (s: string) =>

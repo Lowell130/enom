@@ -529,3 +529,54 @@ class StartupMaintenanceTests(BaseTest):
         run(main.run_startup_maintenance(self.db))
         run(main.run_startup_maintenance(self.db))
         self.assertTrue(run(self.db.users.find_one({"role": "ADMIN"})))
+
+
+class ContactFormTests(EmailTestBase):
+    def send(self, **extra):
+        body = {"name": "Luca Bianchi", "email": "Luca@Esempio.it", "reason": "SEGNALAZIONE",
+                "message": "Il Fiano ha la gradazione sbagliata.", "privacy_accepted": True}
+        body.update(extra)
+        return self.client.post(f"{API}/contact", json=body)
+
+    def test_message_reaches_admin_with_reply_to_and_sender_gets_receipt(self):
+        r = self.send()
+        self.assertEqual(r.status_code, 200, r.text)
+        to_admin = self.outbox("messaggio_sito_admin")[0]
+        self.assertEqual(to_admin["to"], ["admin@test.it"])
+        self.assertEqual(to_admin["reply_to"], "luca@esempio.it")
+        self.assertIn("Luca Bianchi", to_admin["subject"])
+        self.assertIn("Il Fiano ha la gradazione sbagliata.", to_admin["text"])
+        self.assertEqual(self.outbox("conferma_messaggio_sito")[0]["to"], ["luca@esempio.it"])
+        saved = run(self.db.contact_messages.find_one({"email": "luca@esempio.it"}))
+        self.assertIsNotNone(saved["privacy_accepted_at"])
+        self.assertFalse(saved["is_read"])
+
+    def test_privacy_is_required(self):
+        r = self.send(privacy_accepted=False)
+        self.assertEqual(r.status_code, 422)
+        self.assertEqual(self.outbox(), [])
+
+    def test_honeypot_is_silently_ignored(self):
+        r = self.send(website="https://spam.example")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.outbox(), [])
+        self.assertIsNone(run(self.db.contact_messages.find_one({})))
+
+    def test_only_admin_reads_marks_and_deletes(self):
+        self.send()
+        url = f"{API}/contact"
+        self.assertEqual(self.client.get(url).status_code, 401)
+        self.assertEqual(self.client.get(url, headers=self.auth(self.p1_token)).status_code, 403)
+        items = self.client.get(url, headers=self.auth(self.admin_token)).json()
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["reason_label"], "Segnalare un errore o un contenuto")
+        mid = items[0]["id"]
+        self.assertEqual(self.client.put(f"{url}/{mid}/read", headers=self.auth(self.p1_token)).status_code, 403)
+        self.client.put(f"{url}/{mid}/read", headers=self.auth(self.admin_token))
+        self.assertTrue(self.client.get(url, headers=self.auth(self.admin_token)).json()[0]["is_read"])
+        self.assertEqual(self.client.delete(f"{url}/{mid}", headers=self.auth(self.admin_token)).status_code, 200)
+        self.assertEqual(self.client.get(url, headers=self.auth(self.admin_token)).json(), [])
+
+    def test_sender_text_is_escaped_in_html(self):
+        self.send(name="<script>alert(1)</script>")
+        self.assertNotIn("<script>", self.outbox("messaggio_sito_admin")[0]["html"])

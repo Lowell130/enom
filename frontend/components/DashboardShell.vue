@@ -60,7 +60,7 @@
 <script setup>
 import {
   LayoutDashboard, Wine, MessageSquare, Building2, Store, Grape, Utensils, ListChecks,
-  ArrowLeft, LogOut, Menu, X, Mail, CalendarDays, KeyRound, BarChart3
+  ArrowLeft, LogOut, Menu, X, Mail, CalendarDays, KeyRound, BarChart3, Inbox
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -80,6 +80,7 @@ const adminNav = [
   { label: 'Vitigni', to: '/dashboard/vitigni', icon: Grape },
   { label: 'Abbinamenti', to: '/dashboard/abbinamenti', icon: Utensils },
   { label: 'Scheda tecnica', to: '/dashboard/attributi', icon: ListChecks },
+  { label: 'Messaggi dal sito', to: '/dashboard/contatti', icon: Inbox },
   { label: 'Email e testi', to: '/dashboard/email', icon: Mail },
   { label: 'Statistiche e Google', to: '/dashboard/statistiche', icon: BarChart3 }
 ]

@@ -10,6 +10,7 @@
       <div class="flex flex-wrap gap-3 pt-2">
         <NuxtLink to="/vini" class="btn-primary">Scopri i vini</NuxtLink>
         <NuxtLink to="/produttori" class="btn-outline">Le cantine</NuxtLink>
+        <NuxtLink to="/contatti" class="btn-ghost">Scrivici</NuxtLink>
       </div>
     </div>
   </section>

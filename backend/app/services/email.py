@@ -185,6 +185,34 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "[[Gestisci la cantina|{{link_approvazione}}]]"
         ),
     },
+    "messaggio_sito_admin": {
+        "label": "Messaggio dal modulo Contatti",
+        "description": "All'amministratore, quando un visitatore scrive dalla pagina Contatti. \"Rispondi\" va direttamente a chi ha scritto.",
+        "recipient": "Amministratore (indirizzi delle notifiche)",
+        "variables": ["nome_mittente", "email_mittente", "motivo_contatto", "messaggio", "data", "link_messaggi"],
+        "subject": "[Contatti] {{motivo_contatto}} da {{nome_mittente}}",
+        "body": (
+            "Nuovo messaggio dal modulo Contatti di {{nome_sito}}.\n\n"
+            "Da: {{nome_mittente}} ({{email_mittente}})\nMotivo: {{motivo_contatto}}\nData: {{data}}\n\n"
+            "Messaggio:\n{{messaggio}}\n\n"
+            "Per rispondere usa \"Rispondi\": la risposta arriva direttamente a {{email_mittente}}.\n\n"
+            "[[Apri i messaggi dal sito|{{link_messaggi}}]]"
+        ),
+    },
+    "conferma_messaggio_sito": {
+        "label": "Conferma a chi scrive dai Contatti",
+        "description": "Al visitatore, come ricevuta del messaggio inviato dalla pagina Contatti.",
+        "recipient": "Visitatore (email inserita nel modulo)",
+        "variables": ["nome_mittente", "motivo_contatto", "messaggio"],
+        "subject": "Abbiamo ricevuto il tuo messaggio",
+        "body": (
+            "Ciao {{nome_mittente}},\n\n"
+            "grazie per averci scritto: abbiamo ricevuto il tuo messaggio e ti risponderemo al più presto a questo indirizzo.\n\n"
+            "Motivo: {{motivo_contatto}}\n\nIl tuo messaggio:\n{{messaggio}}\n\n"
+            "[[Torna su {{nome_sito}}|{{link_sito}}]]\n\n"
+            "Il team di {{nome_sito}}"
+        ),
+    },
     "nuovo_evento_admin": {
         "label": "Nuovo evento di una cantina",
         "description": "All'amministratore, quando una cantina pubblica un evento (è già visibile: puoi nasconderlo).",
@@ -269,6 +297,9 @@ SAMPLE_CONTEXT: Dict[str, str] = {
     "data_evento": "sabato 18 ottobre 2026, ore 18:00–21:00",
     "persone": "4",
     "nome_organizzatore": "Cantina Colle dei Venti",
+    "nome_mittente": "Luca Bianchi",
+    "email_mittente": "luca.bianchi@esempio.it",
+    "motivo_contatto": "Segnalare un errore o un contenuto",
 }
 
 INQUIRY_TYPES = {
@@ -317,6 +348,7 @@ def sample_context() -> Dict[str, str]:
         "link_evento": site_url("/eventi/degustazione-in-vigna-al-tramonto"),
         "link_eventi": site_url("/eventi"),
         "link_gestione_eventi": site_url("/dashboard/eventi"),
+        "link_messaggi": site_url("/dashboard/contatti"),
     })
     return ctx
 
@@ -449,7 +481,8 @@ def _smtp_send(message: EmailMessage) -> None:
 
 
 async def deliver(db, *, to: Iterable[str], subject: str, html_body: str, text_body: str,
-                  template: str = "", related: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                  template: str = "", related: Optional[Dict[str, Any]] = None,
+                  reply_to: Optional[str] = None) -> Dict[str, Any]:
     """Registra l'email nella posta in uscita e, in modalita' SMTP, la spedisce.
     Non solleva mai eccezioni: un problema di posta non deve bloccare registrazioni o richieste."""
     recipients = [t.strip() for t in to if t and t.strip()]
@@ -465,6 +498,7 @@ async def deliver(db, *, to: Iterable[str], subject: str, html_body: str, text_b
         "status": "outbox",
         "error": "",
         "related": related or {},
+        "reply_to": reply_to or "",
         "created_at": datetime.utcnow(),
         "sent_at": None,
     }
@@ -477,8 +511,8 @@ async def deliver(db, *, to: Iterable[str], subject: str, html_body: str, text_b
         message["Subject"] = subject
         message["From"] = formataddr((cfg.get("sender_name") or SITE_NAME, sender_email))
         message["To"] = ", ".join(recipients)
-        if cfg.get("reply_to"):
-            message["Reply-To"] = cfg["reply_to"]
+        if reply_to or cfg.get("reply_to"):
+            message["Reply-To"] = reply_to or cfg["reply_to"]
         message["Message-ID"] = make_msgid(domain=(sender_email.split("@")[-1] or None))
         message.set_content(text_body)
         message.add_alternative(html_body, subtype="html")
@@ -499,7 +533,8 @@ async def deliver(db, *, to: Iterable[str], subject: str, html_body: str, text_b
 
 
 async def send_template(db, key: str, to: Iterable[str], context: Optional[Dict[str, Any]] = None,
-                        related: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+                        related: Optional[Dict[str, Any]] = None,
+                        reply_to: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Compone e invia (o salva) l'email del modello indicato. Restituisce None se il modello e' disattivato."""
     try:
         tpl = await get_template(db, key)
@@ -513,7 +548,7 @@ async def send_template(db, key: str, to: Iterable[str], context: Optional[Dict[
             db, to=to, subject=subject,
             html_body=render_html(subject, tpl["body"], ctx, cfg.get("footer_text", "")),
             text_body=render_text(tpl["body"], ctx) + ("\n--\n" + fill(cfg.get("footer_text", ""), ctx) if cfg.get("footer_text") else ""),
-            template=key, related=related,
+            template=key, related=related, reply_to=reply_to,
         )
     except Exception as e:
         logger.error("Email '%s' non composta: %s", key, e)

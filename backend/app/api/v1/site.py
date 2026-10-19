@@ -24,11 +24,13 @@ EnotecaMolise è un progetto personale, gratuito e senza scopo di lucro. Titolar
 ## Quali dati raccogliamo
 - Cantine registrate: nome della cantina, email e password di accesso (conservata in forma cifrata), dati del profilo pubblico (indirizzo, contatti, testi e immagini) e schede dei vini.
 - Visitatori che contattano una cantina: nome, email, telefono se indicato e testo del messaggio.
+- Chi scrive a EnotecaMolise dalla pagina Contatti: nome, email, motivo e testo del messaggio.
 - Dati tecnici necessari al funzionamento del sito (ad esempio l'indirizzo IP, usato per proteggere i moduli dagli abusi).
 
 ## Perché li trattiamo
 - Per creare e gestire l'account della cantina e pubblicarne il profilo (esecuzione del servizio richiesto).
 - Per inoltrare alla cantina le richieste dei visitatori e inviare al visitatore una copia (esecuzione della richiesta).
+- Per rispondere a chi ci scrive dalla pagina Contatti (esecuzione della richiesta).
 - Per inviare email di servizio: conferme, avvisi di approvazione, recupero password.
 - Per la sicurezza del sito (legittimo interesse).
 

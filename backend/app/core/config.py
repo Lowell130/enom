@@ -85,6 +85,8 @@ class Settings(BaseSettings):
     LOGIN_WINDOW_SECONDS: int = 900
     INQUIRY_MAX_PER_WINDOW: int = 5
     INQUIRY_WINDOW_SECONDS: int = 600
+    # messaggi del modulo Contatti: cancellati da soli dopo questo periodo (come da informativa privacy)
+    CONTACT_RETENTION_DAYS: int = 730
 
     @property
     def cors_origins_list(self) -> List[str]:

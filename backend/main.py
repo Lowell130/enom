@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.services.catalog import migrate_ascii_slugs
 from app.services.insights import migrate_grape_format
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, get_database
-from app.api.v1 import auth, producers, products, product_io, pdf_import, inquiries, uploads, admin, attributes, grapes, pairings, reports, emails, site, events
+from app.api.v1 import auth, producers, products, product_io, pdf_import, inquiries, uploads, admin, attributes, grapes, pairings, reports, emails, site, events, contact
 from app.core.errors import validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from app.core.security import get_password_hash, verify_password
@@ -53,6 +53,8 @@ async def ensure_indexes(db):
         (db.events, "producer_id", {}),
         # registro delle email: MongoDB cancella da solo quelle piu' vecchie del periodo di conservazione
         (db.email_outbox, "created_at", {"expireAfterSeconds": max(1, settings.EMAIL_LOG_RETENTION_DAYS) * 86400}),
+        # messaggi del modulo Contatti: conservati 24 mesi, poi cancellati da MongoDB
+        (db.contact_messages, "created_at", {"expireAfterSeconds": max(1, settings.CONTACT_RETENTION_DAYS) * 86400}),
     ]
     for collection, field, kwargs in indexes_to_create:
         try:
@@ -332,6 +334,7 @@ app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags
 app.include_router(emails.router, prefix=f"{settings.API_V1_STR}/emails", tags=["Email (admin)"])
 app.include_router(site.router, prefix=f"{settings.API_V1_STR}/site", tags=["Testi del sito"])
 app.include_router(events.router, prefix=f"{settings.API_V1_STR}/events", tags=["Eventi"])
+app.include_router(contact.router, prefix=f"{settings.API_V1_STR}/contact", tags=["Contatti"])
 
 
 @app.get("/")
