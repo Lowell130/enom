@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import mimetypes
 import os
@@ -222,25 +223,46 @@ async def seed_sample_data(db):
     logger.info("Dati di esempio inseriti.")
 
 
+async def run_startup_maintenance(db):
+    """Indici, piccole migrazioni e dati di base. Tutto idempotente: se e' gia' a posto non cambia nulla."""
+    log = logging.getLogger("enotecamolise")
+    try:
+        await ensure_indexes(db)
+        # indirizzi senza accenti (non fa nulla se sono gia' a posto)
+        fixed_slugs = await migrate_ascii_slugs(db)
+        if fixed_slugs:
+            log.info("Indirizzi senza accenti: %d aggiornati", fixed_slugs)
+        # vitigni in formato unico ("Tintilia 80%", dal principale)
+        fixed_grapes = await migrate_grape_format(db)
+        if fixed_grapes:
+            log.info("Vitigni uniformati: %d vini aggiornati", fixed_grapes)
+        await seed_master_attributes(db)
+        await ensure_admin_user(db)
+        await seed_sample_data(db)
+        log.info("Manutenzione all'avvio completata")
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        log.exception("Manutenzione all'avvio non riuscita: riprovera' al prossimo avvio")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_to_mongo()
     db = await get_database()
-    await ensure_indexes(db)
-    # indirizzi senza accenti (non fa nulla se sono gia' a posto)
-    fixed_slugs = await migrate_ascii_slugs(db)
-    if fixed_slugs:
-        logging.getLogger("enotecamolise").info("Indirizzi senza accenti: %d aggiornati", fixed_slugs)
-    # vitigni in formato unico ("Tintilia 80%", dal principale)
-    fixed_grapes = await migrate_grape_format(db)
-    if fixed_grapes:
-        logging.getLogger("enotecamolise").info("Vitigni uniformati: %d vini aggiornati", fixed_grapes)
-    await seed_master_attributes(db)
-    await ensure_admin_user(db)
-    await seed_sample_data(db)
+    # Il server risponde subito; i controlli sul database girano in sottofondo.
+    # Cosi' su Cloud Run la prima visita dopo un "avvio a freddo" non aspetta decine di
+    # richieste al database prima di ricevere la pagina.
     # Nota: la pulizia del catalogo (titoli/slug/annate) NON gira piu' a ogni avvio:
     # si esegue su richiesta con POST /api/v1/products/cleanup-slugs-and-titles (admin).
+    maintenance = asyncio.create_task(run_startup_maintenance(db))
     yield
+    if not maintenance.done():
+        maintenance.cancel()
+        try:
+            await maintenance
+        except asyncio.CancelledError:
+            pass
     await close_mongo_connection()
 
 

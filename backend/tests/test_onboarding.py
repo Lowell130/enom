@@ -520,3 +520,12 @@ class EmailChangeTests(EmailTestBase):
         self.assertEqual(self.client.get(f"{API}/auth/me", headers=h).json()["email"], "nuova@cantina.it")
         self.assertEqual(self.client.post(f"{API}/auth/login", json={"email": "nuova@cantina.it", "password": "Password123!"}).status_code, 200)
         self.assertNotEqual(self.client.post(f"{API}/auth/login", json={"email": "uno@test.it", "password": "Password123!"}).status_code, 200)
+
+
+class StartupMaintenanceTests(BaseTest):
+    def test_maintenance_runs_without_errors_and_is_repeatable(self):
+        # gira in sottofondo all'avvio: deve completarsi e poter ripartire a ogni avvio
+        import main
+        run(main.run_startup_maintenance(self.db))
+        run(main.run_startup_maintenance(self.db))
+        self.assertTrue(run(self.db.users.find_one({"role": "ADMIN"})))
