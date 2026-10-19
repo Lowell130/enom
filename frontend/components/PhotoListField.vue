@@ -65,7 +65,7 @@ const uploadAll = async (fileList) => {
     for (const file of files) {
       if (list.length >= props.max) { error.value = `Puoi caricare al massimo ${props.max} foto.`; break }
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', await shrinkImage(file))
       const res = await fetchWithAuth('/uploads/image', { method: 'POST', body: formData })
       list.push(res.url)
       emit('update:modelValue', [...list])

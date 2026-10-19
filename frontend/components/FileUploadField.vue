@@ -83,10 +83,10 @@ const upload = async (file) => {
     error.value = 'Scegli un\'immagine (JPG, PNG o WebP).'
     return
   }
-  const formData = new FormData()
-  formData.append('file', file)
   uploading.value = true
   try {
+    const formData = new FormData()
+    formData.append('file', props.type === 'pdf' ? file : await shrinkImage(file))
     const res = await fetchWithAuth(props.type === 'pdf' ? '/uploads/document' : '/uploads/image', { method: 'POST', body: formData })
     broken.value = false
     emit('update:modelValue', res.url)

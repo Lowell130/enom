@@ -466,10 +466,9 @@ const handleUploadMedia = async (event, type, target = 'new') => {
   const file = event.target.files[0]
   if (!file) return
 
-  const formData = new FormData()
-  formData.append('file', file)
-
   try {
+    const formData = new FormData()
+    formData.append('file', await shrinkImage(file))
     const res = await fetchWithAuth('/uploads/image', {
       method: 'POST',
       body: formData
