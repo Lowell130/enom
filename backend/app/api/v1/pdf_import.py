@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
+from app.services import activity
 from app.api.v1.auth import get_current_user
 from app.core.config import settings
 from app.db.mongodb import get_database
@@ -449,6 +450,9 @@ async def confirm_pdf_batch_import(
         parts.append(plural(skipped, "saltato", "saltati"))
     if errors:
         parts.append(plural(len(errors), "con errori", "con errori"))
+    if created or updated:
+        await activity.log_activity(db, current_user, "product.imported", producer_id=own,
+                                    details="Importazione da PDF: " + ", ".join(parts))
     return {
         "message": ", ".join(parts) or "Nessun vino importato",
         "imported_count": created + updated,

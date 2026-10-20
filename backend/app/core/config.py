@@ -87,6 +87,8 @@ class Settings(BaseSettings):
     INQUIRY_WINDOW_SECONDS: int = 600
     # messaggi del modulo Contatti: cancellati da soli dopo questo periodo (come da informativa privacy)
     CONTACT_RETENTION_DAYS: int = 730
+    # registro delle attivita' delle cantine (area admin)
+    ACTIVITY_LOG_RETENTION_DAYS: int = 365
 
     @property
     def cors_origins_list(self) -> List[str]:

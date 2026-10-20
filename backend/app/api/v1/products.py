@@ -21,6 +21,7 @@ from app.services.catalog import (
     run_products_cleanup_migration,
 )
 from app.services.insights import production_town
+from app.services import activity
 from app.services.taxonomy import (
     sync_custom_attributes_with_master,
     sync_grapes_with_master,
@@ -184,6 +185,9 @@ async def create_product(
         # solo l'amministratore allarga l'elenco ufficiale degli abbinamenti
         await sync_pairings_with_master(doc.get("food_pairings", []), db)
 
+    await activity.log_activity(db, current_user, "product.created", producer_id=target_producer_id,
+                                target_type="product", target_id=doc["_id"], target_name=doc.get("name", ""),
+                                details=activity.STATUS_LABELS.get(doc.get("status"), ""))
     return await format_product_response(doc, db)
 
 @router.post("/{product_id}/clone", response_model=ProductResponse)
@@ -296,6 +300,9 @@ async def update_product(
         await sync_pairings_with_master(update_data["food_pairings"], db)
 
     updated = await db.products.find_one({"_id": ObjectId(product_id)})
+    await activity.log_activity(db, current_user, "product.updated", producer_id=updated.get("producer_id"),
+                                target_type="product", target_id=updated["_id"], target_name=updated.get("name", ""),
+                                changes=activity.diff(existing, updated, activity.PRODUCT_FIELDS))
     return await format_product_response(updated, db)
 
 @router.delete("/{product_id}")
@@ -318,6 +325,8 @@ async def delete_product(
         raise HTTPException(status_code=403, detail="Non puoi eliminare questo prodotto")
         
     await db.products.delete_one({"_id": ObjectId(product_id)})
+    await activity.log_activity(db, current_user, "product.deleted", producer_id=existing.get("producer_id"),
+                                target_type="product", target_id=existing["_id"], target_name=existing.get("name", ""))
     return {"message": "Prodotto eliminato con successo"}
 
 @router.post("/cleanup-slugs-and-titles")

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from app.services import activity
 from app.api.v1.auth import get_current_admin, get_current_user, get_optional_user, is_admin
 from app.core.config import settings
 from app.core.utils import client_ip, rate_limiter, slugify, unique_slug
@@ -464,6 +465,9 @@ async def create_event(payload: EventIn, current_user: dict = Depends(get_curren
     organizer = await db.producers.find_one({"_id": data["producer_id"]}) if data.get("producer_id") else None
     if not is_admin(current_user):
         await _notify_new_event(db, data, organizer)
+    await activity.log_activity(db, current_user, "event.created", producer_id=data.get("producer_id"),
+                                target_type="event", target_id=data["_id"], target_name=data.get("title", ""),
+                                details=activity.STATUS_LABELS.get(data.get("status"), ""))
     lookups = await _lookups(db, [data])
     out = _serialize(data, lookups, rome_now(), private=True)
     out["can_edit"] = True
@@ -488,7 +492,11 @@ async def update_event(event_id: str, payload: EventIn, current_user: dict = Dep
     data["updated_at"] = datetime.utcnow()
     await db.events.update_one({"_id": event["_id"]}, {"$set": data})
     was_draft = event.get("status") == "DRAFT"
+    before = dict(event)
     event.update(data)
+    await activity.log_activity(db, current_user, "event.updated", producer_id=event.get("producer_id"),
+                                target_type="event", target_id=event["_id"], target_name=event.get("title", ""),
+                                changes=activity.diff(before, event, activity.EVENT_FIELDS))
     if was_draft and event.get("status") == "PUBLISHED" and not is_admin(current_user):
         organizer = await db.producers.find_one({"_id": event["producer_id"]}) if event.get("producer_id") else None
         await _notify_new_event(db, event, organizer)
@@ -504,6 +512,8 @@ async def delete_event(event_id: str, current_user: dict = Depends(get_current_u
     if not _can_edit(current_user, event):
         raise HTTPException(status_code=403, detail="Puoi eliminare solo gli eventi della tua cantina")
     await db.events.delete_one({"_id": event["_id"]})
+    await activity.log_activity(db, current_user, "event.deleted", producer_id=event.get("producer_id"),
+                                target_type="event", target_id=event["_id"], target_name=event.get("title", ""))
     return {"message": "Evento eliminato"}
 
 
@@ -525,6 +535,8 @@ async def duplicate_event(event_id: str, current_user: dict = Depends(get_curren
     })
     copy["slug"] = await unique_slug(db.events, slugify(copy["title"])[:80] or "evento")
     res = await db.events.insert_one(copy)
+    await activity.log_activity(db, current_user, "event.duplicated", producer_id=copy.get("producer_id"),
+                                target_type="event", target_id=res.inserted_id, target_name=copy.get("title", ""))
     return {"id": str(res.inserted_id), "slug": copy["slug"], "message": "Copia creata come bozza"}
 
 
@@ -558,6 +570,9 @@ async def cancel_event(event_id: str, payload: EventCancelIn, current_user: dict
         }
         await mail.send_template(db, "evento_annullato", [address], ctx, {"event_id": str(event["_id"])})
     notified = len(emails)
+    await activity.log_activity(db, current_user, "event.cancelled", producer_id=event.get("producer_id"),
+                                target_type="event", target_id=event["_id"], target_name=event.get("title", ""),
+                                details=message)
     who = "avvisata 1 persona" if notified == 1 else f"avvisate {notified} persone"
     return {"message": "Evento annullato" + (f": {who}" if notified else ""),
             "notified": len(emails)}

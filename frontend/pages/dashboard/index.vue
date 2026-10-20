@@ -79,6 +79,14 @@
       <DashboardCompleteness v-if="privateInsights.completeness?.wines" :data="privateInsights.completeness" :show-producer="isAdmin" />
     </template>
 
+    <section v-if="isAdmin" aria-labelledby="ultime-attivita" class="flex flex-col gap-3">
+      <div class="flex items-baseline justify-between gap-3">
+        <h2 id="ultime-attivita" class="font-serif text-2xl font-bold m-0">Ultime attività delle cantine</h2>
+        <NuxtLink to="/dashboard/attivita" class="text-sm font-semibold text-wine-800">Tutte</NuxtLink>
+      </div>
+      <DashboardActivityFeed compact :limit="5" />
+    </section>
+
     <section aria-labelledby="scorciatoie" class="flex flex-col gap-3">
       <h2 id="scorciatoie" class="eyebrow-sm tracking-[0.14em]">Cosa vuoi fare</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from app.services import activity
 from app.db.mongodb import get_database
 from app.schemas.producer import ProducerCreate, ProducerUpdate, ProducerResponse, DeletionRequest, InviteRequest
 from app.api.v1.auth import get_current_user, get_current_admin, get_optional_user, is_admin, owns_producer, _hash_reset_token
@@ -147,6 +148,10 @@ async def update_producer(
         await _notify_status_change(db, existing["_id"], new_status)
 
     updated_doc = await db.producers.find_one({"_id": ObjectId(producer_id)})
+    await activity.log_activity(db, current_user, "producer.updated", producer_id=producer_id,
+                                target_type="producer", target_id=producer_id,
+                                target_name=updated_doc.get("company_name", ""),
+                                changes=activity.diff(existing, updated_doc, activity.PRODUCER_FIELDS))
     updated_doc["id"] = str(updated_doc["_id"])
     updated_doc["product_count"] = await db.products.count_documents({"producer_id": updated_doc["_id"]})
     return updated_doc
@@ -232,6 +237,9 @@ async def request_deletion(
         "data": mail.format_date(now),
         "link_approvazione": mail.site_url("/dashboard/cantine?stato=DELETION"),
     }, related={"producer_id": pid})
+    await activity.log_activity(db, current_user, "producer.deletion_requested", producer_id=pid,
+                                target_type="producer", target_id=pid, target_name=producer.get("company_name", ""),
+                                details=reason)
     return {"message": "Richiesta inviata: l'amministratore ti contatterà per confermare la cancellazione.",
             "deletion_requested_at": now}
 
@@ -242,6 +250,8 @@ async def cancel_deletion_request(current_user: dict = Depends(get_current_user)
     if not pid or not ObjectId.is_valid(pid):
         raise HTTPException(status_code=400, detail="Nessuna cantina collegata a questo account")
     await db.producers.update_one({"_id": ObjectId(pid)}, {"$unset": {"deletion_requested_at": "", "deletion_reason": ""}})
+    await activity.log_activity(db, current_user, "producer.deletion_cancelled", producer_id=pid,
+                                target_type="producer", target_id=pid)
     return {"message": "Richiesta di cancellazione annullata."}
 
 

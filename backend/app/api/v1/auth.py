@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer
+from app.services import activity
 from app.db.mongodb import get_database
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token, PasswordForgot, PasswordReset, PasswordChange, EmailChange, InviteAccept
 from app.core.config import settings
@@ -156,6 +157,9 @@ async def register(user_data: UserCreate, request: Request, db=Depends(get_datab
         await mail.send_template(db, "cantina_approvata", [email], ctx, related)
     else:
         await mail.send_template(db, "nuova_cantina_admin", await mail.admin_recipients(db), ctx, related)
+    await activity.log_activity(db, {**user_doc, "role": user_doc.get("role", "PRODUCER")}, "account.registered",
+                                producer_id=producer_id, target_type="producer", target_id=producer_id,
+                                target_name=company_name)
     return user_doc
 
 
@@ -185,6 +189,7 @@ async def login(login_data: UserLogin, request: Request, db=Depends(get_database
 
     user["id"] = str(user["_id"])
     user["producer_id"] = producer_id_str
+    await _log_login(db, user)
 
     return {
         "access_token": token,
@@ -278,7 +283,22 @@ async def reset_password(payload: PasswordReset, request: Request, db=Depends(ge
     await mail.send_template(db, "password_modificata", [user["email"]], {
         "email": user["email"], "data": mail.format_date(now), "link_accesso": mail.site_url("/login"),
     }, related={"user_id": str(user["_id"])})
+    await activity.log_activity(db, user, "account.password_reset")
     return {"message": "Password aggiornata: ora puoi accedere con la nuova password."}
+
+
+async def _log_login(db, user: dict) -> None:
+    """Accesso di una cantina nel registro attivita': al massimo una riga ogni 6 ore per account."""
+    if user.get("role") == "ADMIN":
+        return
+    since = datetime.utcnow() - timedelta(hours=6)
+    try:
+        if await db.activity_log.find_one({"action": "account.login", "user_id": str(user["_id"]),
+                                           "created_at": {"$gte": since}}, {"_id": 1}):
+            return
+    except Exception:
+        return
+    await activity.log_activity(db, user, "account.login")
 
 
 # Password pubblicate in versioni precedenti del codice: non si possono piu' scegliere.
@@ -314,6 +334,7 @@ async def change_password(payload: PasswordChange, current_user: dict = Depends(
     # nuovo token per questa sessione: le altre (altri dispositivi) devono rifare l'accesso
     producer_id = str(user["producer_id"]) if user.get("producer_id") else None
     token = create_access_token(subject=str(user["_id"]), role=user.get("role", "PRODUCER"), producer_id=producer_id)
+    await activity.log_activity(db, user, "account.password_changed")
     return {"access_token": token, "message": "Password cambiata. Sugli altri dispositivi dovrai accedere di nuovo."}
 
 
@@ -339,6 +360,8 @@ async def change_email(payload: EmailChange, current_user: dict = Depends(get_cu
     # i link di recupero password mandati al vecchio indirizzo non valgono piu'
     await db.password_resets.update_many({"user_id": user["_id"], "used_at": None}, {"$set": {"used_at": datetime.utcnow()}})
     logger.info("Email di accesso cambiata: %s -> %s", old_email, new_email)
+    await activity.log_activity(db, user, "account.email_changed",
+                                changes=[{"field": "email", "label": "Email di accesso", "before": old_email, "after": new_email}])
     return {"email": new_email, "message": f"Da ora accedi con {new_email}."}
 
 
@@ -389,6 +412,7 @@ async def accept_invite(payload: InviteAccept, request: Request, db=Depends(get_
             "content_consent_at": now, "content_consent_by": user["email"]}})
     producer_id = str(user["producer_id"]) if user.get("producer_id") else None
     token = create_access_token(subject=str(user["_id"]), role=user.get("role", "PRODUCER"), producer_id=producer_id)
+    await activity.log_activity(db, user, "account.activated")
     return {"access_token": token, "token_type": "bearer", "email": user["email"],
             "message": "Accesso attivato: benvenuto nell'area riservata."}
 
