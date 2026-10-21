@@ -27,9 +27,15 @@ export default defineNuxtConfig({
     head: {
       title: 'EnotecaMolise - I Grandi Vini del Molise',
       meta: [
+        { name: 'theme-color', content: '#6B1D2F' },
         { name: 'description', content: 'Il portale ufficiale dei produttori enologici del Molise. Scopri cantine, vini rossi, bianchi, Tintilia del Molise DOC e acquista o contatta i produttori.' }
       ],
       link: [
+        // icona del sito: "EM" in Cormorant Garamond su bordeaux (SVG per i browser moderni, ICO per gli altri)
+        { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/site.webmanifest' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap' },
