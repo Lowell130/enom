@@ -72,8 +72,20 @@
           <p class="text-[15px] text-ink-soft">Gratuito. Verifichiamo i dati e attiviamo il profilo pubblico dopo l'approvazione.</p>
         </div>
         <label class="field-label">Nome della cantina
-          <input v-model="companyName" type="text" required autocomplete="organization" placeholder="es. Tenuta San Giovanni" class="input" />
+          <input v-model="companyName" type="text" required autocomplete="organization" placeholder="es. Tenuta San Giovanni" class="input" @blur="checkSimilar" />
         </label>
+        <!-- la cantina e' gia' sul sito: meglio rivendicarla che crearne un doppione -->
+        <div v-if="similar.length" role="status" class="p-4 rounded-xl border border-[#E8D9B8] bg-[#FBF5E8] text-[#5A4524] text-sm flex flex-col gap-2">
+          <strong>{{ similar.length === 1 ? 'Questa cantina è già su EnotecaMolise' : 'Queste cantine sono già su EnotecaMolise' }}</strong>
+          <span>Se è la tua, non registrarla di nuovo: chiedi l'accesso alla pagina esistente.</span>
+          <ul class="m-0 p-0 list-none flex flex-col gap-1">
+            <li v-for="p in similar" :key="p.slug">
+              <NuxtLink :to="{ path: `/produttori/${p.slug}`, query: { rivendica: 1 } }" class="font-bold text-wine-800 underline underline-offset-2">
+                {{ p.company_name }}: è la mia cantina
+              </NuxtLink>
+            </li>
+          </ul>
+        </div>
         <label class="field-label">Email della cantina
           <input v-model="regEmail" type="email" required autocomplete="email" placeholder="info@cantina.it" class="input" />
           <span class="text-[13px] font-normal text-ink-mute">Sarà la tua email di accesso: qui riceverai le conferme e le richieste dei clienti.</span>
@@ -114,6 +126,16 @@ const password = ref('')
 const regEmail = ref('')
 const regPassword = ref('')
 const companyName = ref('')
+const similar = ref([])
+const checkSimilar = async () => {
+  const name = companyName.value.trim()
+  if (name.length < 3) { similar.value = []; return }
+  try {
+    similar.value = (await fetchWithAuth(`/producers/similar?name=${encodeURIComponent(name)}`)) || []
+  } catch {
+    similar.value = []
+  }
+}
 const privacyAccepted = ref(false)
 const error = ref('')
 const loading = ref(false)
@@ -125,6 +147,7 @@ const benefits = [
 ]
 
 const { login, registerProducer } = useAuth()
+const { fetchWithAuth } = useApi()
 const toast = useToast()
 
 const switchMode = (value) => {

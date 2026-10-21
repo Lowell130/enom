@@ -173,6 +173,10 @@
           </div>
         </aside>
       </div>
+      <!-- per i titolari delle cantine che non hanno ancora attivato l'accesso -->
+      <div v-if="!isAuthenticated" class="page-container mt-10">
+        <ClaimProducer :producer-id="producer.id" :slug="producer.slug" />
+      </div>
     </section>
 
     <!-- CANTINE NEI DINTORNI -->

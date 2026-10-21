@@ -35,7 +35,22 @@
             <span class="text-[12px] text-ink-mute">{{ fmt(m.created_at) }}</span>
           </div>
         </div>
-        <p class="m-0 text-sm text-ink whitespace-pre-line leading-relaxed">{{ m.message }}</p>
+        <!-- richiesta di accesso a una cantina gia' presente -->
+        <div v-if="m.reason === 'RIVENDICAZIONE'" class="p-3.5 rounded-xl bg-sand-100/70 border border-line flex flex-col gap-2 text-sm">
+          <span>
+            Chiede di gestire
+            <NuxtLink v-if="m.producer_slug" :to="`/produttori/${m.producer_slug}`" target="_blank" class="font-bold text-wine-800">{{ m.producer_name }}</NuxtLink>
+            <strong v-else>{{ m.producer_name }}</strong>
+            <template v-if="m.role"> come <strong>{{ m.role }}</strong></template>.
+          </span>
+          <span v-if="m.phone">Telefono: <a :href="`tel:${m.phone}`" class="font-semibold text-wine-800">{{ m.phone }}</a></span>
+          <span class="text-ink-soft">Prima di invitare verifica che sia davvero il titolare, per esempio chiamando il numero della cantina.</span>
+          <span v-if="m.producer_account === 'active'" class="font-semibold text-bio-900">La cantina ha già un accesso attivo.</span>
+          <button v-else-if="m.producer_id" type="button" class="btn-outline btn-sm self-start" :disabled="inviting === m.id" @click="invite(m)">
+            {{ inviting === m.id ? 'Invio…' : `Verificato: invia l'invito a ${m.email}` }}
+          </button>
+        </div>
+        <p v-if="m.message" class="m-0 text-sm text-ink whitespace-pre-line leading-relaxed">{{ m.message }}</p>
         <div class="flex flex-wrap gap-2 pt-1">
           <a :href="mailtoLink(m)" class="btn-primary btn-sm" @click="markRead(m, true)">
             <Reply class="w-4 h-4" aria-hidden="true" /> Rispondi
@@ -101,6 +116,22 @@ const markRead = async (m, read) => {
     m.is_read = read
   } catch (err) {
     toast.error(apiErrorMessage(err))
+  }
+}
+
+const inviting = ref('')
+const invite = async (m) => {
+  if (!confirm(`Mandare il link di accesso a ${m.email}? Diventerà l'email di accesso di ${m.producer_name}.`)) return
+  inviting.value = m.id
+  try {
+    const res = await fetchWithAuth(`/producers/${m.producer_id}/invite`, { method: 'POST', body: { email: m.email } })
+    m.producer_account = 'invited'
+    await markRead(m, true)
+    toast.success(res?.message || 'Invito mandato.')
+  } catch (err) {
+    toast.error(apiErrorMessage(err))
+  } finally {
+    inviting.value = ''
   }
 }
 

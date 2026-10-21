@@ -25,6 +25,8 @@ ACTIONS: Dict[str, str] = {
     "producer.updated": "Ha modificato il profilo",
     "producer.deletion_requested": "Ha chiesto la cancellazione dell'account",
     "producer.deletion_cancelled": "Ha annullato la richiesta di cancellazione",
+    "producer.claim_link_sent": "Ha ricevuto il link di accesso, chiesto dalla pagina pubblica",
+    "producer.claim_requested": "Ha ricevuto una richiesta di gestione della pagina (da verificare)",
     "product.created": "Ha aggiunto un vino",
     "product.updated": "Ha modificato un vino",
     "product.deleted": "Ha eliminato un vino",

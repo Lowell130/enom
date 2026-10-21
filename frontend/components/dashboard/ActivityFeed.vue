@@ -43,7 +43,7 @@
               <li v-if="compact && it.changes.length > 3" class="text-ink-mute">e altri {{ it.changes.length - 3 }} campi</li>
             </ul>
             <p v-if="it.details" class="m-0 text-[13px] text-ink-soft">{{ it.details }}</p>
-            <span class="text-[12px] text-ink-mute">{{ time(it.created_at) }} · {{ it.user_email }}</span>
+            <span class="text-[12px] text-ink-mute">{{ time(it.created_at) }}<template v-if="it.user_email"> · {{ it.user_email }}</template></span>
           </div>
         </li>
       </ol>

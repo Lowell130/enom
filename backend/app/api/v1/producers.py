@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from app.services import activity
 from app.db.mongodb import get_database
 from app.schemas.producer import ProducerCreate, ProducerUpdate, ProducerResponse, DeletionRequest, InviteRequest
 from app.api.v1.auth import get_current_user, get_current_admin, get_optional_user, is_admin, owns_producer, _hash_reset_token
 from app.core.config import settings
 from app.core.security import get_password_hash
-from app.core.utils import slugify, unique_slug
+from app.core.utils import client_ip, rate_limiter, slugify, unique_slug
+import re
+import unicodedata
 from bson import ObjectId
 from app.services import email as mail
 from datetime import datetime, timedelta
@@ -58,6 +60,40 @@ async def get_producers(
             doc.pop("deletion_reason", None)
         producers.append(doc)
     return producers
+
+
+# parole generiche che non distinguono una cantina dall'altra
+_GENERIC_WORDS = {
+    "cantina", "cantine", "azienda", "aziende", "agricola", "agricole", "vitivinicola", "vinicola", "vini", "vino",
+    "tenuta", "tenute", "societa", "soc", "srl", "sas", "snc", "ss", "s", "r", "l", "a", "coop", "cooperativa",
+    "il", "lo", "la", "i", "gli", "le", "di", "del", "della", "dei", "degli", "delle", "e", "ed", "da", "in",
+    "fattoria", "masseria", "casa", "vigneti", "vigne", "borgo", "molise",
+}
+
+
+def _name_key(name: str) -> str:
+    """'CATABBO Cantine' e 'Cantine Catabbo s.r.l.' -> 'catabbo'."""
+    t = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().lower()
+    words = [w for w in re.split(r"[^a-z0-9]+", t) if w and w not in _GENERIC_WORDS]
+    return " ".join(sorted(words))
+
+
+@router.get("/similar")
+async def similar_producers(name: str = Query("", max_length=150), db=Depends(get_database)):
+    """Cantine gia' presenti con un nome simile: alla registrazione si propone di rivendicarle invece di duplicarle."""
+    key = _name_key(name)
+    if len(key) < 3:
+        return []
+    out = []
+    async for p in db.producers.find({"status": "APPROVED"}, {"company_name": 1, "slug": 1}):
+        other = _name_key(p.get("company_name", ""))
+        if not other:
+            continue
+        if key == other or (min(len(key), len(other)) >= 4 and (key in other or other in key)):
+            out.append({"company_name": p.get("company_name", ""), "slug": p.get("slug", "")})
+        if len(out) >= 3:
+            break
+    return out
 
 
 @router.get("/{identifier}", response_model=ProducerResponse)
@@ -357,3 +393,62 @@ async def invite_producer(producer_id: str, payload: InviteRequest, current_admi
     result["message"] = f"Invito mandato a {result['email']}"
     return result
 
+
+# ---------------------------------------------------------------------------
+# "E' la tua cantina?": il titolare di una cantina senza accesso lo ottiene da solo
+# ---------------------------------------------------------------------------
+
+def _mask_email(email: str) -> str:
+    local, _, domain = (email or "").partition("@")
+    return f"{local[:1]}***@{domain}" if local and domain else ""
+
+
+async def _public_producer(db, identifier: str) -> dict:
+    query = {"$or": [{"slug": identifier}]}
+    if ObjectId.is_valid(identifier):
+        query["$or"].append({"_id": ObjectId(identifier)})
+    producer = await db.producers.find_one(query)
+    if not producer or producer.get("status", "APPROVED") != "APPROVED":
+        raise HTTPException(status_code=404, detail="Cantina non trovata")
+    return producer
+
+
+async def _account_status(db, producer_id: ObjectId) -> str:
+    return (await _account_map(db)).get(producer_id, {}).get("status", "none")
+
+
+@router.get("/{identifier}/claim")
+async def claim_info(identifier: str, db=Depends(get_database)):
+    """Se la pagina si puo' rivendicare e a quale indirizzo (mascherato) arriverebbe il link."""
+    producer = await _public_producer(db, identifier)
+    status = await _account_status(db, producer["_id"])
+    email = ((producer.get("contacts") or {}).get("email_contact") or "").strip()
+    return {"claimable": status != "active", "has_email": bool(email), "masked_email": _mask_email(email),
+            "link_days": settings.INVITE_TTL_DAYS}
+
+
+@router.post("/{identifier}/claim/email")
+async def claim_by_email(identifier: str, request: Request, db=Depends(get_database)):
+    """Manda il link di attivazione SOLO all'email della cantina gia' presente nel sito:
+    chi puo' leggere quella casella e' il titolare. Mai a un indirizzo scelto da chi clicca."""
+    rate_limiter.check_and_hit(f"claim-ip:{client_ip(request)}", 5, 3600,
+                               "Troppe richieste in poco tempo. Riprova più tardi.")
+    producer = await _public_producer(db, identifier)
+    rate_limiter.check_and_hit(f"claim-producer:{producer['_id']}", 3, 86400,
+                               "Il link per questa cantina è già stato inviato più volte oggi: controlla la casella (anche lo spam) o riprova domani.")
+    if await _account_status(db, producer["_id"]) == "active":
+        raise HTTPException(status_code=400, detail="Questa cantina ha già un accesso attivo: usa \"Password dimenticata\" nella pagina di accesso.")
+    email = ((producer.get("contacts") or {}).get("email_contact") or "").strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Per questa cantina non abbiamo un'email: usa il modulo qui sotto.")
+    try:
+        result = await _invite(db, producer)
+    except HTTPException:
+        raise HTTPException(status_code=400, detail="Non possiamo mandare il link a questo indirizzo: usa il modulo qui sotto e ti contatteremo.")
+    await activity.log_activity(db, {"role": "VISITOR", "email": ""}, "producer.claim_link_sent",
+                                producer_id=producer["_id"], target_type="producer", target_id=producer["_id"],
+                                target_name=producer.get("company_name", ""),
+                                details=f"Link di accesso inviato a {_mask_email(email)} dalla pagina pubblica")
+    return {"message": f"Fatto: abbiamo mandato il link di accesso a {_mask_email(email)}. "
+                       f"Controlla anche nello spam; il link vale {settings.INVITE_TTL_DAYS} giorni.",
+            "email_status": result.get("email_status")}
