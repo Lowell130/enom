@@ -126,8 +126,9 @@
             <input v-model="form.phone" type="tel" class="input" />
           </label>
           <label class="field-label">WhatsApp
-            <input v-model="form.whatsapp_number" type="tel" placeholder="es. 393331234567" class="input" />
-            <span class="text-[13px] font-normal text-ink-mute">Con il prefisso 39, senza spazi: comparirà il pulsante WhatsApp.</span>
+            <input v-model="form.whatsapp_number" type="tel" placeholder="es. 333 123 4567" class="input" />
+            <span class="text-[13px] font-normal text-ink-mute">Il numero collegato a WhatsApp: il prefisso +39 lo aggiungiamo noi. Comparirà il pulsante WhatsApp.</span>
+            <a v-if="form.whatsapp_number && waPreview" :href="`https://wa.me/${waPreview}`" target="_blank" rel="noopener" class="text-[13px] font-semibold text-wine-800 underline underline-offset-2 w-fit">Prova il link: +{{ waPreview }}</a>
           </label>
           <label class="field-label">Sito web
             <input v-model="form.website" type="text" placeholder="www.lamiacantina.it" class="input" />
@@ -215,6 +216,7 @@ import { Building2, RefreshCw, Trash2 } from 'lucide-vue-next'
 import FileUploadField from '~/components/FileUploadField.vue'
 import LocationPicker from '~/components/LocationPicker.client.vue'
 import { apiErrorMessage } from '~/utils/apiError'
+import { normalizeWhatsAppNumber } from '~/composables/useWhatsApp'
 
 const route = useRoute()
 const router = useRouter()
@@ -256,6 +258,9 @@ watch(() => form.value?.city, (city) => {
   if (!towns.some(t => t.toLowerCase() === name)) return
   form.value.province = ISERNIA_TOWNS.some(t => t.toLowerCase() === name) ? 'IS' : 'CB'
 })
+
+// anteprima del numero come lo usera' WhatsApp (con prefisso), per verificarlo con un clic
+const waPreview = computed(() => normalizeWhatsAppNumber(form.value?.whatsapp_number))
 
 const onPickLocation = ({ lat, lng }) => {
   form.value.lat = lat ?? ''

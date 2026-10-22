@@ -237,8 +237,8 @@
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs font-semibold text-ink-soft mb-1">Numero WhatsApp (es. 393331234567)</label>
-              <input v-model="newProducer.whatsapp_number" type="text" placeholder="393331234567" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
+              <label class="block text-xs font-semibold text-ink-soft mb-1">Numero WhatsApp (es. 333 123 4567, il +39 lo aggiungiamo noi)</label>
+              <input v-model="newProducer.whatsapp_number" type="text" placeholder="333 123 4567" class="w-full border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm" />
             </div>
             <div>
               <label class="block text-xs font-semibold text-ink-soft mb-1">Sito Web Ufficiale</label>
