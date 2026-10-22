@@ -143,6 +143,7 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "Il vostro accesso sarà {{email}}. Il link è personale e vale {{giorni_validita}} giorni: "
             "se scade, rispondete a questa email e ve ne mandiamo un altro.\n\n"
             "[[Guarda la pagina della cantina|{{link_pagina_cantina}}]]\n\n"
+            "Se non avete richiesto voi questo accesso, potete ignorare questa email.\n\n"
             "Un saluto,\nil team di {{nome_sito}}"
         ),
     },
