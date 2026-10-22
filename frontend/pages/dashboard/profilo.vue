@@ -13,7 +13,7 @@
         <select
           id="scelta-cantina"
           v-model="selectedAdminProducerId"
-          @change="loadProfile"
+          @change="onSelectProducer"
           class="select h-10 text-sm"
         >
           <option v-for="p in producersList" :key="p.id" :value="p.id">
@@ -217,6 +217,14 @@ import LocationPicker from '~/components/LocationPicker.client.vue'
 import { apiErrorMessage } from '~/utils/apiError'
 
 const route = useRoute()
+const router = useRouter()
+
+// scelta dal menu: l'indirizzo segue la cantina scelta (altrimenti il ricaricamento
+// rileggerebbe ?producer_id= e tornerebbe alla cantina di partenza)
+const onSelectProducer = () => {
+  if (String(route.query.producer_id || '') === selectedAdminProducerId.value) return loadProfile()
+  router.replace({ query: { ...route.query, producer_id: selectedAdminProducerId.value } })
+}
 const { fetchWithAuth } = useApi()
 const { user, fetchUser, isAdmin } = useAuth()
 const toast = useToast()
