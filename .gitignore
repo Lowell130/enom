@@ -81,3 +81,6 @@ frontend/package-lock.json
 
 # variabili compilate per Cloud Run (contengono segreti)
 deploy/cloudrun.env.yaml
+
+# immagini per i social (non fanno parte del sito)
+social/
