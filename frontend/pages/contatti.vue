@@ -65,7 +65,10 @@
         </button>
       </form>
 
-      <p class="text-[13px] text-ink-mute m-0">Puoi anche scriverci direttamente a <a href="mailto:info@enotecamolise.it" class="font-semibold text-wine-800">info@enotecamolise.it</a>.</p>
+      <p class="text-[13px] text-ink-mute m-0">
+        Puoi anche scriverci direttamente a <a href="mailto:info@enotecamolise.it" class="font-semibold text-wine-800">info@enotecamolise.it</a>
+        o seguirci su <a href="https://www.facebook.com/profile.php?id=61595546708888" target="_blank" rel="noopener me" class="font-semibold text-wine-800">Facebook</a>.
+      </p>
     </div>
   </section>
 </template>
