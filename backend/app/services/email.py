@@ -49,6 +49,7 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "Nel frattempo potete già completare il profilo (storia, logo, foto, indirizzo e contatti) e inserire le schede dei vostri vini.\n\n"
             "[[Vai all'area riservata|{{link_area_riservata}}]]\n\n"
             "Per accedere usate sempre l'indirizzo {{email}}.\n\n"
+            "Una guida passo passo, con le immagini, è qui: {{link_guida}}\n\n"
             "A presto,\nil team di {{nome_sito}}"
         ),
     },

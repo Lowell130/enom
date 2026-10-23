@@ -300,7 +300,8 @@ async def _account_map(db) -> Dict[ObjectId, dict]:
     now = datetime.utcnow()
     out: Dict[ObjectId, dict] = {}
     async for u in db.users.find({"role": "PRODUCER", "producer_id": {"$ne": None}},
-                                 {"email": 1, "producer_id": 1, "invited_at": 1, "activated_at": 1, "invite_expires_at": 1}):
+                                 {"email": 1, "producer_id": 1, "invited_at": 1, "activated_at": 1,
+                                  "invite_expires_at": 1, "created_at": 1}):
         pid = u.get("producer_id")
         if not isinstance(pid, ObjectId):
             pid = ObjectId(pid) if ObjectId.is_valid(str(pid)) else None
@@ -308,6 +309,9 @@ async def _account_map(db) -> Dict[ObjectId, dict]:
             continue
         if u.get("activated_at") or not u.get("invited_at"):
             info = {"status": "active", "email": u.get("email")}
+            if not u.get("invited_at"):
+                # iscritta da sola dalla pagina di registrazione: i contenuti sono suoi
+                info.update(self_registered=True, registered_at=u.get("created_at"))
         else:
             expired = u.get("invite_expires_at") and u["invite_expires_at"] < now
             info = {"status": "expired" if expired else "invited", "email": u.get("email"),

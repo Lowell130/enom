@@ -63,6 +63,7 @@
             <span class="text-[13px] text-ink-soft">
               I visitatori vedono la sagoma della bottiglia al posto delle foto. Le foto restano salvate e la cantina continua a vederle.
               <template v-if="form.content_consent_at"> La cantina ha autorizzato testi e foto il {{ formatDate(form.content_consent_at) }}.</template>
+              <template v-else-if="form.account?.self_registered"> Profilo creato dalla cantina<template v-if="form.account.registered_at"> il {{ formatDate(form.account.registered_at) }}</template>: testi e foto li ha inseriti lei.</template>
               <template v-else> La cantina non ha ancora autorizzato la pubblicazione (lo fa attivando l'invito).</template>
             </span>
           </span>

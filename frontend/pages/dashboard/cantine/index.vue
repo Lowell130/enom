@@ -68,6 +68,10 @@
                           :title="`Ha autorizzato la pubblicazione di testi e foto il ${fmtDay(p.content_consent_at)}`">
                       Contenuti autorizzati
                     </span>
+                    <span v-else-if="p.account?.self_registered" class="inline-block mt-1 mr-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-sand-100 text-ink-soft"
+                          :title="p.account.registered_at ? `Si è iscritta da sola il ${fmtDay(p.account.registered_at)}: testi e foto li ha inseriti lei` : 'Si è iscritta da sola: testi e foto li ha inseriti lei'">
+                      Registrata dalla cantina
+                    </span>
                     <span v-if="p.deletion_requested_at" class="inline-block mt-1 ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-wine-800 text-white"
                           :title="p.deletion_reason ? `Motivo: ${p.deletion_reason}` : 'Nessun motivo indicato'">
                       Chiede la cancellazione

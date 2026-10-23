@@ -33,6 +33,24 @@ class RegistrationTests(EmailTestBase):
         admin_notice = self.outbox("nuova_cantina_admin")
         self.assertEqual(admin_notice[0]["to"], ["admin@test.it"])
 
+    def test_self_registered_winery_is_marked_for_admin(self):
+        register(self.client)
+        self.assertIn("/guida", self.outbox("registrazione_cantina")[0]["text"])
+        items = self.client.get(f"{API}/producers?include_all=true", headers=self.auth(self.admin_token)).json()
+        nuova = next(p for p in items if p["company_name"] == "Cantina Nuova")
+        self.assertEqual(nuova["account"]["status"], "active")
+        self.assertTrue(nuova["account"]["self_registered"])
+        self.assertIsNotNone(nuova["account"]["registered_at"])
+        # una cantina invitata dall'amministratore non risulta "registrata da sola"
+        tre = self._producer("Cantina Tre", "cantina-tre")
+        r = self.client.post(f"{API}/producers/{tre}/invite", json={"email": "tre@cantina.it"},
+                             headers=self.auth(self.admin_token))
+        self.assertEqual(r.status_code, 200, r.text)
+        items = self.client.get(f"{API}/producers?include_all=true", headers=self.auth(self.admin_token)).json()
+        invited = next(p for p in items if p["id"] == str(tre))
+        self.assertEqual(invited["account"]["status"], "invited")
+        self.assertFalse(invited["account"].get("self_registered", False))
+
     def test_no_default_city(self):
         register(self.client)
         user = run(self.db.users.find_one({"email": "nuova@cantina.it"}))
