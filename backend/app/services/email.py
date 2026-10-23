@@ -75,6 +75,7 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "buone notizie: il profilo di {{nome_cantina}} è stato approvato ed è ora visibile a tutti i visitatori di {{nome_sito}}, insieme ai vini pubblicati.\n\n"
             "[[Guarda la pagina della cantina|{{link_pagina_cantina}}]]\n\n"
             "Le richieste dei visitatori vi arriveranno via email e le troverete anche nell'area riservata, alla voce Richieste.\n\n"
+            "Per completare il profilo, aggiungere i vini e pubblicare gli eventi trovate una guida passo passo qui: {{link_guida}}\n\n"
             "Buon lavoro,\nil team di {{nome_sito}}"
         ),
     },
@@ -142,6 +143,7 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
             "[[Scegliete la password e accedete|{{link_attivazione}}]]\n\n"
             "Il vostro accesso sarà {{email}}. Il link è personale e vale {{giorni_validita}} giorni: "
             "se scade, rispondete a questa email e ve ne mandiamo un altro.\n\n"
+            "Prima volta? Trovate una guida passo passo, con le immagini, qui: {{link_guida}}\n\n"
             "[[Guarda la pagina della cantina|{{link_pagina_cantina}}]]\n\n"
             "Se non avete richiesto voi questo accesso, potete ignorare questa email.\n\n"
             "Un saluto,\nil team di {{nome_sito}}"
@@ -278,7 +280,7 @@ DEFAULT_TEMPLATES: Dict[str, Dict[str, Any]] = {
     },
 }
 
-COMMON_VARIABLES = ["nome_sito", "link_sito", "anno"]
+COMMON_VARIABLES = ["nome_sito", "link_sito", "link_guida", "anno"]
 
 # Dati di esempio per anteprime e invii di prova
 SAMPLE_CONTEXT: Dict[str, str] = {
@@ -332,7 +334,8 @@ def site_url(path: str = "") -> str:
 
 
 def base_context() -> Dict[str, str]:
-    return {"nome_sito": SITE_NAME, "link_sito": site_url("/"), "anno": str(datetime.utcnow().year)}
+    return {"nome_sito": SITE_NAME, "link_sito": site_url("/"), "link_guida": site_url("/guida"),
+            "anno": str(datetime.utcnow().year)}
 
 
 def sample_context() -> Dict[str, str]:

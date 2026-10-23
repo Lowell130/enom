@@ -21,7 +21,8 @@ export default defineNuxtConfig({
     '/cookie': { headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },
     '/chi-siamo': { headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },
     '/dashboard/**': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
-    '/attiva-account': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } }
+    '/attiva-account': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
+    '/guida': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } }
   },
   app: {
     head: {

@@ -9,7 +9,8 @@
         </span>
         <div class="flex flex-col gap-0.5">
           <h2 class="font-serif text-[22px] font-bold leading-tight m-0">È la tua cantina?</h2>
-          <p class="m-0 text-sm text-ink-soft">Gestisci gratuitamente questa pagina: storia, foto, vini ed eventi.</p>
+          <p class="m-0 text-sm text-ink-soft">Gestisci gratuitamente questa pagina: storia, foto, vini ed eventi.
+            <NuxtLink to="/guida" target="_blank" class="font-semibold text-wine-800 underline underline-offset-2 whitespace-nowrap">Come funziona</NuxtLink></p>
         </div>
       </div>
       <button v-if="!open" type="button" class="btn-outline btn-sm shrink-0" :aria-expanded="open" aria-controls="rivendica-pannello" @click="open = true">

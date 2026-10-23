@@ -27,6 +27,7 @@ class ClaimTests(BaseTest):
         self.assertIn("i***@catabbo.it", r.json()["message"])
         invites = self.outbox("invito_cantina")
         self.assertEqual([i["to"] for i in invites], [["info@catabbo.it"]])
+        self.assertIn("/guida", invites[0]["text"])  # link alla guida passo passo
         user = run(self.db.users.find_one({"producer_id": self.cat}))
         self.assertEqual(user["email"], "info@catabbo.it")
         self.assertIsNone(user.get("activated_at"))

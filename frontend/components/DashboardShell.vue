@@ -42,6 +42,9 @@
         <NuxtLink to="/dashboard/account" :class="itemClass({ to: '/dashboard/account' })">
           <KeyRound class="w-[18px] h-[18px]" aria-hidden="true" /> Account e password
         </NuxtLink>
+        <NuxtLink to="/guida" target="_blank" class="flex items-center gap-3 min-h-[40px] px-3 rounded-[10px] text-ink-soft font-semibold hover:bg-sand-100">
+          <BookOpen class="w-[18px] h-[18px]" aria-hidden="true" /> Guida
+        </NuxtLink>
         <NuxtLink to="/" class="flex items-center gap-3 min-h-[40px] px-3 rounded-[10px] text-ink-soft font-semibold hover:bg-sand-100">
           <ArrowLeft class="w-[18px] h-[18px]" aria-hidden="true" /> Torna al sito
         </NuxtLink>
@@ -60,7 +63,7 @@
 <script setup>
 import {
   LayoutDashboard, Wine, MessageSquare, Building2, Store, Grape, Utensils, ListChecks,
-  ArrowLeft, LogOut, Menu, X, Mail, CalendarDays, KeyRound, BarChart3, Inbox, History
+  ArrowLeft, LogOut, Menu, X, Mail, CalendarDays, KeyRound, BarChart3, Inbox, History, BookOpen
 } from 'lucide-vue-next'
 
 const route = useRoute()

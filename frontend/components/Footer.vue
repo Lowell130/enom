@@ -32,6 +32,7 @@
         <span class="font-bold text-[#E2C98F]">Sei un produttore?</span>
         <NuxtLink to="/login?mode=register" class="text-[#F3E7DF] hover:text-white">Registra la tua cantina</NuxtLink>
         <NuxtLink to="/login" class="text-[#F3E7DF] hover:text-white">Area riservata</NuxtLink>
+        <NuxtLink to="/guida" class="text-[#F3E7DF] hover:text-white">Guida per le cantine</NuxtLink>
       </nav>
     </div>
     <div class="page-container pb-5">

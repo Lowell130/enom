@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { Wine, Building2, MessageSquare, ListChecks, Grape, Plus, Store, Utensils, Check, Mail } from 'lucide-vue-next'
+import { Wine, Building2, MessageSquare, ListChecks, Grape, Plus, Store, Utensils, Check, Mail, BookOpen } from 'lucide-vue-next'
 
 useSeoMeta({ title: 'Area riservata - EnotecaMolise' })
 
@@ -171,7 +171,10 @@ const shortcuts = computed(() => {
     { to: '/dashboard/messaggi', icon: MessageSquare, title: 'Richieste dei clienti', text: 'Messaggi arrivati dalle schede dei vini e delle cantine.' }
   ]
   if (!isAdmin.value) {
-    list.push({ to: '/dashboard/profilo', icon: Store, title: 'Profilo della cantina', text: 'Storia, logo, copertina, indirizzo e contatti.' })
+    list.push(
+      { to: '/dashboard/profilo', icon: Store, title: 'Profilo della cantina', text: 'Storia, logo, copertina, indirizzo e contatti.' },
+      { to: '/guida', icon: BookOpen, title: 'Guida passo passo', text: 'Come completare il profilo, aggiungere i vini e pubblicare gli eventi.' }
+    )
   } else {
     list.push(
       { to: '/dashboard/cantine', icon: Building2, title: 'Cantine', text: 'Approva le nuove registrazioni e gestisci i profili.' },
