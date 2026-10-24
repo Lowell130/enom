@@ -92,6 +92,22 @@ class OutreachTests(BaseTest):
         self.assertNotIn("Vigna Lontana", self.get())
         self.assertEqual(run(self.db.outreach_log.count_documents({})), 0)
 
+    def test_incomplete_profile_filter(self):
+        items = self.get()
+        uno = items["Cantina Uno"]  # accesso attivo, senza logo, foto, storia, mappa
+        self.assertTrue(uno["incomplete"])
+        self.assertIn("logo", uno["missing"])
+        self.assertIn("posizione sulla mappa", uno["missing"])
+        self.assertNotIn("vini", uno["missing"])  # ha un vino
+        self.assertFalse(items["Cantina Nuova"]["incomplete"])  # senza accesso: e' tra quelle da invitare
+        run(self.db.producers.update_one({"_id": self.p1}, {"$set": {
+            "logo_url": "/uploads/l.jpg", "cover_image_url": "/uploads/c.jpg", "description": "x" * 160,
+            "address": {"city": "Campobasso", "geo_coordinates": {"lat": 41.5, "lng": 14.6}},
+            "contacts": {"phone": "0874 1"}}}))
+        uno = self.get()["Cantina Uno"]
+        self.assertEqual(uno["missing"], [])
+        self.assertFalse(uno["incomplete"])
+
     def test_future_date_rejected(self):
         future = (date.today() + timedelta(days=5)).isoformat()
         r = self.client.post(f"{API}/outreach/log", headers=self.A, json={

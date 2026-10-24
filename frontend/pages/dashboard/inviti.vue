@@ -6,6 +6,7 @@
         <p class="text-sm text-ink-soft m-0 max-w-[620px]">
           Chi hai contattato, quando e come, anche per le cantine non ancora sul sito. Dopo {{ remindDays }} giorni senza
           accesso attivo una cantina torna tra quelle da sollecitare. Gli inviti mandati dal sito si registrano da soli.
+          In «Profilo incompleto» trovi chi è entrato ma non ha ancora finito la pagina.
         </p>
       </div>
       <button type="button" class="btn-primary btn-sm h-11" @click="openProspect()">
@@ -50,6 +51,10 @@
             <a v-if="it.website" :href="ext(it.website)" target="_blank" rel="noopener" class="btn-ghost btn-sm h-8 px-2.5 text-xs"><Globe class="w-3.5 h-3.5" aria-hidden="true" /> Sito</a>
           </div>
         </div>
+
+        <p v-if="it.incomplete" class="m-0 p-3 rounded-[10px] bg-[#FBF5E8] border border-[#E8D9B8] text-[#5A4524] text-sm">
+          <strong>Manca:</strong> {{ it.missing.join(', ') }}.
+        </p>
 
         <p v-if="it.maybe_registered" class="m-0 p-3 rounded-[10px] bg-bio-50 border border-bio/30 text-bio-900 text-sm flex flex-wrap items-center gap-2">
           <span>Forse si è iscritta: <strong>{{ it.maybe_registered.name }}</strong>.</span>
@@ -212,12 +217,14 @@ const groups = {
   TODO: (i) => i.to_do,
   WAITING: (i) => i.waiting,
   OUTSIDE: (i) => isProspect(i),
+  INCOMPLETE: (i) => i.incomplete,
   ACTIVE: (i) => !isProspect(i) && i.account === 'active',
   ALL: () => true
 }
 const filters = computed(() => [
   { value: 'TODO', label: 'Da sollecitare' },
   { value: 'WAITING', label: 'In attesa di risposta' },
+  { value: 'INCOMPLETE', label: 'Profilo incompleto' },
   { value: 'OUTSIDE', label: 'Fuori dal sito' },
   { value: 'ACTIVE', label: 'Con accesso' },
   { value: 'ALL', label: 'Tutte' }
@@ -229,7 +236,8 @@ const visible = computed(() => {
     .filter(i => !q || `${i.name} ${i.city}`.toLowerCase().includes(q))
 })
 const emptyText = computed(() => search.value ? 'Nessuna cantina con questa ricerca.'
-  : filter.value === 'TODO' ? 'Nessuna cantina da sollecitare: ottimo lavoro.' : 'Nessuna cantina in questo elenco.')
+  : filter.value === 'TODO' ? 'Nessuna cantina da sollecitare: ottimo lavoro.'
+  : filter.value === 'INCOMPLETE' ? 'Tutte le cantine con accesso hanno il profilo completo.' : 'Nessuna cantina in questo elenco.')
 
 const BADGES = {
   none: { label: 'Nessun accesso', cls: 'bg-stone-100 text-ink-mute' },

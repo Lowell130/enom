@@ -92,6 +92,23 @@ def _log_out(doc: dict) -> dict:
     }
 
 
+def _missing(p: dict, wine_count: int) -> List[str]:
+    """Cosa manca al profilo: gli stessi passi di «Completa la tua cantina» nella Panoramica della cantina."""
+    address = p.get("address") or {}
+    contacts = p.get("contacts") or {}
+    geo = address.get("geo_coordinates") or {}
+    checks = [
+        ("comune", bool(address.get("city"))),
+        ("posizione sulla mappa", bool(geo.get("lat") and geo.get("lng"))),
+        ("logo", bool(p.get("logo_url"))),
+        ("foto di copertina", bool(p.get("cover_image_url"))),
+        ("storia", len(p.get("description") or "") >= 150),
+        ("telefono o sito", bool(contacts.get("phone") or contacts.get("website"))),
+        ("vini", wine_count > 0),
+    ]
+    return [label for label, ok in checks if not ok]
+
+
 def _prospect_fields(doc: dict) -> dict:
     return {k: doc.get(k, "") for k in ("city", "province", "email", "phone", "whatsapp", "website", "facebook", "instagram", "notes")}
 
@@ -140,6 +157,7 @@ async def list_outreach(current_admin: dict = Depends(get_current_admin), db=Dep
             "account_email": acc.get("email", ""),
             "self_registered": bool(acc.get("self_registered")),
             "wine_count": wines.get(pid, 0),
+            "missing": _missing(p, wines.get(pid, 0)),
             "email": contacts.get("email_contact", ""),
             "phone": contacts.get("phone", ""),
             "whatsapp": contacts.get("whatsapp_number", ""),
@@ -175,6 +193,8 @@ async def list_outreach(current_admin: dict = Depends(get_current_admin), db=Dep
         # da fare: mai contattata, oppure contattata da piu' di una settimana senza risultato
         it["to_do"] = (not done) and (last is None or last < remind_before)
         it["waiting"] = (not done) and last is not None and last >= remind_before
+        # accesso attivo ma pagina ancora da completare: da sollecitare a mano
+        it["incomplete"] = it["kind"] == "producer" and it["account"] == "active" and bool(it["missing"])
 
     items.sort(key=lambda i: (i["name"] or "").lower())
     return {"items": items, "channels": CHANNELS, "prospect_statuses": PROSPECT_STATUSES,
