@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.services.catalog import migrate_ascii_slugs
 from app.services.insights import migrate_grape_format
 from app.db.mongodb import connect_to_mongo, close_mongo_connection, get_database
-from app.api.v1 import auth, producers, products, product_io, pdf_import, inquiries, uploads, admin, attributes, grapes, pairings, reports, emails, site, events, contact, activity
+from app.api.v1 import auth, producers, products, product_io, pdf_import, inquiries, uploads, admin, attributes, grapes, pairings, reports, emails, site, events, contact, activity, outreach
 from app.core.errors import validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from app.core.security import get_password_hash, verify_password
@@ -58,6 +58,9 @@ async def ensure_indexes(db):
         # registro delle attivita' delle cantine: 12 mesi, poi cancellato da MongoDB
         (db.activity_log, "created_at", {"expireAfterSeconds": max(1, settings.ACTIVITY_LOG_RETENTION_DAYS) * 86400}),
         (db.activity_log, "producer_id", {}),
+        # contatti con le cantine (promemoria dell'amministratore)
+        (db.outreach_log, "producer_id", {}),
+        (db.outreach_log, "prospect_id", {}),
     ]
     for collection, field, kwargs in indexes_to_create:
         try:
@@ -339,6 +342,7 @@ app.include_router(site.router, prefix=f"{settings.API_V1_STR}/site", tags=["Tes
 app.include_router(events.router, prefix=f"{settings.API_V1_STR}/events", tags=["Eventi"])
 app.include_router(contact.router, prefix=f"{settings.API_V1_STR}/contact", tags=["Contatti"])
 app.include_router(activity.router, prefix=f"{settings.API_V1_STR}/activity", tags=["Attività cantine (admin)"])
+app.include_router(outreach.router, prefix=f"{settings.API_V1_STR}/outreach", tags=["Contatti con le cantine (admin)"])
 
 
 @app.get("/")

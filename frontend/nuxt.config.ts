@@ -29,7 +29,7 @@ export default defineNuxtConfig({
       title: 'EnotecaMolise - I Grandi Vini del Molise',
       meta: [
         { name: 'theme-color', content: '#6B1D2F' },
-        { name: 'description', content: 'Il portale ufficiale dei produttori enologici del Molise. Scopri cantine, vini rossi, bianchi, Tintilia del Molise DOC e acquista o contatta i produttori.' }
+        { name: 'description', content: 'Il portale gratuito dei vini e delle cantine del Molise: Tintilia, Biferno, Pentro, la mappa delle cantine e gli eventi. Contatta direttamente i produttori.' }
       ],
       link: [
         // icona del sito: "EM" in Cormorant Garamond su bordeaux (SVG per i browser moderni, ICO per gli altri)
