@@ -50,6 +50,10 @@
               <option value="PENDING_APPROVAL">In attesa di approvazione</option>
               <option value="SUSPENDED">Sospesa (nascosta)</option>
             </select>
+            <span v-if="form.status !== form.initial_status && form.status !== 'PENDING_APPROVAL'" class="text-[12px] font-normal text-[#7A5A1E]">
+              Salvando, la cantina riceve l'email {{ form.status === 'APPROVED' ? '«è online»' : 'di sospensione' }}.
+            </span>
+            <span v-else-if="form.status !== form.initial_status" class="text-[12px] font-normal text-ink-mute">Nessuna email alla cantina: la pagina sparisce dal sito finché non la approvi.</span>
           </label>
           <div class="field-label">
             <span>Accesso della cantina</span>
@@ -336,6 +340,7 @@ const loadProfile = async () => {
         cover_image_url: p.cover_image_url || '',
         description: p.description || '',
         status: p.status || 'APPROVED',
+        initial_status: p.status || 'APPROVED',
         hide_photos: !!p.hide_photos,
         content_consent_at: p.content_consent_at || null,
         // lo stato dell'accesso arriva con l'elenco admin delle cantine

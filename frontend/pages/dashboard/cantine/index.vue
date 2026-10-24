@@ -76,6 +76,9 @@
                           :title="p.deletion_reason ? `Motivo: ${p.deletion_reason}` : 'Nessun motivo indicato'">
                       Chiede la cancellazione
                     </span>
+                    <span v-if="p.status === 'PENDING_APPROVAL'" class="block mt-1 max-w-[260px] text-[11px] leading-snug whitespace-normal" :class="missing(p).length ? 'text-[#7A5A1E]' : 'text-bio-900'">
+                      {{ missing(p).length ? `Manca: ${missing(p).join(', ')}` : 'Profilo completo: si può approvare' }}
+                    </span>
                   </div>
                 </NuxtLink>
               </td>
@@ -432,7 +435,23 @@ const sendInviteAll = async () => {
   }
 }
 
+// cosa manca al profilo: gli stessi passi di "Completa la tua cantina" e del filtro in Contatti cantine
+const missing = (p) => {
+  const geo = p.address?.geo_coordinates
+  return [
+    ['comune', !!p.address?.city],
+    ['posizione sulla mappa', !!(geo && geo.lat && geo.lng)],
+    ['logo', !!p.logo_url],
+    ['foto di copertina', !!p.cover_image_url],
+    ['storia', (p.description || '').length >= 150],
+    ['telefono o sito', !!(p.contacts?.phone || p.contacts?.website)],
+    ['vini', (p.total_product_count ?? p.product_count ?? 0) > 0]
+  ].filter(([, ok]) => !ok).map(([label]) => label)
+}
+
 const quickStatus = async (p, status) => {
+  const gaps = status === 'APPROVED' ? missing(p) : []
+  if (gaps.length && !confirm(`Al profilo di ${p.company_name} manca ancora: ${gaps.join(', ')}.\n\nApprovandola ora la pagina diventa pubblica così com'è e la cantina riceve l'email "è online". Approvare comunque?`)) return
   try {
     await fetchWithAuth(`/producers/${p.id}`, { method: 'PUT', body: { status } })
     toast.success(status === 'APPROVED'
