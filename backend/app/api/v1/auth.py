@@ -169,17 +169,24 @@ async def login(login_data: UserLogin, request: Request, db=Depends(get_database
     key = f"login:{client_ip(request)}:{email}"
     if rate_limiter.is_limited(key, settings.LOGIN_MAX_ATTEMPTS, settings.LOGIN_WINDOW_SECONDS):
         raise HTTPException(status_code=429, detail="Troppi tentativi di accesso. Riprova tra qualche minuto.")
+    # limite per account salvato nel database: vale da qualsiasi IP e non si azzera quando
+    # Cloud Run riavvia o aggiunge istanze (il limite in memoria vale per una sola istanza)
+    since = datetime.utcnow() - timedelta(seconds=settings.LOGIN_WINDOW_SECONDS)
+    if await db.login_failures.count_documents({"email": email, "created_at": {"$gt": since}}) >= settings.LOGIN_ACCOUNT_MAX_FAILURES:
+        raise HTTPException(status_code=429, detail="Troppi tentativi di accesso. Riprova tra qualche minuto.")
 
     user = await db.users.find_one({"email": email})
     if not user and email != login_data.email:
         user = await db.users.find_one({"email": login_data.email})
     if not user or not verify_password(login_data.password, user["password_hash"]):
         rate_limiter.hit(key, settings.LOGIN_WINDOW_SECONDS)
+        await db.login_failures.insert_one({"email": email, "created_at": datetime.utcnow()})
         raise HTTPException(status_code=400, detail="Credenziali non valide")
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Account disattivato")
 
     rate_limiter.reset(key)
+    await db.login_failures.delete_many({"email": email})
     producer_id_str = str(user.get("producer_id")) if user.get("producer_id") else None
     token = create_access_token(
         subject=str(user["_id"]),

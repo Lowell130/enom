@@ -17,6 +17,17 @@ export default defineNuxtConfig({
   // pagine con i dati del gestore o riservate: fuori dai motori di ricerca anche
   // tramite intestazione HTTP (oltre al meta robots nella pagina)
   routeRules: {
+    // protezioni di base su tutte le pagine: niente inclusione del sito in pagine altrui (clickjacking),
+    // niente "indovinare" il tipo dei file, nessun accesso a fotocamera, microfono o posizione
+    '/**': {
+      headers: {
+        'X-Frame-Options': 'SAMEORIGIN',
+        'Content-Security-Policy': "frame-ancestors 'self'",
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()'
+      }
+    },
     '/privacy': { headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },
     '/cookie': { headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },
     '/chi-siamo': { headers: { 'X-Robots-Tag': 'noindex, nofollow, noarchive' } },

@@ -1,3 +1,4 @@
+import ipaddress
 import re
 import unicodedata
 import time
@@ -35,9 +36,32 @@ async def unique_slug(collection, base_slug: str, exclude_id=None) -> str:
         counter += 1
 
 
+# Reti dei bilanciatori di Google: se un giorno ci fosse un load balancer davanti a Cloud Run,
+# il suo indirizzo compare in fondo a X-Forwarded-For e va saltato.
+_GOOGLE_PROXY_NETS = [ipaddress.ip_network(n) for n in ("35.191.0.0/16", "130.211.0.0/22")]
+
+
+def _is_proxy_hop(value: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(value)
+    except ValueError:
+        return True  # valore non valido: non e' un IP di cui fidarsi
+    # gli indirizzi non pubblici (reti interne, link-local...) sono passaggi interni, non visitatori
+    return not ip.is_global or any(ip in net for net in _GOOGLE_PROXY_NETS)
+
+
 def client_ip(request: Request) -> str:
-    # Non si legge X-Forwarded-For direttamente (falsificabile dal client):
-    # dietro un reverse proxy avviare uvicorn con --proxy-headers --forwarded-allow-ips.
+    """IP reale del visitatore, per i limiti anti-abuso.
+
+    Su Cloud Run l'IP vero e' quello che Google AGGIUNGE in fondo a X-Forwarded-For; i valori
+    all'inizio li puo' scrivere chiunque. Uvicorn con --forwarded-allow-ips="*" prende invece il
+    primo valore: cambiandolo a ogni richiesta si aggiravano tutti i limiti (accesso, moduli...).
+    Qui si legge l'intestazione da destra, saltando gli indirizzi interni e quelli dei bilanciatori."""
+    forwarded = request.headers.get("x-forwarded-for", "")
+    hops = [h.strip() for h in forwarded.split(",") if h.strip()]
+    for hop in reversed(hops):
+        if not _is_proxy_hop(hop):
+            return hop
     return request.client.host if request.client else "unknown"
 
 

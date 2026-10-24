@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     # Limiti anti-abuso
     LOGIN_MAX_ATTEMPTS: int = 10
     LOGIN_WINDOW_SECONDS: int = 900
+    # tentativi sbagliati su uno stesso account (da qualsiasi IP) prima del blocco temporaneo
+    LOGIN_ACCOUNT_MAX_FAILURES: int = 20
+    # documentazione interattiva dell'API (/docs, /redoc, openapi.json): spenta in produzione
+    API_DOCS: bool = False
     INQUIRY_MAX_PER_WINDOW: int = 5
     INQUIRY_WINDOW_SECONDS: int = 600
     # messaggi del modulo Contatti: cancellati da soli dopo questo periodo (come da informativa privacy)

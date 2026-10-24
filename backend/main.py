@@ -58,6 +58,9 @@ async def ensure_indexes(db):
         # registro delle attivita' delle cantine: 12 mesi, poi cancellato da MongoDB
         (db.activity_log, "created_at", {"expireAfterSeconds": max(1, settings.ACTIVITY_LOG_RETENTION_DAYS) * 86400}),
         (db.activity_log, "producer_id", {}),
+        # tentativi di accesso sbagliati: MongoDB li cancella da solo dopo un'ora
+        (db.login_failures, "created_at", {"expireAfterSeconds": 3600}),
+        (db.login_failures, "email", {}),
         # contatti con le cantine (promemoria dell'amministratore)
         (db.outreach_log, "producer_id", {}),
         (db.outreach_log, "prospect_id", {}),
@@ -276,7 +279,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    # elenco degli indirizzi dell'API solo se API_DOCS=true nel .env (comodo in sviluppo)
+    openapi_url=f"{settings.API_V1_STR}/openapi.json" if settings.API_DOCS else None,
+    docs_url="/docs" if settings.API_DOCS else None,
+    redoc_url="/redoc" if settings.API_DOCS else None,
     lifespan=lifespan,
 )
 
